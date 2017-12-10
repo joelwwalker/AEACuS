@@ -29,10 +29,6 @@ libraries on any Linux based system
 Windows users may also have success,
 but this is not officially supported.
 
-A sample card file representing most
-of the statistics that AEACuS can
-compute is in the ./Cards/ directory.
-
 A manual for an older version
 of AEACuS is available here:
 http://arxiv.org/abs/1207.3383
