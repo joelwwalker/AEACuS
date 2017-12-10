@@ -24,12 +24,12 @@ or invitations to present a talk.
 Both programs are included in this
 directory, and will run without
 installation or use of any external
-libraries on any Linux based system
-(including MacOS) with Perl 5.8+.
+libraries on any linux based system
+(including MacOSX) with Perl 5.8+.
 Windows users may also have success,
 but this is not officially supported.
 
-A sample card file representing most
+A sampe card file representing most
 of the statistics that AEACuS can
 compute is in the ./Cards/ directory.
 
