@@ -1,0 +1,41 @@
+
+Synopsis
+./rhadamanthus.pl
+
+This example directory exhibits some
+of the more advanced plotting features of
+RHADAManTHUS, especially with regards to
+the functional combination of analyses on
+distinct production event channels or
+final state event topologies.
+
+Several example ".cut" statistics
+output files precomputed by AEACuS are
+provided in this case, and stored under
+the ./Cuts/ directory.  The simulated
+events present consist of SM ttbar
+backgrounds, and a BSM SUSY model with
+long chain squark->gluino->stop cascade
+decays at various M_1/2, including
+SS, SG, GG production with inclusive
+production of initial state jets.
+
+The controlling card file "plt_card.dat"
+is stored inside the ./Cards/ directory,
+and is independently commented.  It references
+statistics computed by a prior offline run
+of AEACuS, as requested by corresponding
+"cut_card.dat" files (not provided).
+
+To generate plots, simply run "./rhadamanthus.pl".
+An output directory ./Plots/ will be created to
+store the results, which may be compared against
+reference figures in the ./Plots_REF directory.
+Allow several minutes for execution, due to
+processing of sizable statistical samples.
+
+Note that "rhadamanthus.pl" requires inclusion
+of "aeacus.pl" in the same directory as a
+subroutine library, even if the latter is not
+invoked directly.
+ 

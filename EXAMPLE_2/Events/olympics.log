@@ -1,0 +1,164 @@
+
+
+  PGS parameters 
+ ----------------
+
+ --> parameter set representing ATLAS     
+
+  number of eta cells in calorimeter:         81
+  number of phi cells in calorimeter:         63
+           width of each cell in eta:      0.10000000
+           width of each cell in phi:      0.09973310
+       em calorimeter resolution (a):      0.01000000
+       em calorimeter resolution (b):      0.10000000
+       hadron calorimeter resolution:      0.80000000
+              trigger MET resolution:      0.20000000
+calorimeter cell edge crack fraction:      0.00000000
+ jet finding algorithm (cone, ktjet): cone    
+        cluster seed tower threshold:      3.00000000
+    cluster shoulder tower threshold:      0.50000000
+            cluster finder cone size:      0.70000000
+        outer radius of tracking (m):      1.00000000
+                  magnetic field (T):      2.00000000
+              sagitta resolution (m):      0.00000500
+                    track efficiency:      0.98000000
+                    minimum track pt:      0.30000000
+               tracking eta coverage:      2.50000000
+                e/gamma eta coverage:      3.00000000
+                   muon eta coverage:      2.40000000
+                    tau eta coverage:      2.00000000
+
+
+
+
+
+          ********************************************************
+                  STDHEP version 5.04.01 -  Aug. 29, 2005          
+          ********************************************************
+
+
+
+ STDXROPEN: successfully opened input stream     1
+          title:                                                  PYTHIA file
+          date:                                     Tue May 19 23:18:51 2015
+
+                                                                                
+                           807 events
+                             8 blocks per event
+
+
+
+
+ ***************************************************************************
+ *                         *****TAUOLA LIBRARY: VERSION 2.5 ******         *
+ *                         ***********JUNE     1994***************         *
+ *                         **AUTHORS: S.JADACH, Z.WAS*************         *
+ *                         **R. DECKER, M. JEZABEK, J.H.KUEHN*****         *
+ *                         **AVAILABLE FROM: WASM AT CERNVM ******         *
+ *                         ***** PUBLISHED IN COMP. PHYS. COMM.***         *
+ *                         *******CERN-TH-5856 SEPTEMBER 1990*****         *
+ *                         *******CERN-TH-6195 SEPTEMBER 1991*****         *
+ *                         *******CERN-TH-6793 NOVEMBER  1992*****         *
+ *                         **5 or more pi dec.: precision limited          *
+ *                         ******DEXAY ROUTINE: INITIALIZATION****         *
+ *                   0     JAK1   = DECAY MODE FERMION1 (TAU+)             *
+ *                   0     JAK2   = DECAY MODE FERMION2 (TAU-)             *
+ ***************************************************************************
+
+
+ ***************************************************************************
+
+ _______________________________________________________________________________
+ TAUOLA VERSION 2.1 PARAMETER SET           0
+ _______________________________________________________________________________
+ Printing end run statistics.
+ GENP bank used for input.
+ Mult. taus in event have same chirality.
+ Taus polarized in W/Z rest frame.
+ Helicity:    1.0000000    
+ Lifetime:    295.60001     fs
+ _______________________________________________________________________________
+ STANDARD MODEL PARAMETERS
+ Gfermi =               1.16639203E-05
+ Gv =                    1.0000000    
+ Ga =                   -1.0000000    
+ Cos(Cabibbo_angle) =   0.97500002    
+ Sin(Cabibbo_angle) =   0.22220472    
+ Gamma_e =              4.04914356E-13
+ 1/alpha =               137.03598956100001     
+ 1/(alpha*pi) =         2.32281962719069982E-003
+ xk0 =                  0.10000000149011612     
+ _______________________________________________________________________________
+ KAON/A1 DECAY PARAMETERS
+ bra1  =  0.50000000    
+ brk0  =  0.50000000    
+ brk0b =  0.50000000    
+ brks  =  0.66670001    
+ _______________________________________________________________________________
+ MASSES
+ e     =  5.10998943E-04      nu_e  =   0.0000000    
+ mu    =  0.10565837          nu_mu =   0.0000000    
+ tau   =   1.7769901          nu_tau=  9.99999978E-03
+ pi    =  0.13957018    
+ pi0   =  0.13497660    
+ rho   =  0.77579999          rho wid.=  0.15030000    
+ A1    =   1.2300000          A1 wid. =  0.59899998    
+ K     =  0.49367699    
+ K0    =  0.49764800    
+ K*    =  0.89165998          K* wid. =  5.07999994E-02
+ _______________________________________________________________________________
+ TAU BRANCHING RATIOS
+ nchan =           22
+ Tau --> e nu nu            1.0000000    
+ Tau --> mu nu nu          0.97979999    
+ Tau --> pi nu             0.64955997    
+ Tau --> Rho (--> 2pi) nu   1.3990200    
+ Tau --> A1 (--> 3pi) nu    1.0005500    
+ Tau --> K nu              3.71199995E-02
+ Tau --> K* nu             8.02399963E-02
+ Tau --> 3pi pi0 nu        0.31222999    
+ Tau --> pi 3pi0 nu         0.0000000    
+ Tau --> 3pi 2pi0 nu        0.0000000    
+ Tau --> 5pi nu             0.0000000    
+ Tau --> 5pi pi0 nu         0.0000000    
+ Tau --> 3pi 3pi0 nu        0.0000000    
+ Tau --> 2K pi nu           0.0000000    
+ Tau --> pi K0 K0bar nu     0.0000000    
+ Tau --> K K0 pi0 nu        0.0000000    
+ Tau --> K 2pi0 nu          0.0000000    
+ Tau --> K 2pi nu           0.0000000    
+ Tau --> pi K0bar pi0 nu    0.0000000    
+ Tau --> eta pi pi0 nu      0.0000000    
+ Tau --> pi pi0 gam nu      0.0000000    
+ Tau --> K K0 nu            0.0000000    
+ _______________________________________________________________________________
+ Now at event number          10  of         807   (Triggered on:          10 )
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ found a tau daughter to a tau 
+ further errors suppressed 
+ Now at event number          20  of         807   (Triggered on:          20 )
+ Now at event number          30  of         807   (Triggered on:          30 )
+ Now at event number          40  of         807   (Triggered on:          40 )
+ Now at event number          50  of         807   (Triggered on:          50 )
+ Now at event number          60  of         807   (Triggered on:          60 )
+ Now at event number          70  of         807   (Triggered on:          70 )
+ Now at event number          80  of         807   (Triggered on:          80 )
+ Now at event number          90  of         807   (Triggered on:          90 )
+ Now at event number         100  of         807   (Triggered on:         100 )
+ Now at event number         200  of         807   (Triggered on:         200 )
+ Now at event number         300  of         807   (Triggered on:         300 )
+ Now at event number         400  of         807   (Triggered on:         400 )
+ Now at event number         500  of         807   (Triggered on:         500 )
+ Now at event number         600  of         807   (Triggered on:         600 )
+ Now at event number         700  of         807   (Triggered on:         700 )
+ Now at event number         800  of         807   (Triggered on:         800 )
+
+          STDXEND:   10526547 words i/o with     9986 efficiency 

@@ -1,0 +1,28 @@
+
+Synopsis
+./rhadamanthus.pl
+
+This example introduces the plotting of
+two-dimensional histograms (heat maps).
+
+Several example ".cut" statistics
+output files precomputed by AEACuS are
+provided in this case, and stored under
+the ./Cuts/ directory.
+
+The controlling card file "plt_card.dat"
+is stored inside the ./Cards/ directory,
+and is independently commented.
+
+To generate plots, simply run "./rhadamanthus.pl".
+An output directory ./Plots/ will be created to
+store the results, which may be compared against
+reference figures in the ./Plots_REF directory.
+Allow several minutes for execution, due to
+processing of sizable statistical samples.
+
+Note that "rhadamanthus.pl" requires inclusion
+of "aeacus.pl" in the same directory as a
+subroutine library, even if the latter is not
+invoked directly.
+ 

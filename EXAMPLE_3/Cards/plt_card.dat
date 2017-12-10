@@ -1,0 +1,132 @@
+
+        # Data sets are built from collections of files
+        # Wildcards are allowed in filenames
+        # Events with identical base names but different
+        #       trailing integers "_NNN" are averaged
+        # Events with unique base names are summed
+PLT_DAT_001 = DIR:"./Cuts/MTT/", FIL:"SIGNAL_1400_*"
+PLT_DAT_002 = DIR:"./Cuts/MTT/", FIL:"SIGNAL_1200_*"
+PLT_DAT_003 = DIR:"./Cuts/MTT/", FIL:"SIGNAL_1000_*"
+
+	# Event Selection Cuts may be registered with
+	# an integer index, relative to keys precomputed
+	# by AEACuS and defined in the corresponding
+	# cut_card.dat control file
+PLT_ESC_001 = KEY:PTM_001, CUT:400 # Leading Jet PT
+PLT_ESC_002 = KEY:PTM_002, CUT:200 # Subleading PT
+PLT_ESC_003 = KEY:MET_000, CUT:700 # Missing Transverse Energy
+PLT_ESC_004 = KEY:DIL_001, CUT:1   # Count of Like-Sign Dileptons
+PLT_ESC_005 = KEY:DIL_002, CUT:1   # Count of Opposite-Sign Dileptons
+
+	# Event channels are built from Data sets
+	# on specified AEACuS keys, and optionally
+	# subscribing to various Event Selection Cuts
+PLT_CHN_001 = DAT:[001,002,003], KEY:OIM_001, ESC:[+001,+002,+003,+004]
+PLT_CHN_002 = DAT:[001,002,003], KEY:OIM_001, ESC:[+001,+002,+003,+005]
+
+	# Histograms are built from Event channels
+	# In this case, channel 001 subscribed to the
+	# LS dilepton cut, and channel 002 to the OS cut
+	# A bin-by-bin functional transformation may be
+	# applied using the curly bracket {} notation,
+	# where argument 1 is a user defined function
+	# in terms of aliases $N to the Nth trailing
+	# channel specification.  Note that both channel
+	# 001 and 002 consist of three data sets, and
+	# this function will automatically map across
+	# sequentially corresponding entries to generate
+	# three histograms in the output.
+	# NRM:1 gives a normalized plot.
+	# AVG:[8,6,4] specifies the bin-smoothing width
+	# on each of the three output histograms independently
+PLT_HST_001 =
+	IFB:UNDEF,
+	CHN:{($2-$1),001,002},
+	LFT:0, RGT:[150,300,400], SPN:[5,10,20], BNS:UNDEF,
+	MIN:0.0, MAX:UNDEF,
+	SUM:0, NRM:1, AVG:[8,6,4], LOG:0,
+	TTL:"Simulated Signal,  <MET> > 700 GeV, <RTS> = 14 TeV",
+	LBL:[	"$M_{\tau \tau}$ of OS-LS Di-Tau Pairs [GeV]", "Event Fraction per GeV  (<DEF>)" ],
+	LGD:[	"$M_{1/2} = 1400$ GeV, $\Delta M$ = 25 GeV",
+		"$M_{1/2} = 1200$ GeV, $\Delta M$ = 25 GeV",
+		"$M_{1/2} = 1000$ GeV, $\Delta M$ = 25 GeV" ],
+	NAM:"mtt_OS-LS_shape_M12", FMT:"PDF"
+
+PLT_DAT_011 = DIR:"./Cuts/MAIN/", FIL:"TTBAR_*"
+PLT_DAT_012 = DIR:"./Cuts/MAIN/", FIL:"SIGNAL_1000_*"
+PLT_DAT_013 = DIR:"./Cuts/MAIN/", FIL:"SIGNAL_1200_*"
+PLT_DAT_014 = DIR:"./Cuts/MAIN/", FIL:"SIGNAL_1400_*"
+
+	# Note that the definitions below are not
+	# fixed, but are relative to definitions and
+	# specifications made by the user in the cut_card.dat
+	# used to control the associated AEACuS processing run.
+PLT_ESC_011 = KEY:PTM_001, CUT:400	# PT of Leading Jet
+PLT_ESC_012 = KEY:PTM_002, CUT:200	# PT of Subleading Jet
+PLT_ESC_013 = KEY:JET_003, CUT:4	# Number of Jets with PT > 80
+PLT_ESC_014 = KEY:JET_004, CUT:2	# Number of B-Jets with PT > 80
+PLT_ESC_015 = KEY:JET_001, CUT:8	# Number of Jets with PT > 40
+
+PLT_CHN_011 = DAT:[014,013,012,011], KEY:MET_000
+
+PLT_CHN_021 = DAT:[011], KEY:MET_000, ESC:[+011,+012,+013,+014,+015]
+PLT_CHN_022 = DAT:[012,013,014], KEY:MET_000, ESC:[+011,+012,+013,+014,+015]
+
+PLT_CHN_031 = DAT:[012,011], KEY:JET_004
+
+	# Channel 011 contains four data sets, and a logarithmic
+	# normalized "shape" plot is delivered for each
+	# indvidually, with a global smoothing width of 3 bins
+PLT_HST_002 =
+        IFB:30,
+        CHN:011,
+        LFT:200, RGT:2000, SPN:50, BNS:UNDEF,
+        MIN:0.000001, MAX:UNDEF,
+        SUM:0, NRM:1, AVG:3, LOG:1,
+        TTL:"<RTS> = 14 TeV",
+        LBL:[   "Missing Transverse Energy <MET> [GeV]", "Event Fraction per GeV  (<DEF>)" ],
+        LGD:[   "Signal $M_{1/2} = 1400$ GeV",
+                "Signal $M_{1/2} = 1200$ GeV",
+                "Signal $M_{1/2} = 1000$ GeV",
+                "$t\overline{t}+$jets SM Background" ],
+        NAM:"met_shape", FMT:"PDF"
+
+	# In this plot, we are computing the signal signficance
+	# metric S/Sqrt(1+B) for three benchmark data sets with
+	# different mass scales.  Note that channel 021 contains
+	# just one data set, namely the background, while channel
+	# 022 was defined to contain three data sets.  This will
+	# cause the background to be automatically reapplied in
+	# the mapping over the three signal channels.
+	# The code SUM:-1 causes a leftward bin integration
+	# to be performed at the outset of the computation,
+	# so that the plotting key (missing energy in this case)
+	# becomes a cut threshold (lower bound) of the MET.
+PLT_HST_003 =
+	IFB:30,
+	CHN:{$2/SRT(1+$1),021,022},
+	LFT:200, RGT:2000, SPN:25, BNS:UNDEF,
+	MIN:0.0, MAX:UNDEF,
+	SUM:-1, NRM:0, AVG:5, LOG:0,
+	TTL:"8 Jets <PTM> = (400,200,80,80,40), 2 b-Jets, <RTS> = 14 TeV, <LUM> = 30 <IFB>",
+	LBL:[	"<MET> Cut Threshold [GeV]", "Signal Significance <SR1>" ],
+	LGD:[	"$M_{1/2} = 1000$ GeV",
+		"$M_{1/2} = 1200$ GeV",
+		"$M_{1/2} = 1400$ GeV" ], 
+	NAM:"met_sig", FMT:"PDF"
+
+	# This is a straightforward shape plot on the number
+	# of BJets in the background and one signal channel.
+	# Note the lefthand position offset of negative one half
+	# units, with seven unit span bins.
+PLT_HST_004 =
+        CHN:031,
+        LFT:-0.5, RGT:UNDEF, SPN:1, BNS:7,
+        MIN:0.0001, MAX:UNDEF,
+        SUM:0, NRM:1, AVG:0, LOG:1,
+        TTL:"${P}_{\rm T}^{1,2} > 100$ GeV, <MET> > 150 GeV, <RTS> = 14 TeV",
+        LBL:[   "Number of Heavy Flavor Tagged Jets with <PTM> > 80 GeV", "Event Fraction per Jet  (<DNF>)" ],
+        LGD:[   "Signal $M_{1/2} = 1000$ GeV",
+                "$t\overline{t}+$jets SM Background" ],
+        NAM:"bjet_shape", FMT:"PDF"
+

@@ -1,0 +1,73 @@
+
+Synopsis:
+./bin/internal/aeacus.pl
+./bin/internal/rhadamanthus.pl
+
+This example is set within the context
+of a standard MadGraph run directory.
+
+The scripts aeacus.pl and rhadamanthus.pl
+have been placed into the ./bin/internal
+directory, and corresponding cards with default
+names, i.e. "cut_card.dat" and "plt_card.dat"
+[ NB: NOT plot_card.dat ] have been placed
+into the ./Cards directory and indvidually
+commented.  When run with no lhco_file
+parameter, the default operation of AEACuS
+is to process all suitable .lhco files in
+the local ./Events/ directory.  A typical
+MadGraph process may generate several such
+.lhco files within run_NN_N subdirectories,
+corresponding to multiple runs, and/or
+operation in batch mode.  AEACuS automatically
+extracts the relevant cross section data and
+merges event files with identical tags into
+batches of fixed size (500,000 events by default).
+It then applies any primary and auxiliary
+event selections and statistical computations
+specified in the invoked card_file.
+
+To run the AEACuS example in the current
+directory, execute "./bin/interna/aeacus.pl".
+The ./Events/ folder contains four batches
+of ttbar + 0-2 Jets inclusive background
+samples, nominally containing 1,000 events
+each (reduced by about 20% after matching)
+in files named "LMNW_pgs_events.lhco.gz".
+The .gz compression is unpacked internally
+as these files are read.  The cut_card in
+use specifies a merged file event cap of
+2000 in order to exhibit the feature.
+After running, there should be two merged
+.lhco files in the ./Events/ directory
+with sequentially numbered file names.
+A new directory ./Cuts/ should also be
+created, which holds two processed .cut
+output files corresponding to each of the
+input .lhco event files.  Statistics
+requested by the example cut_card include
+a count of jets and bjets, as well as a
+count of light isolated leptons, the
+transverse momentum of the leading pair
+of jets, the missing transverse energy
+(with a soft cut of 50 GeV applied), the
+MET-Jet Minimal Delta Phi separation, the
+MET / Sqrt(HT) signficance, and the massless
+symmetric MT2 statistic with Lund hemisphere
+pseudojets.  Additionally, auxilliary channel
+filtering is requested for exclusive groupings
+of 0, 1, or 2+ leptons, along with 2+, 1+ or 0+
+B-Jets respectively, and the corresponding
+output .cut files are placed underneath ./Cuts/
+within subdirectories.
+
+To run the RHADAManTHUS example in the current
+directory, execute "./bin/internal/rhadamanthus.pl".
+The example plt_card in use requests the
+generation of four plots that graphically exhibit
+various features of the statistical computation
+performed by AEACuS.  These plots will be appear in 
+a newly created directory ./Plots/ after successful
+execution of the script, and may be compared against
+reference figures in the ./Plots_REF directory.
+

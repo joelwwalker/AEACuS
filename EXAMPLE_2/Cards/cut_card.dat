@@ -1,0 +1,58 @@
+
+*** Object Reconstruction ****
+
+        # ALL Jets, PT > 30 & pseudo-rapidity magnitude < 2.5; No cuts
+OBJ_JET_000 = PTM:30, PRM:[0.0,2.5], CUT:0
+
+        # Leading Jets, keeping up to top 3; outputs PT of jets 1 & 2
+OBJ_JET_001 = SRC:+000, CUT:[3,UNDEF,-1], OUT:[PTM_001,PTM_002], ANY:0
+
+        # B-Tagged Jets
+OBJ_JET_002 = SRC:+000, HFT:0.5, CUT:0
+
+        # Soft, Isolated e/mu Leptons
+OBJ_LEP_001 = PTM:10, PRM:[0.0,2.5], EMT:-3, SDR:[0.3,UNDEF,1], CUT:0
+
+****** Event Selection *******
+
+	# Missing Transverse Energy cut at 50 GeV
+	# The default '000' channel uses all event objects
+EVT_MET     = CUT:50
+
+        # MET-Jet Delta Phi (3 Leading Jets)
+EVT_MDP_001 = MET:000, JET:001, OUT:1
+
+        # Full Event MET Significance MET / sqrt( HT )
+EVT_RHR_001 = NUM:000, DEN:000, OUT:1
+
+	# S-Transverse Mass "MT2" of Lepton/BJet Lund Hemispheres
+EVT_STM_001 = JET:002, LEP:001, OUT:1
+
+****** Event Filtering *******
+
+	# Channel 000 is the default primary channel
+	# where computation of statistics is performed
+	# It may optionally be used to alter defaults as below
+	# Merging .lhco files into batches with cap of 2000 events
+	# Adding event tag selection prefix "EX2"
+CUT_CHN_000 = CAP:2000, PRE:"EX2"
+
+	# For Sub Channels, Event Selection Cuts
+	# are first registered with an integer index,
+	# and then subscribed to by various channels
+
+        # Sub Channel I: 2+ Leptons, 0+ B-Jets
+CUT_ESC_001 = KEY:LEP_001, CUT:2
+CUT_ESC_002 = KEY:JET_002, CUT:0
+CUT_CHN_001 = ESC:[+001,+002]
+
+        # Sub Channel II: 1 Lepton, 1+ B-Jets
+CUT_ESC_003 = KEY:LEP_001, CUT:[1,1]
+CUT_ESC_004 = KEY:JET_002, CUT:1
+CUT_CHN_002 = ESC:[+003,+004]
+
+        # Sub Channel III: 0 Lepton, 2+ B-Jets
+CUT_ESC_005 = KEY:LEP_001, CUT:[0,0]
+CUT_ESC_006 = KEY:JET_002, CUT:2
+CUT_CHN_003 = ESC:[+005,+006]
+

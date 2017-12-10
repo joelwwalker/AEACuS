@@ -1,0 +1,117 @@
+!...Parton showering on or off
+      MSTP(61)=1
+      MSTP(71)=1
+ 
+!...Fragmentation/hadronization on or off 
+      MSTJ(1)=1
+ 
+!...Multiple interactions on or off 
+      MSTP(81)=20 
+
+!...Don't stop execution after 10 errors
+      MSTU(21)=1
+
+!...Options for Matching
+      QCUT=80
+      SHOWERKT=T
+ 
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets
+ 
+      LHAPATH=/home/jww004/CODE/MG5/pythia-pgs/src/PDFsets

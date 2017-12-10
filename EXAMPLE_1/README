@@ -1,0 +1,54 @@
+
+Synopsis:
+python ./shape_MAS_001_n1.py
+
+The graphical backend processor selected for
+use with RHADAManTHUS is "MatPlotLib", which is a
+standard package written in the Python language.
+The required versions are Python 2.6 OR 2.7,
+and MatPlotLib 1.3.0 or greater (the latest
+release, currently 2.1.0, is recommended).
+
+MatPlotLib installation instructions are here:
+* http://matplotlib.org/users/installing.html
+The simplest solution may usually be installation
+of Anaconda by Continuum Analytics, which bundles
+Python with leading applications, including MatPlotLib:
+* https://www.continuum.io/downloads/
+
+This example is designed purely to test whether
+your local system is able to correctly execute
+the MatPlotLib Python scripts output by RHADAManTHUS,
+a sample of which is provided in this directory.
+In normal use, this script is executed transparently
+in memory, generating the requested plot directly.
+However, if RHADAManTHUS is run on a system
+that does not satisfy the Python and MatPlotLib
+requirements, then the intermediate Python source code
+will be output instead, to be processed externally.
+Alternatively, you may explicitly force generation
+of the executable file by setting a flag in the
+second parameter of the format tag in your
+plt_card.dat instruction file like so:
+	FMT:"PDF" => FMT:["PDF",1]
+Available output formats include vector (PDF,EPS)
+and raster (PNG,JPG) options.  PDF is the default and
+recommended format for publication-quality graphics.
+Filled histograms exhibit a soft transparency effect
+(not supported by EPS) that allows for easy visual
+discrimination of overlapping channels.
+
+To test execution of the included file, run 
+"python ./shape_MAS_001_n1.py",
+and a properly configured system will generate
+the corresponding .pdf plot output in a few seconds.
+Note that different .pdf viewers may render the
+resulting graphic in distinct ways. There
+are also potential differences between older and
+newer MatPlotLib libraries, and their implementation
+on different operating systems, although substantial 
+effort has been applied toward generating code that
+behaves uniformly.  A rasterized .png rendering of
+the expected graphical output is stored in the
+./Plots_REF/ folder for visual reference.
+

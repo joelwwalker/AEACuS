@@ -1,0 +1,27 @@
+
+        # Data sets are built from collections of files
+PLT_DAT_001 = DIR:"./Cuts", FIL:"sl_110_n1_100_S14_001"
+PLT_DAT_002 = DIR:"./Cuts", FIL:"S14_BG_WWJJ_*"
+
+	# Event channels are built from Data sets,
+	# referencing a pair (x then y) of keys,
+	# which may be functionally transformed
+	# using the curly-bracket notation
+PLT_CHN_001 = DAT:001, KEY:[CTS_001,{$1/PIE(),ODP_001}]
+PLT_CHN_002 = DAT:002, KEY:[CTS_001,{$1/PIE(),ODP_001}]
+
+	# Two-dimensional histograms are built from
+	# a single two-dimensional event channel,
+	# which may represent a cell-by-cell functional
+	# transformation of one or more basic channels.
+	# Binning specifications and axis labels accept
+	# pairwise vectorized inputs.  A second input
+	# to the title key references the colorbar.
+PLT_H2D_001 =
+    CHN:{(4/PIE()*ATN($1,$2)-1),001,002},
+    LFT:0, RGT:1, BNS:20, NRM:-1, MIN:-1, MAX:+1,
+    TTL:["$S_{10}^{110}$ vs. $WWjj$, $\sqrt{s} = 14$ TeV",
+        "$(4/\pi) \times \tan^{-1}\left[\frac{S_i \Sigma B_i}{B_i \Sigma S_i}\right]-1$"],
+    LBL:["$\cos \theta^*_{ \ell_1,\ell_2}$", "$\Delta \phi_{\ell_1,\ell_2} \div \pi$"],
+    NAM:"H2D_CST_ODP"
+
