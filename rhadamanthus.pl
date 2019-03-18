@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 #*******************************#
-# rhadamanthus.pl Version 1.6	#
+# rhadamanthus.pl Version 1.7	#
 # September '14 - December '17	#
 # Joel W. Walker		#
 # Sam Houston State University	#
@@ -19,7 +19,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-require q(aeacus.pl); ( &UNIVERSAL::VERSION(q(Local::AEACuS),3.24)); our ($OPT);
+require q(aeacus.pl); ( &UNIVERSAL::VERSION(q(Local::AEACuS),3.25)); our ($OPT);
 
 # Read event plotting specifications from cardfile
 my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -160,6 +160,9 @@ do { my (@t) = map {((@{$_||[]} == 1) ? do { my ($t) = @$_; [ map {[$t]} (1..$di
 # for multi-dim with additional plots .. output them too, in a grid or in sequence, numbered
 # settle new dashed / ext legend into card format
 # allow for external data with no xsec, etc ... just warn
+# font size and family; lines dashing / multiple types / thickness / bg line
+# legend float right
+# finish 2D norm, etc. & color schemes
 
 __DATA__
 #!/usr/bin/env python
