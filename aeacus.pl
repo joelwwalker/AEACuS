@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 3.25	#
-# March '11 - January '18	#
+# aeacus.pl Version 3.26	#
+# March '11 - September '19	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -12,7 +12,7 @@
 #*******************************#
 
 # Require minimal perl version and specify AEACuS package version
-{; package Local::AEACuS; require 5.008_000; our ($VERSION) = 3.25; }
+{; package Local::AEACuS; require 5.008_000; our ($VERSION) = 3.26; }
 
 # Apply a strict coding pragma and define numerical constants
 use strict; use sort q(stable); use constant +{
@@ -33,6 +33,11 @@ my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
 	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
 		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
 	($crd) } ( &$OPT( q(crd)));
+# If the CRD parameter includes the '/' character then the path is treated literally; it otherwise defaults to './Cards/' 
+# If the CRD parameter was undefined then the default cut card file name is 'cut_card'; otherwise it must be given explicitly
+# The cut card file must use the extension '.dat', but it is not necessary to write the extention explicitly in the CRD parameter
+# Program terminates if the card file cannot be found; an exception is raised only if the CRD parameter was defined
+# Program terminates with exception if lexical errors exist in the card file
 
 # Establish the event statistic and cut flow sequences and Curry the primary analysis function
 my ($flw,$stc,$paf) = (($$crd{evt}) or ($$crd{obj})) && ( &ANALYSIS_CODE($crd));
@@ -40,40 +45,68 @@ my ($flw,$stc,$paf) = (($$crd{evt}) or ($$crd{obj})) && ( &ANALYSIS_CODE($crd));
 # Establish primary file name base and cross section specifications
 my ($fil,$xsc,$cap,$ipb,$lhc,$pre,$out) = map { (/^(.*\/)?([^\/*]*)$/) or ( die 'Invalid file specification' );
 	( [[ (($1) or q(./Events/)), ($2) ]], (( &MAX(0,0+( &$OPT( q(xsc))))) or (undef))) } grep {(defined)} ( &$OPT( q(fil)));
+# If the FIL parameter includes the '/' character then the path is treated literally; it otherwise defaults to './Events/' if FIL is defined
+# If the FIL parameter was defined then the XSC cross-section parameter is read subsequently as a positive value in PB (otherwise undefined)
+# Wildcards are not permissible in an explicit singular filename at this level
+	# allow negative cross sections here and elsewhere ... distinguish zero from undefined ...
 
-# Establish global event channel management specifications and locate (possibly compressed) .lhco event file(s)
+# Establish global event channel management specifications and locate (possibly compressed) .lhco or .root event file(s)
 my (@fil); my (@chn) = map { my ($i,$chn) = (($_), (($$crd{cut}{chn}[$_]) or (($_ > 0) ? (undef) : +{} ))); !($chn) ? () : do {
 	my ($dir,$mrg) = q().( &DEFINED(($$chn{dir}[0]), (($i > 0) ? ($out) : ( q(./Events/)))));
 	my ($fil) = ((($i == 0) && ($fil)) or ( grep {(@$_)} map {[ map {[ $dir, $_ ]}
 		(($fil) ? () : ((@$_) or ($i > 0)) ? (@$_) : (($mrg=1),(undef))[1] ) ]} [ map { (defined) ? qq($_) : () } (@{$$chn{fil}||[]}) ] ));
-	(($i == 0) ? ( do { my (%fil); if ($mrg) { $mrg = [ ($dir), (undef) ]; $cap = ( map { 0+(($_ >= 0) && ((int) or (CAP))) } ($$chn{cap}[0]))[0];
+	(($i == 0) ? ( do { my (%fil); if ($mrg) { $cap = ( map { 0+(($_ >= 0) && ((int) or (CAP))) } ($$chn{cap}[0]))[0];
 		$lhc = q().( &DEFINED($$chn{lhc}[0],$dir)); } $pre = ( map { (/^([A-Za-z][\w-]*?)_*$/) ? ( qq($1).q(_)) :
 			do { (defined) && ( print STDERR 'INVALID SELECTION PREFIX '.$_."\n" ); (undef) }} ($$chn{pre}[0]))[0];
 		$out = (( &Local::FILE::PATH(( $out = q().( &DEFINED($$chn{out}[0],q(./Cuts/)))), 2 )) or ( die 'Cannot write to directory '.$out ));
 		$ipb = do { my ($lum,$ipb) = [ @$chn{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 			($ipb) = (${(($$lum[$i]) or (next))}[0])*((10)**(3*$i)); (last) } (( &MAX(0,$ipb)) or (undef)) };
 		do { push @{ $fil{( shift @$_ )}[( shift @$_ )] }, $_ } for grep { pop @$_; pop @$_; 1 } values %{{
-			map {(($$_[2].$$_[4]) => ($_))} sort { our ($a,$b); ( $$a[5] <=> $$b[5] )} (
+			map {(($$_[2].$$_[4]) => ($_))} sort { our ($a,$b); ( $$a[5] <=> $$b[5] ) } (
 			( map {(( $$_[1] !~ /_uncleaned_events\.lhco(?:\.gz)?/ ) && ( $$_[1] =~ /^((.*?)((?:_\d{3})*))\.lhco(\.gz)?$/ ) ?
-				[ qq($2), (0+ !(length $3)), @$_[0,1], qq($1), (!$4) ] : ())}
+				[ qq($2), (0+ !(length $3)), @$_[0,1], qq($1), (!$4)*(1<<0) ] : ())}
 				map {( &Local::FILE::LIST($_))} (@{$fil||[]})),
-			( map {(( $$_[1] =~ /^(([A-Za-z][\w-]*?)?(?:_\d+)*)_(?:delphes|(pgs))_events\.lhco(\.gz)?$/ ) ?
-				[ ((length $2) ? ( qq($2)) : ( q(TAG))), (2), @$_[0,1], qq($1), ((!$3)*2 + (!$4)) ] : ())}
-				map {( &Local::FILE::LIST($_,1))} (($mrg) or ()))) }};
+			( map {(( $$_[1] =~ /^(([A-Za-z][\w-]*?)?(?:_\d+)*)_(?:delphes|(pgs))_events\.(?:lhco(\.gz)|(root))?$/ ) ? (($5) && ($3)) ? () :
+				[ ((length $2) ? ( qq($2)) : ( q(TAG))), (2), @$_[0,1], qq($1), ((!$3)*(1<<2) + (!$5)*(1<<1) + (!$4)*(1<<0)) ] : ())}
+				(($mrg) ? ( &Local::FILE::LIST($$fil[0],1)) : ())) ) }};
 		(@fil) = ( map { my ($k) = $_; ( grep {($$_[2])} map {[ $k, $_, $fil{$k}[$_]]} (0..2))[0] }
 			( sort { our ($a,$b); ( $a cmp $b ) } keys %fil )); () } ) :
 	( map { +{ cid => ($i), fil => ($fil), esc => [ map {[ ($_ < 0), 0+( $_ = (int abs)), ( @{ (($_ > 0) && ( $$crd{cut}{esc}[$_] )) or
 		do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN CHANNEL '.$i."\n"; +{}}}{( qw( key cut ))} ) ]} (@$_) ] }}
 		grep {(@$_)} [ grep {(defined)} (@{$$chn{esc}||[]}) ] )) }} ( 0, (1..(@{$$crd{cut}{chn}||[]}-1)));
+# The zeroth channel, wherein statistics are computed from .lhco events and output to .cut files, runs automatically
+# Positively numbered channels, wherein sorting is performed relative to previously computed statistics, short circuit if not elaborated in the card
+# The active directory DIR is read from the card file; if undefined it defaults to './Events/' for channel zero, or otherwise to the output directory
+# The active file is the command line file, including its bundled directory, if it exists and the zeroth channel is processing
+# The active file is undefined for numbered channels if the command line file exists or the array of defined FIL card entries is empty
+# If that array is empty for the zeroth channel then "merge" mode is triggered with an undefined file name tied to the active directory
+# Otherwise, the non-empty array of defined FIL card entries is bundled with the active directory
+# FOR THE ZEROTH CHANNEL:
+# If merging, the file size CAP is read (defaults 500,000 events; unlimited if negative), and the LHC merged Olympics directory is read (defaults to active)
+# The prefix PRE is read; it is leading alpha plus word characters and dashes; a (consolidated) trailing underscore is appended if defined (defaults to empty)
+# The OUT directory is read, defaulting to './Cuts/' if undefined, and created (recursively) if it does not exist
+# The positive luminosity scale is read in a known unit ( IPB, IFB, IAB, IZB, IYB ) or left undefined
+# Any .lhco[.gz] files (except '_uncleaned_events') in the active dir consistent with fil are matched for a key and a strict index
+# If merging, the fil matching criterion is guaranteed to accept all files consistent with basic naming requirements of the FILE class 
+# If merging, all _events.lhco[.gz] and delphes_events.root files one level below the active dir are matched for a key (defaults to TAG) and a non-strict index
+# If a key+index string repeats in a directory, Delphes files are valued over PGS files, .lhco over .root, and unzipped over zipped
+# Located files retain dir and fil info, along with the key and a flag for lower-level (2) or upper-level w/wout (0,1) an explicit index
+# Only the zon-zero set of files having the lowest numbered flag is stored for each key
+# FOR NON-ZERO CHANNELS:
+# Processing proceeds if there are non-empty ESC specifications
+# A hash is pushed onto the channels list with the channel index, the active file, and a list of processed event selection cuts
+# Stored here is the sign (negative to reject or positive to accept), the cut index, and the referenced key/cut pair from the cardfile
+	# RECOGNIZE DISTINCTIONS/USAGES FOR: './', '', '0', '*', UNDEF
+	# put blocks to prevent repeats of steps ... repeat copy to LHC? array tier vs flag index .. what for root?
 
 # LOOP over LINEs from .lhco input FILEs and perform sequential mode channel filtering on processed .cut files
 LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) { use Fcntl qw(:seek); ($m == 2) or ($paf) or (next LOOP); my (@FHT,@xsc);
-	FILE: for my $fil ( sort SORT_LIST_ALPHA (@$f)) { my ($FHI,$lns,$cut) = ( &Local::FILE::HANDLE($fil)) or
-		do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (next FILE) };
-		push @xsc, [ my ($xsc) = (defined $xsc) ? ($xsc) : ( &PYTHIA_XSEC($fil)) ]; local ($_); LINE: while (<$FHI>) {
-	( m/^\s*#*\s*((?:\d+\.\d*|\d*\.\d+|\d+)(?:E(?:\+|-)?\d+)?)\s+PB\s+CROSS\s+SECTION/i ) ?
-		do { ( push @xsc, [ (0+ $1) or (undef) ] ) unless (defined $xsc) } :
-	( m/^\s*#*\s*<\MGGenerationInfo>/i ) ? do { ( push @xsc, [ &MADGRAPH_XSEC($FHI) ] ) unless (defined $xsc) } :
+	FILE: for my $fil ( sort SORT_LIST_ALPHA (@$f)) { if (($m == 2) && ( $$fil[1] =~ /\.root$/ )) { ( &ROOT_2_LHCO($fil)) or
+		do { print STDERR 'CANNOT CONVERT TO LHCO FROM FILE '.$$fil[0].$$fil[1]."\n"; (next FILE) }; ( $$fil[1] =~ s/\.root$/.lhco.gz/ ); }
+		my ($FHI,$lns,$cut) = ( &Local::FILE::HANDLE($fil)) or do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (next FILE) };
+		push @xsc, [ my ($xsc) = ((defined $xsc) ? ($xsc) : ( &PYTHIA_XSEC($fil))) ]; local ($_); LINE: while (<$FHI>) {
+	( m/^\s*#*\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)\s+PB\s+CROSS\s+SECTION/i ) ?  do { ( push @xsc, [ (0+ $1) ] ) unless (defined $xsc) } :
+	( m/^\s*#*\s*<MGGenerationInfo>/i ) ? do { ( push @xsc, [ &MADGRAPH_XSEC($FHI) ] ) unless (defined $xsc) } :
 	( m/^\s*(\d+)\s+(\d+)/ ) && do { ($1 eq q(0)) ? ( $lns = [ $_ ] ) : ($2 ne q(6)) ? ( push @{$lns||[]}, $_ ) : ($lns) && do {
 	if ( !(@FHT) or (($m == 2) && ($cap > 0) && ($FHT[-1][1] == $cap))) { push @FHT, [
 		grep { (defined) or ( die 'Cannot open temporary file for read/write' ) } ( &Local::FILE::HANDLE()) ]; }
@@ -86,16 +119,36 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) { use Fcntl qw(:seek)
 			( &FORMAT_HEADER(1,[(shift @$_),\@xsc,$ipb],$cut,$flw,$stc))) } (( shift @FHT ) || ()); ( undef @FHT ); ( undef @xsc );
 		do { my ($f) = ($_); for my $c (@chn) { ( print STDERR $_."\n" ) for ( @{ ( &AUXILIARY_CHANNEL($c,$f)) || [] } ) }} for
 		map { my ($h,$f) = ((shift @$_),(shift @$_)); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n";
-			( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" ) unless ($xsc); (close $h); ($f) }
+			( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" ) unless ( defined $xsc ); (close $h); ($f) }
 		grep { (@$_) or ( die 'Cannot open file in directory '.$out.' for write' ) }
 		map {[ ($m == 1) ? ( &Local::FILE::NEXT($_)) : ( &Local::FILE::HANDLE($_,[1,1,1,0])) ]}
 		map {[ ($out), [ ($pre.$$_[0]), ($$_[1]), ( q(.cut)) ]]} (((defined $hdr) && ( &Local::FILE::KEYS($$fil[1]))) or ()); }}
 	if ($m == 2) { my ($n) = [$lhc,[$k,0,q(.lhco)]]; push @fil, [ $k, 0, [ map { my ($FHT,$hdr,$xsc) = (( grep { ( seek $_, 0, SEEK_SET ) or
 			( die 'Cannot rewind temporary file' ) } (shift @$_)), ( &FORMAT_HEADER(1,[(shift @$_),\@xsc])));
 		map { my ($h,$f) = ((shift @$_),(shift @$_)); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n";
-			( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" ) unless ($xsc); (close $h); ( $n = $f ) }
+			( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" ) unless ( defined $xsc ); (close $h); ( $n = $f ) }
 		grep { (defined $$_[0]) or ( die 'Cannot open file in directory '.$lhc.' for write' ) }
 			((defined $hdr) ? [ &Local::FILE::NEXT($n) ] : ()) } (@FHT) ]]; }}
+# Processing starts with any fil sets associated with the zeroth channel
+# The loop advances unless merging ( flag 2 ) or the primary analysis function exists
+# An inner loop processes for each file associated with the given key
+# A conversion from .root files to the .lhco format is attempted
+# The cross-section record associated with the key is initialized with the command line value or the Pythia value or undef
+# An inner loop processes each line in the current file
+# Any proprietary or MadGraph cross-section line is appended to the list unless the initial file-level cross section line was defined
+# The LHCO formatted events are read; if merging, events are copied to a set of sized temporary file handles
+# If processing ( flags 0,1 ) the MET and event objects are run through the primary analysis function
+# A counter corresponding to the level of exit from the cut flow (or -1 for survival) is incremented
+# Computed statistics for surviving events are printed to the temporary filehandle
+# A correlation matrix is computed for failing events with multiple statistics at a given flow
+# The event count and event count applicable to the active cross-section are incremented
+# After completion of the loop over file lines, processing continues if not in merging mode
+# Processed .cut files are generated with a header, prepending any prefix string, in the OUT directory
+# Non-indexed files ( flag 1 ) are still incremented for output
+# After completion of the loop over key files, processing continues if in merging mode
+# Each of the temporary file handles, along with a new header, is dumped to a suitably incremented file name in the LHC directory
+# The corresponding file is appended to the list for processing with flag 0, as a numbered lower-level file
+	# addition to the LHC directory happens only on merging ... it is blocked if the down-numbered file exists? block is skipped if LHc is non-default? correct behavior?
 
 # Perform batch mode channel filtering on processed .cut files
 for my $c (@chn) { ( print STDERR $_."\n" ) for ( @{ ( &AUXILIARY_CHANNEL($c)) || [] } ) }
@@ -109,6 +162,11 @@ sub LOAD_OPTS { my (@opts); my (%opts) = map { ( /^-(-)?([A-Za-z]\w*)(?:=(.*))?$
 	( map {((lc) => q(1))} ( $2 =~ /([A-Za-z])/g )) } : do { push @opts, $_; () }} (@_); sub { my ($key) = ( lc shift );
 		(return $_) for ( map { (m/^(TRUE)|(FALSE)|(UNDEF)$/i) ? (($1)?(1):($2)?(0):(undef)) : ($_) }
 		(( exists $opts{$key} ) ? ($opts{$key}) : ( shift @opts ))); }}
+# --KEY=VAL : KEY begins alpha and is subsequently word characters; VAL is arbitrary; without the '=', VAL is '1'
+# -ABC : each of the flags keyed by 'A', 'B', and 'C' is set to '1'
+# Other: string is pushed onto the ordered queue
+# On query, existing (case insensitive) KEYs return VAL and missing keys shift values from the front of the queue
+# Special strings TRUE, FALSE, and UNDEF are mapped internally to 1, 0, and undef
 
 # Returns a data structure encoding user specified AEACuS meta language instructions
 {; my ($abc,$idx,$val); sub LOAD_CARD { my ($crd,$err,$fil) = (+{},[]);
@@ -139,7 +197,7 @@ sub EVENT_OBJECTS { map { (wantarray) ? (@$_) : (return $_) } [ map { my ($o) = 
 	grep {(( shift @$_ ) > 0 )} map {[ map {(0+ $_)} ( split ) ]}
 	grep {( m/^\s*(\d+)\s+(\d+)/ )} map {( qq($_))} map { ( ref eq q(ARRAY)) ? (@$_) : ($_) } (@_) ] }
 
-# implement backref level protection globally; implement flow restructuring 
+#	implement backref level protection globally; implement flow restructuring 
 # Returns code reference for generation of primary object reconstruction and event selection statistics
 sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defined $$_[0] )} (@$_) ];
 	push @k, [ map {($$_[0])} (@$t) ]; push @i, [ grep {($$t[$_][1])} (0..(@$t-1)) ]; push @c, [ map {($$_[2])} (@$_) ]; } for
@@ -216,31 +274,34 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 			grep { my ($t); do { ( return ($i,$_)) if ($t) } for [ map { !(defined) && ($t = 1) } ( @$_[ @{ $i[$i] } ] ) ]; 1 }
 			[ map {(($_)->($o,$v))} (@{ $c[$i] }) ] } (0..(@i-1)) ] ) } ) }
 
-# handle matrixing for degenerate flow levels ...
-# HERE ... may be doing cut info at undesired time .. see EXAMPLE_2
+#	handle matrixing for degenerate flow levels ...
+#	HERE ... may be doing cut info at undesired time .. see EXAMPLE_2
 # Returns a formatted header summarizing processed and surviving event counts, and selection cut activity rates
 sub FORMAT_HEADER { my ($prm) = !(!(shift)); my ($evt,$xsc,$lum,$srv,$cut,$flw,$stc) = (( map {(( ref eq q(ARRAY)) ? (( &MAX(0,( int $$_[0] ))),
-	( map { (( ref eq q(ARRAY)) ? ( &MERGE_XSEC(@$_)) : ( &MAX(0,$_))) or (undef) } ($$_[1])), ( &MAX(0,0+$$_[2])),
+	( map {(( ref eq q(ARRAY)) ? ( &MERGE_XSEC(@$_)) : (defined) ? (0+$_) : (undef))} ($$_[1])), ( &MAX(0,0+$$_[2])),
 	(( &BOUNDED([0,( int $$_[0])],( int $$_[(($prm) ? (0) : (3))] ))) or (return))) : (return))} (shift)),
 	( map {(( ref eq q(ARRAY)) ? ($_) : (undef))} (shift,shift,shift)));
 	my ($pas) = ( &MAX(0,( int ${${$cut||[]}[-1]||[]}[0] ))); ( map { (wantarray) ? ( $_, $xsc ) : (return $_) } (
 	(($prm) ? "\n".(($cut) ? q() : q(# )).($evt).' EVENT SAMPLE'.(($evt==1) ? q() : q(S)).' PROCESSED IN TOTAL'."\n" .
-		(($xsc) ? "\n".(($cut) ? q() : q(# )).( sprintf q(%9.3e), $xsc ).' PB CROSS SECTION IMPLIES ' .
-		( sprintf q(%9.3e), ($evt/$xsc)).' PER PB LUMINOSITY'."\n".(($lum && $cut) ? "\n" .
-		( sprintf q(%9.3e), $lum ).' PER PB SCALED LUMINOSITY YIELDS ' .
-		( sprintf q(%9.3e), ($xsc*$lum)).' EFFECTIVE EVENTS'."\n" : q()) : q()) : q()) .
+		(( defined $xsc ) ? "\n".(($cut) ? q() : q(# )).( sprintf q(%+10.3E), $xsc ).' PB CROSS SECTION IMPLIES ' .
+		( sprintf q(%+10.3E), ($evt/$xsc)).' PER PB LUMINOSITY'."\n".(($lum && $cut) ? "\n" .
+		( sprintf q(%+10.3E), $lum ).' PER PB SCALED LUMINOSITY YIELDS ' .
+		( sprintf q(%+10.3E), ($xsc*$lum)).' EFFECTIVE EVENTS'."\n" : q()) : q()) : q()) .
 	(($cut) ? do { $lum *= ($xsc/$evt); my ($s); my ($t) = ( join q(), map { my ($t) = $_; ( join "\t", (
 		( map {(( uc $$_[1] ).( q(_)).( sprintf q(%3.3i), $$_[2] ))} map {((@$_==1) ? ($$_[0]) : [(undef),@{$$_[0]}[0,2]] )} ($$t[0])),
-		( map {((($lum) ? ( sprintf q(%7.1e), $_*$lum ) : ( sprintf q(% 7i), $_ )), (($xsc) ? ( sprintf q(%7.1e), $xsc*($_/$evt)) : ()),
+		( map {((($lum) ? ( sprintf q(%7.1e), $_*$lum ) : ( sprintf q(% 7i), $_ )), (( defined $xsc ) ? ( sprintf q(%7.1e), $xsc*($_/$evt)) : ()),
 		( map {((defined) ? ( sprintf q(%07.3f), 100*$_ ) : q(  UNDEF))} (( &RATIO($$t[1],($_+$$t[1]))), (1-($_/$srv)))))}
 		($s+$pas-$$t[2]))))."\n" } map { (($srv == ($s + $pas)) or (return)); (@$_) } [ map {((@{$$flw[$_]||[]}) ?
 		[ $$flw[$_], ( map {( $_, $s += $_ )} ( &MAX(0,( int $$cut[$_][0] )))) ] : ())} (0..(@{$flw||[]}-1)) ] );
 		"\n".($pas).' SAMPLE'.(($pas==1) ? q( SURVIVES) : q(S SURVIVE)).' '.(($prm) ? q(PRIMARY) : q(AUXILIARY)).' SELECTION WITH ' .
-		(($xsc) ? ( sprintf q(%9.3e), ($xsc*($pas/$evt))).' PB RESIDUAL CROSS SECTION AND ' : q()) .
+		(( defined $xsc ) ? ( sprintf q(%+10.3E), ($xsc*($pas/$evt))).' PB RESIDUAL CROSS SECTION AND ' : q()) .
 		( sprintf q(%07.3f), ( 100*(1-($pas/$evt)))).' PERCENT CUMULATIVE EFFICIENCY'."\n" .
-		(($s > 0) ? "\n".'CUT_KEY'."\t".'SURVIVE'.(($xsc) ? "\t".'PB_AREA' : q())."\t".'%_LOCAL'."\t".'%_TALLY'."\n".($t) : q()) } : q()) .
+		(($s > 0) ? "\n".'CUT_KEY'."\t".'SURVIVE'.(( defined $xsc ) ? "\t".'PB_AREA' : q())."\t".'%_LOCAL'."\t".'%_TALLY'."\n".($t) : q()) } : q()) .
 	((($prm) && ($cut) && ($pas)) ? ( "\n".( join "\t", ( q(EVENT_#),
 		( map {(( uc $$_[1] ).( q(_)).( sprintf q(%3.3i), $$_[2] ))} ( @{$stc||[]} ))))."\n" ) : q()))) }
+# went to q(%+10.3E) everywhere ... don't break other things elsewhere ... DONE/TEST
+# ensure MERGING, ETC works for (-) xsec, weights, NLO, ETC
+# protect $lum *= ($xsc/$evt)? $evt/$xsc?
 
 # Returns the initial (or sequential) match of an input string against a list of regular expressions, optionally with interpolation and replacement
 sub REX_LIST { my ($mod) = 0+(0..2)[(shift)]; my ($ref,$str) = map {(\($_),( qq($_)))} (shift); do { my ($rex,$val,$rpl) = @$_;
@@ -250,10 +311,10 @@ sub REX_LIST { my ($mod) = 0+(0..2)[(shift)]; my ($ref,$str) = map {(\($_),( qq(
 		[ ( map {( substr $str, $-[$_], ($+[$_] - $-[$_]))} (0..(@+-1))), ( substr $str, $+[0] ), ( substr $str, 0, $-[0] ) ] :
 		()) } for ( map { ( ref eq q(ARRAY)) ? ($_) : [$_] } (@_)); () }
 
-# suppress passing event header line if none pass? ... as in main ...; allow FLW in def of ESC to reorder?
-# dont exit for cannot interpret header?
-# generate closure at start, as for main?
-# splice is ugly ... subject to format alteration ...
+#	suppress passing event header line if none pass? ... as in main ...; allow FLW in def of ESC to reorder?
+#	dont exit for cannot interpret header?
+#	generate closure at start, as for main?
+#	splice is ugly ... subject to format alteration ...
 # Applies auxiliary channel filtering specification to an existing .cut event selection file
 sub AUXILIARY_CHANNEL { my (@err); my ($chn) = grep { ( ref eq q(HASH)) or (return undef) } (shift); my ($fil) = grep {( ref eq q(ARRAY))} (shift);
 	my ($cid,$did) = map {( $_, (( sprintf q(CHN_%3.3i), $_ ).q(/)))} (( int abs ($$chn{cid})) or (return undef));
@@ -279,44 +340,122 @@ sub AUXILIARY_CHANNEL { my (@err); my ($chn) = grep { ( ref eq q(HASH)) or (retu
 	print $FHO q(), ( splice @$txt, 0, -2 ), ($hdr), (@$txt); local ($_); while (
 		defined ( $_ = ((<$FHT>) or (<$FHI>)))) {( print )}} ((@err) ? (\@err) : (undef)) }
 
+# Returns the validated <MGPythiaCard> tag MG5 library PATH object associated with an open, cued filehandle
+sub PYTHIA_PATH { my ($FHI,$pth) = grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q(Local::FILE)))) && ((tell $_) >= 0) or (return) } (shift);
+	local ($_); while (<$FHI>) { ( m/^\s*#*\s*<\/MGPythiaCard/i ) ? (last) : ( m/^\s*#*\s*!*\s*DYLD_LIBRARY_PATH=(\/.*?\/)HEPTools\/lib:/i ) && ( $pth = (q(). $1)); }
+	( &Local::FILE::PATH($pth)) }
+
 # Returns the same-directory PYTHIA event production cross section associated with a standardized .lhco file
 sub PYTHIA_XSEC { use Fcntl qw(:seek); my ($FHI) = grep {( seek ($_,-80,SEEK_END))} ( &Local::FILE::HANDLE(
 	grep { ( $$_[-1] =~ s/(?:^|\/)([\w-]+?)_(?:delphes|pgs)_events\.lhco(?:\.gz)?$/${1}_pythia.log/ ) or (return undef) }
 	map {[ ( ref eq q(ARRAY)) ? (@$_) ? (@$_) : (return undef) : (($_),((@_)?(shift):())) ]} (shift)) or (return undef)); local ($_); while (<$FHI>) {
-	( m/^\s*Cross\s+section\s+\(pb\)\s*:\s*((?:\d+\.\d*|\d*\.\d+|\d+)(?:E(?:\+|-)?\d+)?)/i ) && ( return ((0+ $1) or (undef))) } (undef) }
+	( m/^\s*Cross\s+section\s+\(pb\)\s*:\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)/i ) && ( return (0+ $1)) } (undef) }
 
 # Returns the <MGGenerationInfo> tag event cross section associated with an open, cued filehandle
 sub MADGRAPH_XSEC { my ($FHI,$evt,$mch,$wgt) = grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q(Local::FILE)))) && ((tell $_) >= 0) or (return) } (shift);
 	local ($_); while (<$FHI>) { ( m/^\s*#*\s*<\/MGGenerationInfo>/i ) ? (last) : ( m/^\s*#*\s*Number\s+of\s+Events\s*:\s*(\d+)/i ) ? ( $evt = (0+ $1)) :
-	( m/^\s*#*\s*(Matched\s+)?Integrated\s+weight\s+\(pb\)\s*:\s*((?:\d+\.\d*|\d*\.\d+|\d+)(?:E(?:\+|-)?\d+)?)/i ) &&
-		(($mch,$wgt) = (($mch) && !($1)) ? (next) : (!!($1),(0+ $2))); }
-	map { (wantarray) ? (@$_) : (return $$_[0]) } ((($wgt > 0) && (($mch) or ($evt > 0))) ? [ ($wgt), (($mch) ? () : ($evt)) ] : ()) }
+	( m/^\s*#*\s*(Matched\s+)?Integrated\s+weight\s+\(pb\)\s*:\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)/i ) &&
+		(($mch,$wgt) = (((($mch) && !($1)) or (($2) eq q(-1.0))) ? (next) : (!!($1),(0+ $2)))); }
+	map { (wantarray) ? (@$_) : (return $$_[0]) } ((( defined $wgt ) && (($mch) or ($evt > 0))) ? [ ($wgt), (($mch) ? () : ($evt)) ] : ()) }
+# go to defined not >0 here and everywhere ... DONE??
 
 # Returns the AEACuS header information, event count and cross section associated with an open, cued filehandle
 sub AEACUS_XSEC { my ($FHI,$e,$x,$l,$s,$i,@t) = grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q(Local::FILE)))) &&
 	((tell $_) >= 0) or (return) } (shift); local ($_); while (<$FHI>) { push @t, $_;
 		( m/^\s*(\d+)\s+EVENT\s+SAMPLES?/i ) ? do { $e = (0+ $1) } :
-		( m/^\s*((?:\d+\.\d*|\d*\.\d+|\d+)(?:E(?:\+|-)?\d+)?)\s+PB\s+CROSS/i ) ? do { $x = (0+ $1) } :
-		( m/^\s*((?:\d+\.\d*|\d*\.\d+|\d+)(?:E(?:\+|-)?\d+)?)\s+PER\s+PB\s+SCALED/i ) ? do { $l = (0+ $1) } :
+		( m/^\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)\s+PB\s+CROSS/i ) ? do { $x = (0+ $1) } :
+		( m/^\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)\s+PER\s+PB\s+SCALED/i ) ? do { $l = (0+ $1) } :
 		( m/^\s*(\d+)\s+SAMPLES?\s+SURVIVES?/i ) ? do { $s = (0+ $1) } :
 		( m/^\s*EVENT_#/i ) ? do { my ($j); $i = +{ map {((lc) => ($j++))} ( split ) }; (last) } : (next) }
 	((wantarray) ? ([$e,$x,$l,$s],$i,\@t) : ($x)) }
 
-# Returns the unified cross section for a merged data set 
+# Returns the unified cross section for a merged data set
 sub MERGE_XSEC { my (@x) = grep {($$_[2] > 0)} grep {(( ref eq q(ARRAY)) or (return undef))} (@_); ( &RATIO(
-	( &SUM( map { ($$_[0] > 0) ? (($$_[0])*(($$_[1] > $$_[2]) ? ($$_[2]/$$_[1]) : (1))*($$_[2])) : (undef) } (@x))), ( &SUM( map {($$_[2])} (@x))))) } 
+	( &SUM( map { ( defined $$_[0] ) ? (($$_[0])*(($$_[1] > $$_[2]) ? ($$_[2]/$$_[1]) : (1))*($$_[2])) : (undef) } (@x))), ( &SUM( map {($$_[2])} (@x))))) } 
+# review how this works with negatives, weights, NLOs, etc.
 
-# Returns a Boolean value indicating whether Python and MatPlotLib appear to be suitably configured for piped system calls
-sub CAN_MATPLOTLIB { local ($@); scalar eval { local ($?);
-	( open my $FHO, q(|-), q(python >/dev/null 2>&1)) or (return undef);
+# Attempts to generates an LHCO event file from a DELPHES event file in the fashion of the standard MadGraph script "run_delphes3"
+sub ROOT_2_LHCO { my ($fil,%cfg,$xpb) = grep {(( ref eq q(ARRAY)) or (return undef))} (shift);
+	do { my ($FHI) = (( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(me5_configuration.txt) ])) or (return undef));
+		local ($_); while (<$FHI>) { ( $cfg{$1} = $2 ) if ( m/^\s*([\w-]+)\s*=\s*(\S*)\s*$/ ) }};
+        my ($dph) = (( &Local::FILE::PATH([ $cfg{mg5_path}, ( &DEFINED( $cfg{delphes_path}, q(./Delphes))) ])) or (return undef));
+	my ($pth,$run) = ( $$fil[0] =~ /^(.*\/)([^\/]+)\/$/ ) or (return undef);
+	my ($tag) = ( $$fil[1] =~ /^([^\/]+)_delphes_events.root$/ ) or (return undef); local ($?); do {
+	open my $FHO, q(|-), q(python >/dev/null 2>&1);
 	print $FHO <<DONE;
+# Adapted for Python from "root2lhco.cpp", Delphes, (C) 2012-2019 UCL Belgium, GNU GPL V3ff
 import sys
-if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 6))) : sys.exit(1)
-import matplotlib as mpl
-if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) : sys.exit(1)
+if (( sys.version_info[0] < 2 ) or (( sys.version_info[0] == 2 ) and ( sys.version_info[1] < 6 ))) : sys.exit( 1 )
+import ROOT
+ROOT.gROOT.ProcessLine( '.include ${dph}external' )
+ROOT.gSystem.Load( '${dph}libDelphes' )
+def printObject( num=0, **kwargs ) :
+  defs = { 'num':num, 'typ':0, 'eta':0.0, 'phi':0.0, 'pt':0.0, 'jmas':0.0, 'ntrk':0.0, 'btag':0.0, 'hadem':0.0, 'dum1':0.0, 'dum2':0.0 }
+  handle.write( '{num:4d} {typ:4d} {eta:8.3f} {phi:8.3f} {pt:7.2f} {jmas:7.2f} {ntrk:6.1f} {btag:6.1f} {hadem:7.2f} {dum1:6.1f} {dum2:6.1f}\\n'.format(
+    ** dict(( k, kwargs[k] if k in kwargs else v ) for k, v in defs.items())))
+  return num + 1
+tree = ROOT.TFile.Open( '${pth}${run}/${tag}_delphes_events.root', 'READ' )
+handle = open( '${pth}${run}/delphes_events.lhco', 'w' )
+nE = 1; handle.write( '   #  typ      eta      phi      pt    jmas   ntrk   btag  had/em   dum1   dum2\\n' )
+for e in tree.Delphes :
+  nO = 1; handle.write( '{:4d} {:13d} {:8d} {:+10.3E}\\n'.format( 0, nE, 0, e.Event[0].Weight ))
+  for o in e.Photon :
+    nO = printObject( nO, typ=0, eta=o.Eta, phi=o.Phi, pt=o.PT, hadem=o.EhadOverEem )
+  for o in e.Electron :
+    nO = printObject( nO, typ=1, eta=o.Eta, phi=o.Phi, pt=o.PT, ntrk=float( o.Charge ), hadem=o.EhadOverEem )
+  muons = [ o for o in e.Muon ]; taus = []; jets = []
+  for o in e.Jet :
+    jets.append( o ) if ( o.TauTag == 0 ) else taus.append( o )
+  iJet0 = nO + len( muons ) + len( taus )
+  for o in muons :
+    iJet = 0; drMin = None; ptSum = 0.0; etSum = 0.0
+    for i in range( len( jets )) :
+      drJet = o.P4().DeltaR( jets[i].P4())
+      if (( drMin is None ) or ( drJet < drMin )) : iJet = i + iJet0; drMin = drJet
+    for t in e.Track :
+      if ( o.P4().DeltaR( t.P4()) < 0.5 ) : ptSum += t.PT
+    for t in e.Tower :
+      if ( o.P4().DeltaR( t.P4()) < 0.5 ) : etSum += t.ET
+    nO = printObject( nO, typ=2, eta=o.Eta, phi=o.Phi, pt=o.PT, jmas=0.11, ntrk=float( o.Charge ),
+      btag=float( iJet ), hadem=( round( ptSum ) + min( 0.99, etSum/o.PT )))
+  for o in taus :
+    nO = printObject( nO, typ=3, eta=o.Eta, phi=o.Phi, pt=o.PT, jmas=o.Mass, ntrk=float( o.Charge ), hadem=o.EhadOverEem )
+  for o in jets :
+    nO = printObject( nO, typ=4, eta=o.Eta, phi=o.Phi, pt=o.PT, jmas=o.Mass,
+      ntrk=float( sum( 1 for t in e.Track if ( o.P4().DeltaR( t.P4()) < 0.5 ))), btag=o.BTag, hadem=o.EhadOverEem )
+  for o in e.MissingET :
+    nO = printObject( nO, typ=6, phi=o.Phi, pt=o.MET )
+  nE += 1
+handle.close()
 sys.exit(0)
 DONE
-	( close $FHO ) && (($? >> 8) == 0 ) }}
+	(( close $FHO ) && (($? >> 8) == 0 )) } and do {
+	open my $FHO, q(|-), q(bash >/dev/null 2>&1);
+	print $FHO <<DONE;
+cd ${pth}
+if [ -e ./${run}/delphes_events.lhco ]; then
+  sed -e "s/^/#/g" ./${run}/${run}_${tag}_banner.txt > ./${run}/${tag}_delphes_events.lhco
+  # echo "##  Integrated weight (pb)  : ${xpb}" >> ./${run}/${tag}_delphes_events.lhco
+  cat ./${run}/delphes_events.lhco >> ./${run}/${tag}_delphes_events.lhco
+  gzip ./${run}/${tag}_delphes_events.lhco
+  rm -f ./${run}/delphes_events.lhco
+fi
+DONE
+	(( close $FHO ) && (($? >> 8) == 0 )) }}
+
+# Returns a Boolean value indicating whether Python and MatPlotLib appear to be suitably configured for piped system calls
+sub CAN_MATPLOTLIB { local ($?);
+	open my $FHO, q(|-), q(python >/dev/null 2>&1);
+	print $FHO <<DONE;
+import sys
+if (( sys.version_info[0] < 2 ) or (( sys.version_info[0] == 2 ) and ( sys.version_info[1] < 6 ))) : sys.exit( 1 )
+import matplotlib as mpl
+if (( tuple( map ( int, mpl.__version__.split( '.' ))) + (0,0,0))[0:3] < (1,3,0)) : sys.exit( 1 )
+sys.exit( 0 )
+DONE
+	(( close $FHO ) && (($? >> 8) == 0 )) }
+	# previously, this was wrapped in eval ... the logic was that it might break the main program if you couldn't run.  I don't think it actually does/can
+	# consider whether this is still the optimal way to split the jobs up then ... does it need to split off a TEST first?  seems sensible
 
 # Returns the sum of a list of values
 sub SUM { my ($sum); ($sum += $_) for ( grep { (defined) or (return undef) } (@_)); $sum }
@@ -406,6 +545,7 @@ sub INT_QUOTIENT { map { (wantarray) ? ($_,($_[0] - $_*$_[1])) : (return $_) }
 # Returns two raised to a bounded input integer power
 {; my ($exp); sub INT_EXP_TWO { $exp ||= do { my ($i) = 1; [ 1, ( map {($i*=2)} (1..( int BMX ))) ] }; $$exp[( int shift )] }}
 
+# <= 0 shoud return (undef,0)
 # Returns the base-two logarithm floor of an input positive semi-definite integer, as well as the ceiling in list context
 sub INT_LOG_TWO { my ($val,$flr,$clg,$try) = (( int shift ), -2, 1+( int BMX ));
 	do { ($flr,$clg) = @{ ( [$try,$try], [$flr,$try], [$try,$clg] )[ ( &INT_EXP_TWO(
@@ -519,6 +659,14 @@ sub SORT_LIST_NUM ($$) { my ($a,$b) = (shift,shift); for (0..(( &MIN(0+@$a,0+@$b
 # Returns code to sort lhco objects according to descending transverse momentum and then ascending pseudorapidity; Leading input optionally reverses ordering
 sub SORT_OBJECT_LORENTZ_CODE { my ($sort) = (0,+1,-1)[(shift)] || -1; sub ($$) { my ($a,$b) = (shift,shift); ($sort) *
 	(($$a{ptm} <=> $$b{ptm}) || ((abs $$b{eta}) <=> (abs $$a{eta})) || ($$a{mas} <=> $$b{mas}) || ($$b{eta} <=> $$a{eta}) || ($$a{phi} <=> $$b{phi})) }}
+
+# Sort inserts an input value into a presorted input list reference, optionally according to an input sort code reference
+sub SORT_INSERT { my ($lst,$flr,$clg,$val,$srt,$try,$mod) = (
+	( map {( $_, 0, (0+@$_))} grep {(( &ISA( 0, ($_), q(ARRAY))) or (return))} (shift)), (shift),
+	( map {(( ref eq q(CODE)) ? ($_) : ( sub ($$) { my ($a,$b) = @_; ( $a <=> $b ) } ))} (shift)));
+	while ($clg > $flr) {( ${ (\$clg,\$flr)[$mod] } = (( $try = ( int (($flr+$clg)/2))) +
+		( $mod = 0+(1,1,0)[(($srt) -> ( our ($a,$b) = ($val,$$lst[$try])))] )))}
+	( splice @$lst, $clg, 0, $val ); ((wantarray) ? (@$lst) : ($lst)) }
 
 # Returns a boolean response membership of an object in a list of classes
 sub ISA { use Scalar::Util qw(blessed); my ($m,$o,@c) = (((shift) <=> 0 ), (shift),
@@ -1198,14 +1346,14 @@ sub HANDLE { use Fcntl qw(:DEFAULT :flock :seek); my ($wrt,$pth,$fil,$opn,$sek,$
 		grep { !(defined $fil) ? ( open $_, q(+<), undef ) : !(defined $opn) ? ( open $_, q(-|), ( q(gzip -cdf ).$pth.$fil )) :
 		do { my ($b); ( undef $_ ) while (( $b = (( sysopen $_, $pth.$fil, $opn, $msk ) && ( flock $_, $lck ))) and
 		(( stat $_ )[1] ne (( stat $pth.$fil )[1] )) and ( $b = ( close $_ ))); $b }} ( my ($IOH))), (undef))[0] or (return))) }
-	# path: array ref [path,file] objects OR path string OR undef for temporary file
-	# mode: int=(0..5): (read,write,append,dual-read,dual-write,dual-append)[mode] OR
-	#	set explicitly as [priv,make,seek,fast] with:
-	#	priv : (read,write,read|write)[priv]; default 0
-	#	make : (no,yes,exclusive)[make]; yes and exclusive require write; default 0
-	#	seek : (head,trim,tail)[seek]; trim and tail require write; default 0
-	#	fast : (block,nonblock)[fast]; default 0
-	# mask: file creation umask in octal OR directory/file mask array ref
+# path: array ref [path,file] objects OR path string OR undef for temporary file
+# mode: int=(0..5): (read,write,append,dual-read,dual-write,dual-append)[mode] OR
+#	set explicitly as [priv,make,seek,fast] with:
+#	priv : (read,write,read|write)[priv]; default 0
+#	make : (no,yes,exclusive)[make]; yes and exclusive require write; default 0
+#	seek : (head,trim,tail)[seek]; trim and tail require write; default 0
+#	fast : (block,nonblock)[fast]; default 0
+# mask: file creation umask in octal OR directory/file mask array ref
 
 # Returns a handle to the next integrally available file name based upon an input directory and file name base
 sub NEXT { my ($rpt,$pth,$bas,$idx,$ext) =
@@ -1213,6 +1361,10 @@ sub NEXT { my ($rpt,$pth,$bas,$idx,$ext) =
 	map {[ ( ref eq q(ARRAY)) ? (@$_[0,1]) : (/^(.*\/)?([^\/]*)$/) && ((($1) or (undef)),($2)) ]} (shift);
 	while (1) { ( return ((wantarray) ? (@$_) : ( shift @$_ ))) for ( grep {((@$_) or ((($rpt--) <= 0 ) && (return)))}
 		map {[ &HANDLE([$pth,$_],[1,2,0,1]) ]} grep { !( -e $pth.( &NAME($_))) } [$bas,++$idx,$ext] ) }}
+# An input array or string is split into the path, which must be writable, and the file object keys
+# The file object index is incremented until an open file name is located
+# The file is created under an exclusive request and a locked writeable handle is returned
+# The file creation is retried on a subsequent index after failure a limited number of times
 
 	# warn blocked pass-through? blocking is bad idea?
 # Returns a list of files located at some level below the specified path that match a specified case-(in)senstive pattern
@@ -1221,12 +1373,24 @@ sub LIST { my ($pth,$fil,$lvl) = (( map { (( &PATH($$_[0]) or (return)), ( &NAME
 	map { (( map {[$pth,$_]} grep {(( -f ($pth.$_)) && ( $_ =~ $fil ) && ( $_ eq ( &NAME($_))))} (($lvl < 1) ? (@$_) : ())),
 		( map {( &LIST([[$pth,$_],$fil],($lvl-1)))} grep { ( -d ($pth.$_)) && !(m/^tmp$/i) } (($lvl) ? (@$_) : ()))) }
 	map {[ sort { our ($a,$b); ($a cmp $b) } grep {!(/^\./)} ( readdir $_ ) ]} grep {(( opendir $_, $pth ) or (return))} ( my ($DHI)) }
+# An input array or string is split into the path and the file match Regexp
+# Hidden files and 'tmp' directories are omitted
+# Files must match the pattern and adhere to canonical naming conventions
+# Results are alpha sorted as path and file doublets
+# A negative level returns files at all directory depths
 
-# Returns the set of file object keys corresponding to an input file string
+# Returns the set of file object keys [ key, index, extension ], corresponding to an input file string
 sub KEYS { my ($r); (( map { (($r) ? (defined) : (((length) <= 255 ) && !(/\*/))) ? ( grep { ( @$_ == 3 ) && do {
 	$$_[1] =~ s/_//g; $$_[1] += 0; ($r) && !(length $$_[2]) && do { ( undef $$_[2] ); $$_[1] ||= (undef); }; 1 }}
 		[ /^([*A-Za-z][*\w-]*?)((?:_\d{3})*)((?:\.[A-Za-z0-9]+)*)$/ ] ) : (($r) ? [ ((undef)x(3)) ] : ()) }
 	map { $r = !!(shift); (( ref eq q(ARRAY)) ? (( !($r) && ( &NAME($_))) or ()) : ($_)) } (shift)), (undef))[0] }
+# Input arrays, if the Regexp flag in the second input is false, are run first through NAME, or failed out
+# If the Regexp flag is set but the input is UNDEF then all three keys are set to UNDEF
+# Processing continues with the Regexp flag for a defined input, or for strings within the CHAR limit of 255 that have no wildcards
+# A pattern match isolates the key (leading alpha and trailing word chars including dashes with wildcards permitted anywhere),
+#	index (sets of underscores followed by three digits), and extension (sets of dots followed by alphanumeric chars) or fails out
+# The index is converted to a number after joining digits
+# For Regexp mode with an empty extension, the extension is undefined and the index is undefined if zero
 
 # Returns the normalized file name string or regular expression corresponding to an input set of file object keys
 sub NAME { my ($r); (( map { ($r) ? ( map {( qr($_))} (('(?').(( pop @$_ ) ? ( q(i)) : ( q())).( q(:^)).( join q(), (@$_)).('$)'))) :
@@ -1237,6 +1401,21 @@ sub NAME { my ($r); (( map { ($r) ? ( map {( qr($_))} (('(?').(( pop @$_ ) ? ( q
 		( map { (($r) && !(defined)) ? ('(?:\.[A-Za-z0-9]+)*') : ( grep { s/^\.?/\./; ($r) && ( s/\./\\\./g ); 1 }
 			( /^((?:\.?[A-Za-z0-9]+)*)$/ )) } ($$_[2])), (($r) && !!($$_[3])) ]}
 	map { (( $r = !!(shift)) && ( ref eq q(Regexp))) ? (return $_) : ( ref eq q(ARRAY)) ? [ @$_[0..3]] : (( &KEYS($_,$r)) or ()) } (shift)), (undef))[0] }
+# If second input (RegExp flag) is true and leading input is a Regexp object, then that object is returned directly
+# If input is not an array it is passed first through KEYS or failed out
+# A key matching the wildcard '*' that is not in Regexp mode is failed out
+# In Regexp mode an undefined key is converted to the non-greedy arbitrary match '.*?'
+# Otherwise the call fails out unless the key is leading alpha and trailing word chars including
+#	dashes with wildcards permitted anywhere; Wildcards are converted to arbitrary match '.*?'
+# In Regexp mode an undefined index is converted to match sets of unscores followed by three digits
+# Non-positive index values are set to the empty string ''
+# The index is joined on underscore every three characters with leading zeroes as needed
+# In Regexp mode an undefined extension is converted to match sets of dots followed by alphanumeric chars
+# Otherwise the call fails out unless extension is sets of dots (leading dot optional) followed by alphanumeric chars
+# A leading dot is forced; In Regexp mode dots are escaped
+# A fourth entry indicating case insensitivity retains its truth value in Regexp mode, or is set false
+# In Regexp mode the string is joined, and padded with suitable endcaps, and quoted into a Regexp object
+# Otherwise, the string is joined and failed out if it is longer than the CHAR limit of 255
 
 	# length here, elsewhere combined to total length ?
 # Returns the normalized path string corresponding to an input path object, optionally creating path or enforcing writeability
@@ -1246,14 +1425,18 @@ sub PATH { my ($i); my ($pth,$mod,$msk,$str) = ( [ map {(($_).q(/))} map { (/^(?
 	0+(0,1,2)[(shift)], (( grep {(($_ >= 0) && ($_ <= 04777))} map { (/^0/) ? (oct) : (defined) ? 0+($_) : () } (shift)), 00777 )[0] );
 	while (@$pth) { $str .= ( shift @$pth ); (return undef) unless (( -d $str ) ? ((@$pth) || (($mod) ? ( -w $str ) : ( -r $str ))) :
 		(($mod > 1) && !( -e $str ) && ( mkdir $str, $msk ) && ( -w $str ))) } ($str) }
+# Acceptable path elements are '', '.', '..', '~', corresponding to root, current, parent, and home, and also word characters with dashes
+# '~' may be leading only; '' and '.' are omitted if not leading; '.' is prefixed if word characters are leading
+# An undefined or empty path canonicalizes to './'; All paths have a trailing slash
+	# relax requirements on path elements?
 
-# recall issue of exhaustion of file descriptors & manual lookup & close ...
+	# recall issue of exhaustion of file descriptors & manual lookup & close ...
 # Deselects, closes, and frees extraneous references to associated filehandle object upon exit of scope
 sub DESTROY { do { (($_) eq (select)) && ( select STDOUT ); ( return ( close $_ )); } for ( grep {(defined)} ${((shift) or (return))} ); () }
 
 } # End of package Local::FILE
 
-# is this running slower than the old version??
+	# is this running slower than the old version??
 {; package Local::HISTOGRAM; BEGIN { our (@ISA) = ( q(Local::TENSOR), q(ARRAY)) }; use overload # Encapsulates HISTOGRAM object definition and manipulation
 	q(@{})		=> sub { ${(shift)}{TNSR}},
 	q(bool)		=> sub { 1 },
@@ -1527,20 +1710,4 @@ sub LEAST_SQUARES { my ($x,$y) = map { my ($t) = $_; my ($e) = ( map {( &::MIN((
 } # End of package Local::POLY
 
 1
-
-# TODO / NOTES
-# TXT
-# MATRIX
-# 4.0
-# clip long output to scinote
-# include both SAMPLES and SURVIVE or RESIDUE or RESCALE
-# do jet substructure variables
-# port in compiled c++ & use for MT2 / ANY user defined package additions / libraries ... also python / perl?
-# read in lhco extension variables to array
-# settle issues of all flat / all merged FLOW & reporting
-# fast jetfinder & SIFT & merge limits ... *USE jet tool as merger ...
-# global vars at head
-# MInOS & Gradient descent, etc.
-# AUTO label axes
-# automate statistic AND associated label computatoin / assignment?
 

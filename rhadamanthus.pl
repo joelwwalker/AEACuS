@@ -19,7 +19,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-require q(aeacus.pl); ( &UNIVERSAL::VERSION(q(Local::AEACuS),3.25)); our ($OPT);
+require q(aeacus.pl); ( &UNIVERSAL::VERSION(q(Local::AEACuS),3.26)); our ($OPT);
 
 # Read event plotting specifications from cardfile
 my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -134,7 +134,7 @@ do { my (@t) = map {((@{$_||[]} == 1) ? do { my ($t) = @$_; [ map {[$t]} (1..$di
 					([q(./),($f),($e)],[($d),($f),q(.py)]) : ([($d),($f),($e)])))[0] },
 	); do { use Fcntl qw(:seek); local ($.,$?); my ($t,$FHO) = ( tell DATA ); ( defined $fpo ) ?
 		do { ( $FHO = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo)) } :
-		do { ( open $FHO, q(|-), q(python >/dev/null 2>&1)) or ( die 'Cannot open pipe to Python' ) };
+		do { ( open $FHO, q(|-), q(python 2>&1)) or ( die 'Cannot open pipe to Python' ) };
 		local ($_); while (<DATA>) { s/<\[(\w+)]>/$dat{$1}/g; ( print $FHO $_ ) }
 		( close $FHO ) && (($? >> 8) == 0 ) && ( defined $fpo ) && ( chmod 0755, $fpo ); ( seek DATA, $t, SEEK_SET ) }}}
 
@@ -169,13 +169,11 @@ __DATA__
 
 import sys
 if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 6))) :
-	print( "RHADAManTHUS requires Python versions 2.6, 2.7, or 3.X" )
-	sys.exit(1)
+	sys.exit( 'RHADAManTHUS requires Python versions 2.6, 2.7, or 3.X' )
 
 import matplotlib as mpl
 if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) :
-	print( "RHADAManTHUS requires MatPlotLib version 1.3.0 or Greater" )
-	sys.exit(1)
+	sys.exit( 'RHADAManTHUS requires MatPlotLib version 1.3.0 or Greater' )
 
 import warnings as wrn; wrn.filterwarnings("ignore")
 
