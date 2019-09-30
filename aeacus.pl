@@ -18,6 +18,7 @@
 use strict; use sort q(stable); use constant +{
 	NIL => 10**-8, EPS => 0.0005, ONE => 1.0, BIG => 500, INF => 10**+8, TRY => 25, PRT => 12,
 	TUP => 64, RPT => 3, LPR => 100, BLK => 6, BMX => 52, SET => 10**+4, CAP => 5*10**+5,
+	EXP => qr/[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?/i,
 	PI => 4*( atan2 (1,1)) };
 
 # Register named and ordered parameter options from the command line input
@@ -44,7 +45,7 @@ my ($flw,$stc,$paf) = (($$crd{evt}) or ($$crd{obj})) && ( &ANALYSIS_CODE($crd));
 
 # Establish primary file name base and cross section specifications
 my ($fil,$xsc,$cap,$ipb,$lhc,$pre,$out) = map { (/^(.*\/)?([^\/*]*)$/) or ( die 'Invalid file specification' );
-	( [[ (($1) or q(./Events/)), ($2) ]], (( &MAX(0,0+( &$OPT( q(xsc))))) or (undef))) } grep {(defined)} ( &$OPT( q(fil)));
+	( [[ (($1) or q(./Events/)), ($2) ]], ( map {((defined) ? (0+ $_) : (undef))} ( &$OPT( q(xsc))))) } grep {(defined)} ( &$OPT( q(fil)));
 # If the FIL parameter includes the '/' character then the path is treated literally; it otherwise defaults to './Events/' if FIL is defined
 # If the FIL parameter was defined then the XSC cross-section parameter is read subsequently as a positive value in PB (otherwise undefined)
 # Wildcards are not permissible in an explicit singular filename at this level
@@ -103,14 +104,16 @@ my (@fil); my (@chn) = map { my ($i,$chn) = (($_), (($$crd{cut}{chn}[$_]) or (($
 LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) { use Fcntl qw(:seek); ($m == 2) or ($paf) or (next LOOP); my (@FHT,@xsc);
 	FILE: for my $fil ( sort SORT_LIST_ALPHA (@$f)) { if (($m == 2) && ( $$fil[1] =~ /\.root$/ )) { ( &ROOT_2_LHCO($fil)) or
 		do { print STDERR 'CANNOT CONVERT TO LHCO FROM FILE '.$$fil[0].$$fil[1]."\n"; (next FILE) }; ( $$fil[1] =~ s/\.root$/.lhco.gz/ ); }
-		my ($FHI,$lns,$cut) = ( &Local::FILE::HANDLE($fil)) or do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (next FILE) };
-		push @xsc, [ my ($xsc) = ((defined $xsc) ? ($xsc) : ( &PYTHIA_XSEC($fil))) ]; local ($_); LINE: while (<$FHI>) {
-	( m/^\s*#*\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)\s+PB\s+CROSS\s+SECTION/i ) ?  do { ( push @xsc, [ (0+ $1) ] ) unless (defined $xsc) } :
+		my ($FHI) = ( &Local::FILE::HANDLE($fil)) or do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (next FILE) };
+		push @xsc, [ my ($xsc) = ((defined $xsc) ? ($xsc) : ( &PYTHIA_XSEC($fil))) ];
+		my ($nbr,$trg,$wgt,$lns,$cut); local ($_); LINE: while (<$FHI>) {
+	( m/^\s*#*\s*(${\EXP})\s+PB\s+CROSS\s+SECTION/i ) ?  do { ( push @xsc, [ (0+ $1) ] ) unless (defined $xsc) } :
 	( m/^\s*#*\s*<MGGenerationInfo>/i ) ? do { ( push @xsc, [ &MADGRAPH_XSEC($FHI) ] ) unless (defined $xsc) } :
-	( m/^\s*(\d+)\s+(\d+)/ ) && do { ($1 eq q(0)) ? ( $lns = [ $_ ] ) : ($2 ne q(6)) ? ( push @{$lns||[]}, $_ ) : ($lns) && do {
+	( m/^\s*(\d+)\s+(\d+)/ ) && do { ($1 eq q(0)) ? do { ($nbr,$trg,$wgt) = map {((length) ? (0+ $_) : (undef))}
+		( m/^\s*0\s+(\d+)(?:(?:\s+(\d+))(?:\s+(${\EXP}))?)?/ ); $lns = [ $_ ] } : ($2 ne q(6)) ? ( push @{$lns||[]}, $_ ) : ($lns) && do {
 	if ( !(@FHT) or (($m == 2) && ($cap > 0) && ($FHT[-1][1] == $cap))) { push @FHT, [
 		grep { (defined) or ( die 'Cannot open temporary file for read/write' ) } ( &Local::FILE::HANDLE()) ]; }
-	if ($m == 2) { print "\n", @$lns, $_; } else { ( my ($xit,$vls) = (($paf)->(
+	if ($m == 2) { print "\n", @$lns, $_; } else { ( my ($xit,$vls) = (($paf)->( [ $nbr, $trg, $wgt ],
 		( scalar &LORENTZ(( shift @{( &EVENT_OBJECTS($_) || [] )} ),1,1,!1)), ( scalar &EVENT_OBJECTS($lns))))) or (next LINE);
 		${ $cut ||= [ map {[0,!1]} (0..(0+@{$flw||[]})) ] }[$xit][0]++; if ($xit < 0) { print q().( join "\t",
 			map {( sprintf (( shift @$_), ( shift @$_ )))} ( [ q(%07.7i), 1+$FHT[-1][1]], @$vls ))."\n"; } elsif (@$vls > 1) {
@@ -204,9 +207,10 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 	map { my (%t); ( push @{ $t{(shift @$_)} ||= [] }, $_ ) for (@$_); map {( $t{$_} )} sort { our ($a,$b); ( $a <=> $b ) } ( keys %t ) } 
 	map { my ($h,$l,$p) = @$_; [ map { my ($k,$c,$f,$a,$z) = @$_; map { my ($i) = $_; map { my ($e,$m,@o) = ( $_,
 		( !( &MATCH_VALUE( $$_{cut}, (undef))) or ((0) <=> (($p) && ( &OUTPUT_VALUE( $$_{out} ))))), (($p) ? () : ( &OUTPUT_OBJECT( $$_{out} ))));
-		map { my ($t) = $_; [ $i, (($t) ? ([$h,@$t[0,1]],!1) : ($m) ? ([$h,$k,$i],($m > 0)) : ((undef),!1)), ( sub { my ($o,$v) = (shift,shift);
-			( return ((defined) ? [ q().( q(%7.1i), q(%7.1f), q(%7.3f), q(%07.7i))[(($t) ? ( ${{ eta => 2, phi => 2 }}{$$t[0]} || 1 ) :
-			(defined $f) ? 0+(0..3)[$f] : ((($_) == (int)) ? (0) : ((abs) >= (10)) ? (1) : (2)))], 0+($_) ] : [ q(  UNDEF), (undef) ] )) for
+		map { my ($t) = $_; [ $i, (($t) ? ([$h,@$t[0,1],0],!1) : ($m) ? ([$h,$k,$i,0+(((0)x(4)),1)[$f]],($m > 0)) : ((undef),!1)), ( sub {my ($o,$v) = (shift,shift);
+			( return ((defined) ? [ q().( q(%7.1i), q(%7.1f), q(%7.3f), q(%07.7i), q(%+15.8E))[(($t) ? ( ${{ eta => 2, phi => 2 }}{$$t[0]} || 1 ) :
+			(defined $f) ? 0+(0..4)[$f] : ((($_) == (int)) ? (0) : ((abs) >= (10)) ? (1) : (2)))], 0+($_) ] :
+				[ (( !((((!1)x(4)),1)[$f])) ? q() : q(        )).q(  UNDEF), (undef) ] )) for
 			(($t) ? ( $$v{$$t[0]}[$$t[1]] = ${ $$o{$k}[$i][$$t[2]] || +{}}{$$t[0]} ) :
 			( map { ($m) ? (($m < 0) or ( &MATCH_VALUE( $$e{cut}, $_ )) or (return undef)) : (return); ($$_) }
 			\( $$v{$k}[$i] = (($c)->($e,$o,$v,$i))))); } ) ] } ((undef),@o) }
@@ -267,11 +271,14 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 	[ tfs => sub {( &F_MATRIX_SHAPE( &IOBJ ))}, 2 ],
 		# Filter on user-defined composite event statistics
 	[ var => sub { my ($sub,@key) = map { ( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ ) } (${$_[0]{key}||[]}[0]);
-		(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@key)))} ], ], 1 ], );
+		(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@key)))} ],
+		# Filter on user-defined event weight statistics
+	[ wgt => sub {( $_[1]{wgt} )}, 4, 0 ],
 		# Construct event analysis closure and list of reported statistics
-	( [ map {[ @{ $k[$_] }[ @{ $i[$_] } ]]} (0..(@i-1)) ], [ map {(@$_)} (@k) ], sub { my ($o,$v) = (+{},+{});
-		@$o{( qw( cal obj ))} = ( [((shift) or (return))], [[ @{((shift) || (return))} ]] ); ( -1, [ map { my ($i) = $_; map {(@$_)}
-			grep { my ($t); do { ( return ($i,$_)) if ($t) } for [ map { !(defined) && ($t = 1) } ( @$_[ @{ $i[$i] } ] ) ]; 1 }
+	], 1 ], ); ( [ map {[ @{ $k[$_] }[ @{ $i[$_] } ]]} (0..(@i-1)) ], [ map {(@$_)} (@k) ], sub { my ($o,$v) = (+{},+{});
+		@$o{( qw( nbr trg wgt cal obj ))} = ( @{(shift)||[]}[0..2], [((shift) or (return))], [[ @{((shift) || (return))} ]] ); ( -1,
+			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ($i,$_)) if ($t) } for
+			[ map { !(defined) && ($t = 1) } ( @$_[ @{ $i[$i] } ] ) ]; 1 }
 			[ map {(($_)->($o,$v))} (@{ $c[$i] }) ] } (0..(@i-1)) ] ) } ) }
 
 #	handle matrixing for degenerate flow levels ...
@@ -298,10 +305,10 @@ sub FORMAT_HEADER { my ($prm) = !(!(shift)); my ($evt,$xsc,$lum,$srv,$cut,$flw,$
 		( sprintf q(%07.3f), ( 100*(1-($pas/$evt)))).' PERCENT CUMULATIVE EFFICIENCY'."\n" .
 		(($s > 0) ? "\n".'CUT_KEY'."\t".'SURVIVE'.(( defined $xsc ) ? "\t".'PB_AREA' : q())."\t".'%_LOCAL'."\t".'%_TALLY'."\n".($t) : q()) } : q()) .
 	((($prm) && ($cut) && ($pas)) ? ( "\n".( join "\t", ( q(EVENT_#),
-		( map {(( uc $$_[1] ).( q(_)).( sprintf q(%3.3i), $$_[2] ))} ( @{$stc||[]} ))))."\n" ) : q()))) }
+		( map {((( q())x($$_[3])), (( uc $$_[1] ).( q(_)).( sprintf q(%3.3i), $$_[2] )))} ( @{$stc||[]} ))))."\n" ) : q()))) }
 # went to q(%+10.3E) everywhere ... don't break other things elsewhere ... DONE/TEST
 # ensure MERGING, ETC works for (-) xsec, weights, NLO, ETC
-# protect $lum *= ($xsc/$evt)? $evt/$xsc?
+# protect $lum *= ($xsc/$evt)? $evt/$xsc? lums are negative too?
 
 # Returns the initial (or sequential) match of an input string against a list of regular expressions, optionally with interpolation and replacement
 sub REX_LIST { my ($mod) = 0+(0..2)[(shift)]; my ($ref,$str) = map {(\($_),( qq($_)))} (shift); do { my ($rex,$val,$rpl) = @$_;
@@ -329,7 +336,7 @@ sub AUXILIARY_CHANNEL { my (@err); my ($chn) = grep { ( ref eq q(HASH)) or (retu
 		grep { !( &MATCH_VALUE( $$_[3], (undef))) } map {[(@$_)]} (@{$$chn{esc}||[]})) or
 		do { push @err, 'NO ACTIVE SELECTION FOR FILE'.$$fil[0].$$fil[1].' IN CHANNEL '.$cid; (next CHN) };
 	( my ($FHT) = ( &Local::FILE::HANDLE())) or do { push @err, 'CANNOT OPEN TEMPORARY FILE FOR READ/WRITE'; (next CHN) };
-	my ($cut,$flw) = ( [ map {[0,!1]} (0..(0+@cut)) ], [ map {[ map {[ q(cut), (($$_[0]) ? q(inv) : q(esc)), 0+$$_[1] ]} (@$_) ]} (@cut) ] );
+	my ($cut,$flw) = ( [ map {[0,!1]} (0..(0+@cut)) ], [ map {[ map {[ q(cut), (($$_[0]) ? q(inv) : q(esc)), 0+$$_[1], 0 ]} (@$_) ]} (@cut) ] );
 	local ($_); while (<$FHI>) { my ($l,$v) = ((/^\s*(\d+)/) ? ( $_, [ map { (/^UNDEF$/) ? (undef) : (0+ $_) } ( split ) ] ) :
 		do { print $FHT $_; (last) } ); for my $i ((0..(@cut-1)),-1) { my ($t); if ($i < 0) { print $FHT $l } else {
 		my ($v) = [ map { my ($x,(undef),$k,$c) = @$_; !(($x) xor ( &MATCH_VALUE( $c, (($k)->($v))))) && ($t = 1) } (@{$cut[$i]}) ];
@@ -349,22 +356,21 @@ sub PYTHIA_PATH { my ($FHI,$pth) = grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q
 sub PYTHIA_XSEC { use Fcntl qw(:seek); my ($FHI) = grep {( seek ($_,-80,SEEK_END))} ( &Local::FILE::HANDLE(
 	grep { ( $$_[-1] =~ s/(?:^|\/)([\w-]+?)_(?:delphes|pgs)_events\.lhco(?:\.gz)?$/${1}_pythia.log/ ) or (return undef) }
 	map {[ ( ref eq q(ARRAY)) ? (@$_) ? (@$_) : (return undef) : (($_),((@_)?(shift):())) ]} (shift)) or (return undef)); local ($_); while (<$FHI>) {
-	( m/^\s*Cross\s+section\s+\(pb\)\s*:\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)/i ) && ( return (0+ $1)) } (undef) }
+	( m/^\s*Cross\s+section\s+\(pb\)\s*:\s*(${\EXP})/i ) && ( return (0+ $1)) } (undef) }
 
 # Returns the <MGGenerationInfo> tag event cross section associated with an open, cued filehandle
 sub MADGRAPH_XSEC { my ($FHI,$evt,$mch,$wgt) = grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q(Local::FILE)))) && ((tell $_) >= 0) or (return) } (shift);
 	local ($_); while (<$FHI>) { ( m/^\s*#*\s*<\/MGGenerationInfo>/i ) ? (last) : ( m/^\s*#*\s*Number\s+of\s+Events\s*:\s*(\d+)/i ) ? ( $evt = (0+ $1)) :
-	( m/^\s*#*\s*(Matched\s+)?Integrated\s+weight\s+\(pb\)\s*:\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)/i ) &&
+	( m/^\s*#*\s*(Matched\s+)?Integrated\s+weight\s+\(pb\)\s*:\s*(${\EXP})/i ) &&
 		(($mch,$wgt) = (((($mch) && !($1)) or (($2) eq q(-1.0))) ? (next) : (!!($1),(0+ $2)))); }
 	map { (wantarray) ? (@$_) : (return $$_[0]) } ((( defined $wgt ) && (($mch) or ($evt > 0))) ? [ ($wgt), (($mch) ? () : ($evt)) ] : ()) }
-# go to defined not >0 here and everywhere ... DONE??
 
 # Returns the AEACuS header information, event count and cross section associated with an open, cued filehandle
 sub AEACUS_XSEC { my ($FHI,$e,$x,$l,$s,$i,@t) = grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q(Local::FILE)))) &&
 	((tell $_) >= 0) or (return) } (shift); local ($_); while (<$FHI>) { push @t, $_;
 		( m/^\s*(\d+)\s+EVENT\s+SAMPLES?/i ) ? do { $e = (0+ $1) } :
-		( m/^\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)\s+PB\s+CROSS/i ) ? do { $x = (0+ $1) } :
-		( m/^\s*([-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?)\s+PER\s+PB\s+SCALED/i ) ? do { $l = (0+ $1) } :
+		( m/^\s*(${\EXP})\s+PB\s+CROSS/i ) ? do { $x = (0+ $1) } :
+		( m/^\s*(${\EXP})\s+PER\s+PB\s+SCALED/i ) ? do { $l = (0+ $1) } :
 		( m/^\s*(\d+)\s+SAMPLES?\s+SURVIVES?/i ) ? do { $s = (0+ $1) } :
 		( m/^\s*EVENT_#/i ) ? do { my ($j); $i = +{ map {((lc) => ($j++))} ( split ) }; (last) } : (next) }
 	((wantarray) ? ([$e,$x,$l,$s],$i,\@t) : ($x)) }
@@ -398,7 +404,7 @@ tree = ROOT.TFile.Open( '${pth}${run}/${tag}_delphes_events.root', 'READ' )
 handle = open( '${pth}${run}/delphes_events.lhco', 'w' )
 nE = 1; handle.write( '   #  typ      eta      phi      pt    jmas   ntrk   btag  had/em   dum1   dum2\\n' )
 for e in tree.Delphes :
-  nO = 1; handle.write( '{:4d} {:13d} {:8d} {:+10.3E}\\n'.format( 0, nE, 0, e.Event[0].Weight ))
+  nO = 1; handle.write( '{:4d} {:13d} {:8d} {:+15.8E}\\n'.format( 0, nE, 0, e.Event[0].Weight ))
   for o in e.Photon :
     nO = printObject( nO, typ=0, eta=o.Eta, phi=o.Phi, pt=o.PT, hadem=o.EhadOverEem )
   for o in e.Electron :
