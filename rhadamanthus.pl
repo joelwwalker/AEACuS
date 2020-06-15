@@ -19,7 +19,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-require q(aeacus.pl); ( &UNIVERSAL::VERSION(q(Local::AEACuS),3.26)); our ($OPT);
+require q(aeacus.pl); ( &UNIVERSAL::VERSION(q(Local::AEACuS),3.28)); our ($OPT);
 
 # Read event plotting specifications from cardfile
 my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -29,7 +29,7 @@ my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
 		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
 	@$crd{( qw( plt ))}} ( &$OPT( q(crd)));
 
-# Establish whether Python 2.6/2.7 and MatPlotLib 1.3.0+ are suitably configured for piped system calls
+# Establish whether Python 2.7/3.X and MatPlotLib 1.3.0+ are suitably configured for piped system calls
 my ($cpl) = ( &CAN_MATPLOTLIB());
 
 # Generate histograms
@@ -130,7 +130,7 @@ do { my (@t) = map {((@{$_||[]} == 1) ? do { my ($t) = @$_; [ map {[$t]} (1..$di
 				( map { (/^[\w:~-]+$/) ? ($_) : ( sprintf "HST_%3.3i", $i ) } qq($$nam[0])),
 				( map { s/^\.//; ( ${{ map {( $_ => 1 )} ( qw( pdf eps svg png jpg )) }}{$_} ) ? ( q(.).($_)) : ( q(.pdf)) } ( lc $$fmt[0] )));
 				((undef,$fpo) =	map {( join q(), (@$_))} ((($$fmt[1] > 0) or ( !($cpl) &&
-					do { print STDERR 'CANNOT VERIFY PYTHON 2.6/2.7/3.X WITH MATPLOTLIB 1.3.0+ (DELIVERING SCRIPT LITERAL)'."\n"; 1 } )) ?
+					do { print STDERR 'CANNOT VERIFY PYTHON 2.7/3.X WITH MATPLOTLIB 1.3.0+ (DELIVERING SCRIPT LITERAL)'."\n"; 1 } )) ?
 					([q(./),($f),($e)],[($d),($f),q(.py)]) : ([($d),($f),($e)])))[0] },
 	); do { use Fcntl qw(:seek); local ($.,$?); my ($t,$FHO) = ( tell DATA ); ( defined $fpo ) ?
 		do { ( $FHO = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo)) } :
@@ -168,8 +168,8 @@ __DATA__
 #!/usr/bin/env python
 
 import sys
-if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 6))) :
-	sys.exit( 'RHADAManTHUS requires Python versions 2.6, 2.7, or 3.X' )
+if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 7))) :
+	sys.exit( 'RHADAManTHUS requires Python versions 2.7 or 3.X' )
 
 import matplotlib as mpl
 if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) :

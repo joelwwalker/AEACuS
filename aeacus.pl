@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 3.27	#
-# March '11 - May '20		#
+# aeacus.pl Version 3.28	#
+# March '11 - June '20		#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -12,7 +12,7 @@
 #*******************************#
 
 # Require minimal perl version and specify AEACuS package version
-{; package Local::AEACuS; require 5.008_009; our ($VERSION) = 3.27; }
+{; package Local::AEACuS; require 5.008_009; our ($VERSION) = 3.28; }
 
 # Apply a strict coding pragma and define numerical constants
 use strict; use sort q(stable); use constant +{
@@ -1292,38 +1292,48 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 # mask endbins for avg, etc.?  user defined functions?
 # sometimes you want bin counts ... sometimes values weighted by endcounts ... accessible? should it be? is what is there useful/good/complete/consistent?
 # need to test & consider logic of these "nonlocal" / unbinned calculations ... & make sure *once only* computation
-# don't remove ALL space ... some is invalid?
 # move logical operators down here with symbols?
 # Returns the compound evaluation or closure encapsulation of an input operation string
 {; my ($rex); sub STRING_FUNCTIONAL { my ($str,$vls,@map) = (( grep { s/\s+//g; ( m'(?i:[^-+/*^\$\d.)(,A-Z])' ) && (return undef); 1 }
 	map {( qq($_))} (shift)),( map { ( ref eq q(ARRAY)) ? [(undef),(@$_)] : () } (shift))); $rex ||= do {
-		my ($val) = qr'(?:(?<![-+\d.)])[-+](?![\$@]?[\d.]+\^))?(?:\d+\.\d*|\d*\.\d+|[\$@]?\d+)'; [
-			[ qr"^(${val})$", sub {[1,@_[1..3]]} ],
-			[ qr"(?<!(?i:[A-Z]))\((${val})\)", sub {[2,@_[1..3]]} ],
-			[ qr"()((?i:[A-Z]+))\((${val}(?:,${val})*)?\)", sub {[3,@_[1..3]]} ],
-			[ qr"(${val})(\^)(${val})(?!\^)", sub {[4,@_[1..3]]} ],
-			[ qr"(?<![/*^])(${val})([/*])(${val})(?!\^)", sub {[4,@_[1..3]]} ],
-			[ qr"(?<![-+/*^])(${val})([-+])(${val})(?![/*^])", sub {[4,@_[1..3]]} ]] }; { my ($mod,$opn,$arg) =
+		my ($val) = qr"(?:(?>${\EXP})|(?>[-+]?[\$@]\d+))"; [
+			[ qr"^(${val})$", sub {[1,@_[1..1]]} ],
+			[ qr"(?<!(?i:[A-Z]))\((${val})\)", sub {[2,@_[1..1]]} ],
+			[ qr"(?<=[-+])(?=[-+])(${val})(?:(?=[-+/*,)])|$)", sub {[2,@_[1..1]]} ],
+			[ qr"((?i:[A-Z]+))\((${val}(?:,${val})*)?\)", sub {[3,(undef),@_[1..2]]} ],
+			[ qr"(?:^|(?<=[-+/*^(,]))(?![-+])(${val})(\^)(${val})(?:(?=[-+/*,)])|$)", sub {[4,@_[1..3]]} ],
+			[ qr"(?:^|(?<=[-+(,]))(?![-+])(${val})([/*])(${val})(?:(?=[-+/*,)])|$)", sub {[4,@_[1..3]]} ],
+			[ qr"(?:^|(?<=[(,]))(${val})([-+])(${val})(?:(?=[-+,)])|$)", sub {[4,@_[1..3]]} ]] }; { my ($mod,$opn,$arg) =
 	do { my ($mod,@c) = @{ ${ ( &REX_LIST( 2, $str, ( map {[ @$_[0,1], ( q(@).(0+ @map)) ]} (@$rex)))) || \(!1) } || [] };
-		( 0+($mod), $c[1], [ map { my ($s,$o,$n) = /^([-+]?)([\$@]?)([\d.]+)$/; map {(( $s eq q(-)) ? do { my ($sub) = $_;
+		( 0+($mod), $c[1], [ map { my ($s,$o,$n) = /^([-+]?)([\$@]?)(.*)$/; map {(( $s eq q(-)) ? do { my ($sub) = $_;
 			sub { -1*( grep { (defined) or (return undef) } ( $sub->()))[0] }} : ($_))} (( length $o ) ? ( $o eq q($)) ?
-			sub { ( grep { (defined) or (return undef) } ($$vls[$n]))[0] } : ( splice @map, $n, 1, undef ) :
-			sub { 0+($n) } ) } map {( split q(,))} (@c[0,2]) ] ) };
+			sub { ( grep { (defined) or (return undef) } ($$vls[(int $n)]))[0] } : ( splice @map, (int $n), 1, (undef)) :
+			sub { (( defined $n ) ? (0+ $n) : (undef)) } ) } map {( split q(,))} (@c[0,2]) ] ) };
 	push @map, map { my ($sub) = $_; sub { ( grep { (defined) && !(/inf/) && !(/nan/) or (return undef) } ( $sub->( map {( $_->())} (@$arg))))[0] }}
 		($mod == 1) ? do { my ($sub) = (shift @$arg); ( return (($vls) ? ( $sub->()) : ( sub { ($vls) = [(undef),(@_)]; ( $sub->()) } ))) } :
 		($mod == 2) ? (shift @$arg) :
 		($mod == 3) ? do { my ($sub,$map) = ((((@$arg) ? +{
 			q(sin)	=> sub { ( sin (shift)) },
 			q(cos)	=> sub { ( cos (shift)) },
+			q(tan)	=> sub { ( map { ( scalar ( eval { (( sin ($_)) / ( cos ($_))) } )) } (shift))[0] },
+			q(asn)	=> sub { ( map { ( scalar ( eval { atan2 ( $_, sqrt( 1 - $_*$_ )) } )) } (shift))[0] },
+			q(acs)	=> sub { ( map { ( scalar ( eval { atan2 ( sqrt( 1 - $_*$_), $_ ) } )) } (shift))[0] },
 			q(atn)	=> sub { ( atan2 ((shift), ((@_) ? (shift) : (1)) )) },
 			q(exp)	=> sub { ( map { (@_) ? ((shift) ** ($_)) : ( exp ($_)) } (shift))[0] },
 			q(log)	=> sub { ( scalar ( eval { ( log (shift)) / ((@_) ? ( log (shift)) : (1)) } )) },
+			q(snh)	=> sub { ( map { ( exp (+$_) - exp (-$_)) / 2 } (shift))[0] },
+			q(csh)	=> sub { ( map { ( exp (+$_) + exp (-$_)) / 2 } (shift))[0] },
+			q(tnh)	=> sub { ( map { (( 1 - exp (-2*$_)) / ( 1 + exp (-2*$_))) } (shift))[0] },
+			q(ash)	=> sub { ( map { ( log ( $_ + sqrt( $_*$_ + 1 ))) } (shift))[0] },
+			q(ach)	=> sub { ( map { ( scalar ( eval { ( log ( $_ + sqrt( $_*$_ - 1 ))) } )) } (shift))[0] },
+			q(ath)	=> sub { ( map { ( scalar ( eval { ( log ( 1 + $_ ) - log ( 1 - $_ )) / 2 } )) } (shift))[0] },
 			q(srt)	=> sub { ( scalar ( eval { ( sqrt (shift)) } )) },
 			q(abs)	=> sub { ( abs (shift)) },
 			q(int)	=> sub { ( &INT_CEILING_FLOOR ((shift), 0 )) },
 			q(clg)	=> sub { ( &INT_CEILING_FLOOR ((shift), +1 )) },
 			q(flr)	=> sub { ( &INT_CEILING_FLOOR ((shift), -1 )) },
 			q(rnd)	=> sub { ( &ROUND (@_)) },
+			q(qnt)	=> sub { ( &INT_QUOTIENT ((shift), ((@_) ? (shift) : (1)), -1 ))[0] },
 			q(mod)	=> sub { ( &INT_QUOTIENT ((shift), ((@_) ? (shift) : (1)), -1 ))[1] },
 			q(ife)	=> sub { ( $_[ 0+( !(shift)) ] ) },
 			q(not)	=> sub { 0+( !(shift)) },
@@ -1891,7 +1901,7 @@ sub LEAVES {( map {((wantarray) ? ( grep {((defined) && !($$_{PRM}))} map { @{${
 # Returns the most proximal TREE::LEAF object pair grafted into an input TREE object
 sub NEIGHBORHOOD { my ($obj,$slf,$rnk,$ndx) = (shift); $$obj{NHD} ||= [ ( sort $srt ( map {(( $nhd ||=
 	( sub {( grep {((wantarray) or ( return $_ ))} map {[ $_, 0+(($$_{OBJ}{RNK}) -> ($_)), ( $$_{NDX} = ++$$_{OBJ}{NDX} ) ]}
-		grep {((($_) -> NEIGHBOR()) or ( !(wantarray)) && ( return undef ))} (shift))} )) -> ($_))} (($obj) -> LEAVES()))) ];
+		grep {((($_) -> NEIGHBOR()) or (( !(wantarray)) && ( return undef )))} (shift))} )) -> ($_))} (($obj) -> LEAVES()))) ];
 	while (( @{ $$obj{NHD}} ) ? (($slf,$rnk,$ndx) = @{ $$obj{NHD}[0] } ) : (( undef $$obj{NHD} ) or (return))) {
 		(((($$slf{OBJ}) && ( $$slf{NDX} == $ndx )) or ( undef $slf )) && (${$$slf{NBR}||{}}{OBJ}) && (last));
 		( shift @{( $$obj{NHD} )} ); (($slf) && ( &::SORT_INSERT( $$obj{NHD}, ((($nhd) -> ($slf)) or (next)), $srt ))); }
