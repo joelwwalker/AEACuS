@@ -1285,6 +1285,7 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 	( &INDEXED_FUNCTIONAL( $sub, ( grep { (defined) or (return undef) } map { ( ref eq q(HASH)) ? ( $$idx{( sprintf q(%3.3s_%3.3i), %$_ )} ) : (undef) } (@_)))) }
 
 # ~ goto non-breaking space in titles ... NO or allow escape?
+# alias names?
 # consider undef*undef = undef, etc.? &STRING_FUNCTIONAL('$1*$2',[undef,3]) == 0;
 # OK but failed object operations can go to undef*undef => defined ... propagate undefined?
 # test implementation of DEF
@@ -1294,16 +1295,19 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 # need to test & consider logic of these "nonlocal" / unbinned calculations ... & make sure *once only* computation
 # move logical operators down here with symbols?
 # Returns the compound evaluation or closure encapsulation of an input operation string
-{; my ($rex); sub STRING_FUNCTIONAL { my ($str,$vls,@map) = (( grep { s/\s+//g; ( m'(?i:[^-+/*^\$\d.)(,A-Z])' ) && (return undef); 1 }
-	map {( qq($_))} (shift)),( map { ( ref eq q(ARRAY)) ? [(undef),(@$_)] : () } (shift))); $rex ||= do {
-		my ($val) = qr"(?:(?>${\EXP})|(?>[-+]?[\$@]\d+))"; [
+{; my ($rex); sub STRING_FUNCTIONAL { my ($str,$vls,@map) = (( grep { s/\s+//g; ( m'(?i:[^-+/*^\$\d.)(,A-Z><=!&|])' ) && (return undef); 1 }
+	map {( qq($_))} (shift)),( map { ( ref eq q(ARRAY)) ? [(undef),(@$_)] : () } (shift)));
+		$rex ||= do { my ($val) = qr"(?:(?>${\EXP})|(?>[-+]?[\$@]\d+))"; [
 			[ qr"^(${val})$", sub {[1,@_[1..1]]} ],
 			[ qr"(?<!(?i:[A-Z]))\((${val})\)", sub {[2,@_[1..1]]} ],
-			[ qr"(?<=[-+])(?=[-+])(${val})(?:(?=[-+/*,)])|$)", sub {[2,@_[1..1]]} ],
+			[ qr"(?<=[-+])(?=[-+])(${val})(?:(?=[-+/*,)><=!&|])|$)", sub {[2,@_[1..1]]} ],
 			[ qr"((?i:[A-Z]+))\((${val}(?:,${val})*)?\)", sub {[3,(undef),@_[1..2]]} ],
-			[ qr"(?:^|(?<=[-+/*^(,]))(?![-+])(${val})(\^)(${val})(?:(?=[-+/*,)])|$)", sub {[4,@_[1..3]]} ],
-			[ qr"(?:^|(?<=[-+(,]))(?![-+])(${val})([/*])(${val})(?:(?=[-+/*,)])|$)", sub {[4,@_[1..3]]} ],
-			[ qr"(?:^|(?<=[(,]))(${val})([-+])(${val})(?:(?=[-+,)])|$)", sub {[4,@_[1..3]]} ]] }; { my ($mod,$opn,$arg) =
+			[ qr"(?:^|(?<=[-+/*^(,><=&|]))(?![-+])(${val})(\^)(${val})(?:(?=[-+/*,)><=!&|])|$)", sub {[4,@_[1..3]]} ],
+			[ qr"(?:^|(?<=[-+(,><=&|]))(?![-+])(${val})([/*])(${val})(?:(?=[-+/*,)><=!&|])|$)", sub {[4,@_[1..3]]} ],
+			[ qr"(?:^|(?<=[(,><=&|]))(${val})([-+])(${val})(?:(?=[-+,)><=!&|])|$)", sub {[4,@_[1..3]]} ],
+			[ qr"(?:^|(?<=[(,&|]))(${val})(<|<=|<=>|==|!=|>=|>)(${val})(?:(?=[,)&|])|$)", sub {[4,@_[1..3]]} ],
+			[ qr"(?:^|(?<=[(,|]))(${val})(&&)(${val})(?:(?=[,)&|])|$)", sub {[4,@_[1..3]]} ],
+			[ qr"(?:^|(?<=[(,]))(${val})(\|\|)(${val})(?:(?=[,)|])|$)", sub {[4,@_[1..3]]} ]] }; { my ($mod,$opn,$arg) =
 	do { my ($mod,@c) = @{ ${ ( &REX_LIST( 2, $str, ( map {[ @$_[0,1], ( q(@).(0+ @map)) ]} (@$rex)))) || \(!1) } || [] };
 		( 0+($mod), $c[1], [ map { my ($s,$o,$n) = /^([-+]?)([\$@]?)(.*)$/; map {(( $s eq q(-)) ? do { my ($sub) = $_;
 			sub { -1*( grep { (defined) or (return undef) } ( $sub->()))[0] }} : ($_))} (( length $o ) ? ( $o eq q($)) ?
@@ -1336,18 +1340,18 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 			q(qnt)	=> sub { ( &INT_QUOTIENT ((shift), ((@_) ? (shift) : (1)), -1 ))[0] },
 			q(mod)	=> sub { ( &INT_QUOTIENT ((shift), ((@_) ? (shift) : (1)), -1 ))[1] },
 			q(ife)	=> sub { ( $_[ 0+( !(shift)) ] ) },
+			q(def)	=> sub { 0+( defined (shift)) },
 			q(not)	=> sub { 0+( !(shift)) },
+			q(les)	=> sub { 0+((shift) < (shift)) },
+			q(leq)	=> sub { 0+((shift) <= (shift)) },
+			q(cmp)	=> sub { 0+((shift) <=> (shift)) },
+			q(eql)	=> sub { 0+((shift) == (shift)) },
+			q(neq)	=> sub { 0+((shift) != (shift)) },
+			q(geq)	=> sub { 0+((shift) >= (shift)) },
+			q(grt)	=> sub { 0+((shift) > (shift)) },
 			q(and)	=> sub { 0+((shift) and (shift)) },
 			q(orr)	=> sub { 0+((shift) or (shift)) },
 			q(xor)	=> sub { 0+((shift) xor (shift)) },
-			q(grt)	=> sub { 0+((shift) > (shift)) },
-			q(eql)	=> sub { 0+((shift) == (shift)) },
-			q(les)	=> sub { 0+((shift) < (shift)) },
-			q(geq)	=> sub { 0+((shift) >= (shift)) },
-			q(neq)	=> sub { 0+((shift) != (shift)) },
-			q(leq)	=> sub { 0+((shift) <= (shift)) },
-			q(cmp)	=> sub { 0+((shift) <=> (shift)) },
-			q(def)	=> sub { 0+( defined (shift)) },
 				} : +{
 			q(pi)	=> sub {(PI)},
 			q(pie)	=> sub {(PI)},
@@ -1366,11 +1370,20 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 			(($map) && (@_ == 1) && ( &ISA( 1, $_[0], q(Local::TENSOR)))) ? (($sub) -> ( map {($$_)} ((shift) -> ELEMENTS()))) :
 			((( map { ( &UNIVERSAL::can( $_, q(MAP))) || () } (@_)),(undef))[0] or sub { my ($sub) = (pop); (($sub)->(@_)) } ) -> (@_,$sub))) }} :
 		($mod == 4) ? (( +{
-			q(-)	=> sub { ( scalar ((shift) - (shift))) },
-			q(+)	=> sub { ( scalar ((shift) + (shift))) },
+			q(^)	=> sub { ( scalar ((shift) ** (shift))) },
 			q(/)	=> sub { ( scalar ( eval { ((shift) / (shift)) } )) },
 			q(*)	=> sub { ( scalar ((shift) * (shift))) },
-			q(^)	=> sub { ( scalar ((shift) ** (shift))) },
+			q(-)	=> sub { ( scalar ((shift) - (shift))) },
+			q(+)	=> sub { ( scalar ((shift) + (shift))) },
+			q(<)	=> sub { 0+((shift) < (shift)) },
+			q(<=)	=> sub { 0+((shift) <= (shift)) },
+			q(<=>)	=> sub { 0+((shift) <=> (shift)) },
+			q(==)	=> sub { 0+((shift) == (shift)) },
+			q(!=)	=> sub { 0+((shift) != (shift)) },
+			q(>=)	=> sub { 0+((shift) >= (shift)) },
+			q(>)	=> sub { 0+((shift) > (shift)) },
+			q(&&)	=> sub { 0+((shift) and (shift)) },
+			q(||)	=> sub { 0+((shift) or (shift)) },
 				} ) -> {( lc $opn )} || (return undef)) :
 		(return undef); (redo) }}}
 
