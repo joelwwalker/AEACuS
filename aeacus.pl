@@ -134,8 +134,8 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) { use Fcntl qw(:seek)
 	if ($m == 2) { my ($lhc,$lnk) = map {(( &Local::FILE::PATH( $_, 2 )) or ( die 'Cannot write to directory '.$_ ))} (@$lhc);
  		my ($n) = [$lhc,[$k,0,q(.lhco)]]; push @fil, [ $k, 0, [ map { my ($FHT,$hdr,$xsc) = (( grep { ( seek $_, 0, SEEK_SET ) or
 			( die 'Cannot rewind temporary file' ) } (shift @$_)), ( &FORMAT_HEADER(1,[(shift @$_),\@xsc])));
-		map { my ($h,$f) = ((shift @$_),(($n) = (shift @$_))); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n"; (close $h);
-			if ($lnk) { ( link ( $lhc.$$f[1], $lnk.$$f[1] )); ( $$f[0] = $lnk ) }
+		map { my ($h,$f) = ((shift @$_),(shift @$_)); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n"; (close $h);
+			$n = [ @$f ]; if ($lnk) { ( link ( $lhc.$$f[1], $lnk.$$f[1] )); ( $$f[0] = $lnk ) }
 			(( defined $xsc ) or ( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" )); ($f) }
 		grep { (defined $$_[0]) or ( die 'Cannot open file in directory '.$lhc.' for write' ) }
 			((defined $hdr) ? [ &Local::FILE::NEXT($n) ] : ()) } (@FHT) ]]; }}
@@ -1392,7 +1392,7 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 
 # sleeps for a specified number of seconds (default 1, fractional to milliseconds), optionally up to some maximal value (randomized)
 sub SLEEP { my ($min,$max) = ((( &MAX( 0, 0+ (shift))) or (1)), (0+ (shift)));
-	select ((undef), (undef), (undef), ( $min + (($max > $min) ? (( $max - $min ) * ( rand )) : (0)))) }
+	select ((undef), (undef), (undef), ( $min + (($max > $min) ? (( $max - $min ) * ( rand )) : (0)))); 1 }
 
 #**********#
 # PACKAGES #
@@ -1432,9 +1432,9 @@ sub HANDLE { use Fcntl qw(:DEFAULT :flock :seek); my ($wrt,$pth,$fil,$opn,$sek,$
 sub NEXT { my ($rpt,$pth,$bas,$idx,$ext) =
 	map { ((::RPT), ( &PATH($$_[0],2) or (return)), (@{ &KEYS($$_[1]) or (return) })) }
 	map {[ ( ref eq q(ARRAY)) ? (@$_[0,1]) : (/^(.*\/)?([^\/]*)$/) && ((($1) or (undef)),($2)) ]} (shift);
-	while (1) { ( return ((wantarray) ? (@$_) : ( shift @$_ ))) for ( grep {((@$_) or ((($rpt--) <= 0 ) && (return)))}
-		map {[ &HANDLE([$pth,$_],[1,2,0,1]) ]} grep { !( -e $pth.( &NAME($_))) } [$bas,++$idx,$ext] ) }
-	continue {( &SLEEP( 0.25, 0.50 ))}}
+	while (1) { ( return ((wantarray) ? (@$_) : ( shift @$_ ))) for (
+		grep {((@$_) or ((($rpt--) <= 0 ) && (return)) or (( &::SLEEP( 0.25, 0.50 )), !1 ))}
+		map {[ &HANDLE([$pth,$_],[1,2,0,1]) ]} grep { !( -e $pth.( &NAME($_))) } [$bas,++$idx,$ext] ) }}
 # An input array or string is split into the path, which must be writable, and the file object keys
 # The file object index is incremented until an open file name is located
 # The file is created under an exclusive request and a locked writeable handle is returned
