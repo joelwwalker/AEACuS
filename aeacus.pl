@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 3.28	#
-# March '11 - June '20		#
+# aeacus.pl Version 3.29	#
+# March '11 - July '20		#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -12,14 +12,15 @@
 #*******************************#
 
 # Require minimal perl version and specify AEACuS package version
-{; package Local::AEACuS; require 5.008_009; our ($VERSION) = 3.28; }
+{; package Local::AEACuS; require 5.008_009; our ($VERSION) = 3.29; }
 
 # Apply a strict coding pragma and define numerical constants
 use strict; use sort q(stable); use constant +{
 	NIL => 10**-8, EPS => 0.0005, ONE => 1.0, BIG => 500, HUG => 10**+8, TRY => 25, PRT => 12,
-	TUP => 64, RPT => 3, LPR => 100, BLK => 6, BMX => 52, SET => 10**+4, CAP => 5*10**+5,
+	TUP => 64, RPT => 12, LPR => 100, BLK => 6, BMX => 52, SET => 10**+4, CAP => 5*10**+5,
 	EXP => qr/[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?/i, IMX => ( ~0 >> 1 ), PI => 4*( atan2 (1,1)),
 	do { my ($inf) = 9**9**9; ( INF => ($inf), NIN => ( -1*($inf)), NAN => (($inf)/($inf))) }};
+#HERE consider scoping / use in include files
 
 # Register named and ordered parameter options from the command line input
 our ($OPT) = ( &LOAD_OPTS(@ARGV));
@@ -44,31 +45,32 @@ my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
 my ($flw,$stc,$paf) = (($$crd{evt}) or ($$crd{obj})) && ( &ANALYSIS_CODE($crd));
 
 # Establish primary file name base and cross section specifications
-my ($fil,$xsc,$cap,$ipb,$lhc,$pre,$out,$r2l) = map { (/^(.*\/)?([^\/*]*)$/) or ( die 'Invalid file specification' );
-	( [[ (($1) or q(./Events/)), ($2) ]], ( map {((defined) ? (0+ $_) : (undef))} ( &$OPT( q(xsc))))) } grep {(defined)} ( &$OPT( q(fil)));
+my ($fil,$xsc,$pre,$out,$ipb,$cap,$lhc,$r2l) = map {(
+	( do { (/^(.*\/)?([^\/*]*)$/) or ( die 'Invalid file specification' ); [[ (($1) or q(./Events/)), ($2) ]] } ),
+	( map {( &$OPT($_))} ( qw( xsc pre out ipb )))
+	)} grep {(defined)} ( &$OPT( q(fil)));
 # If the FIL parameter includes the '/' character then the path is treated literally; it otherwise defaults to './Events/' if FIL is defined
-# If the FIL parameter was defined then the XSC cross-section parameter is read subsequently as a positive value in PB (otherwise undefined)
-# Wildcards are not permissible in an explicit singular filename at this level
-	# allow negative cross sections here and elsewhere ... distinguish zero from undefined ...
+# Wildcards are not permissible in an explicit singular filename at this level; If FIL was defined then additional parameters are read
+#HERE ... watch globals / scope
 
 # Establish global event channel management specifications and locate (possibly compressed) .lhco or .root event file(s)
 my (@fil); my (@chn) = map { my ($i,$chn) = (($_), (($$crd{cut}{chn}[$_]) or (($_ > 0) ? (undef) : +{} ))); !($chn) ? () : do {
 	my ($dir,$mrg) = q().( &DEFINED(($$chn{dir}[0]), (($i > 0) ? ($out) : ( q(./Events/))))); my ($fil) = ((($i == 0) && ($fil)) or
 		( grep {(@$_)} map {[ map {[ $dir, $_ ]} (($fil) ? () : ((@$_) or ($i > 0)) ? (@$_) : (($mrg=1),(undef))[1] ) ]}
 		[ map { (defined) ? qq($_) : () } (@{$$chn{fil}||[]}) ] )); (($i == 0) ?
-	( do { do { $cap = ( map { 0+(($_ >= 0) && ((int) or (CAP))) } ($$chn{cap}[0]))[0]; $lhc = q().( &DEFINED($$chn{lhc}[0],$dir));
+	( do { do { $cap = ( map { 0+(($_ >= 0) && ((int) or (CAP))) } ($$chn{cap}[0]))[0]; $lhc = [ (( map {((defined) ? ( qq($_)) : ())} ($$chn{lhc}[0])), ($dir)) ];
 		do { $r2l = { wgt => (1,1,!1)[$$_[0]], gen => (!1,1,!1)[$$_[1]], fat => (!1,1,!1)[$$_[2]] }} for [ map {( $$_[0] <=> 0 )} @$chn{( qw( wgt gen fat ))} ];
 		$$r2l{aux} = [ grep { s/\s//g; 1 } map {( m/^((?!\.)(?:(?:^|\.)\s*[A-Za-z][A-Za-z0-9]*(?:\s*(?:\[\s*\d+\s*]|\(\s*\)))?\s*)+)$/ )} map {( qq($_))} @{$$chn{aux}||[]} ]; } if ($mrg);
-		$pre = ( map { (/^([A-Za-z][\w-]*?)_*$/) ? ( qq($1).q(_)) : do { (defined) && ( print STDERR 'INVALID SELECTION PREFIX '.$_."\n" ); (undef) }} ($$chn{pre}[0]))[0];
-		$out = (( &Local::FILE::PATH(( $out = q().( &DEFINED($$chn{out}[0],q(./Cuts/)))), 2 )) or ( die 'Cannot write to directory '.$out ));
-		$ipb = do { my ($lum,$ipb) = [ @$chn{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
-			($ipb) = (${(($$lum[$i]) or (next))}[0])*((10)**(3*$i)); (last) } (( &MAX(0,$ipb)) or (undef)) };
+		$pre = ( map { (/^([A-Za-z][\w-]*?)_*$/) ? ( qq($1).q(_)) : do { (defined) && ( print STDERR 'INVALID SELECTION PREFIX '.$_."\n" ); (undef) }} ( &DEFINED($pre,$$chn{pre}[0])))[0];
+		$out = (( &Local::FILE::PATH(( $out = q().( &DEFINED($out,$$chn{out}[0],q(./Cuts/)))), 2 )) or ( die 'Cannot write to directory '.$out ));
+		$ipb = ( &DEFINED( $ipb, ( do { my ($lum,$ipb) = [ @$chn{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
+			($ipb) = (${(($$lum[$i]) or (next))}[0])*((10)**(3*$i)); (last) } (( &MAX(0,$ipb)) or (undef)) } )));
 		my (%fil); do { push @{ $fil{( shift @$_ )}[( shift @$_ )] }, $_ } for grep { pop @$_; pop @$_; 1 } values %{{
 			map {(($$_[2].$$_[4]) => ($_))} sort { our ($a,$b); ( $$a[5] <=> $$b[5] ) } (
-			( map {(( $$_[1] !~ /_uncleaned_events\.lhco(?:\.gz)?/ ) && ( $$_[1] =~ /^((.*?)((?:_\d{3})*))\.lhco(\.gz)?$/ ) ?
+			( map {(( $$_[1] !~ /_uncleaned_events\.lhco(?:\.gz)?/ ) && ( $$_[1] =~ /^((.*?)(?:_000)*((?:_\d{3})*))\.lhco(\.gz)?$/ ) ?
 				[ qq($2), (0+ !(length $3)), @$_[0,1], qq($1), (!$4)*(1<<0) ] : ())}
 				map {( &Local::FILE::LIST($_))} (@{$fil||[]})),
-			( map {(( $$_[1] =~ /^(([A-Za-z][\w-]*?)?(?:_\d+)*)_(?:delphes|(pgs))_events\.(?:lhco(\.gz)|(root))?$/ ) ? (($5) && ($3)) ? () :
+			( map {(( $$_[1] =~ /^(([A-Za-z][\w-]*?)?(?:_+\d+)*)_+(?:delphes|(pgs))_events\.(?:lhco(\.gz)|(root))?$/ ) ? (($5) && ($3)) ? () :
 				[ ((length $2) ? ( qq($2)) : ( q(TAG))), (2), @$_[0,1], qq($1), ((!$3)*(1<<2) + (!$5)*(1<<1) + (!$4)*(1<<0)) ] : ())}
 				(($mrg) ? ( &Local::FILE::LIST($$fil[0],1)) : ()))) }};
 		(@fil) = ( map { my ($k) = $_; ( grep {($$_[2])} map {[ $k, $_, $fil{$k}[$_]]} (0..2))[0] }
@@ -110,7 +112,7 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) { use Fcntl qw(:seek)
 		my ($FHI) = ( &Local::FILE::HANDLE($fil)) or do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (next FILE) };
 		push @xsc, [ my ($xsc) = ((defined $xsc) ? ($xsc) : ( &PYTHIA_XSEC($fil))) ];
 		my ($nbr,$trg,$wgt,$lns,$cut); local ($_); LINE: while (<$FHI>) {
-	( m/^\s*#*\s*(${\EXP})\s+PB\s+CROSS\s+SECTION/i ) ?  do { ( push @xsc, [ (0+ $1) ] ) unless (defined $xsc) } :
+	( m/^\s*#*\s*(${\EXP})\s+PB\s+CROSS\s+SECTION/i ) ? do { ( push @xsc, [ (0+ $1) ] ) unless (defined $xsc) } :
 	( m/^\s*#*\s*<MGGenerationInfo>/i ) ? do { ( push @xsc, [ ( &MADGRAPH_XSEC($FHI))[0,1]] ) unless (defined $xsc) } :
 	( m/^\s*(\d+)\s+(\d+)/ ) && do { ($1 eq q(0)) ? do { ($nbr,$trg,$wgt) = map {((length) ? (0+ $_) : (undef))}
 		( m/^\s*0\s+(\d+)(?:(?:\s+(\d+))(?:\s+(${\EXP}))?)?/ ); $lns = [ $_ ] } : ($2 ne q(6)) ? ( push @{$lns||[]}, $_ ) : ($lns) && do {
@@ -124,15 +126,17 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) { use Fcntl qw(:seek)
 	if ($m != 2) { my ($FHT,$hdr,$xsc) = map { (( grep { ( seek $_, 0, SEEK_SET ) or ( die 'Cannot rewind temporary file' ) } (shift @$_)),
 			( &FORMAT_HEADER(1,[(shift @$_),\@xsc,$ipb],$cut,$flw,$stc))) } (( shift @FHT ) || ()); ( undef @FHT ); ( undef @xsc );
 		do { my ($f) = ($_); for my $c (@chn) { ( print STDERR $_."\n" ) for ( @{ ( &AUXILIARY_CHANNEL($c,$f)) || [] } ) }} for
-		map { my ($h,$f) = ((shift @$_),(shift @$_)); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n";
-			( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" ) unless ( defined $xsc ); (close $h); ($f) }
+		map { my ($h,$f) = ((shift @$_),(shift @$_)); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n"; (close $h);
+			(( defined $xsc ) or ( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" )); ($f) }
 		grep { (@$_) or ( die 'Cannot open file in directory '.$out.' for write' ) }
 		map {[ ($m == 1) ? ( &Local::FILE::NEXT($_)) : ( &Local::FILE::HANDLE($_,[1,1,1,0])) ]}
 		map {[ ($out), [ ($pre.$$_[0]), ($$_[1]), ( q(.cut)) ]]} (((defined $hdr) && ( &Local::FILE::KEYS($$fil[1]))) or ()); }}
-	if ($m == 2) { my ($n) = [$lhc,[$k,0,q(.lhco)]]; push @fil, [ $k, 0, [ map { my ($FHT,$hdr,$xsc) = (( grep { ( seek $_, 0, SEEK_SET ) or
+	if ($m == 2) { my ($lhc,$lnk) = map {(( &Local::FILE::PATH( $_, 2 )) or ( die 'Cannot write to directory '.$_ ))} (@$lhc);
+ 		my ($n) = [$lhc,[$k,0,q(.lhco)]]; push @fil, [ $k, 0, [ map { my ($FHT,$hdr,$xsc) = (( grep { ( seek $_, 0, SEEK_SET ) or
 			( die 'Cannot rewind temporary file' ) } (shift @$_)), ( &FORMAT_HEADER(1,[(shift @$_),\@xsc])));
-		map { my ($h,$f) = ((shift @$_),(shift @$_)); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n";
-			( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" ) unless ( defined $xsc ); (close $h); ( $n = $f ) }
+		map { my ($h,$f) = ((shift @$_),(($n) = (shift @$_))); print $hdr; local ($_); while (<$FHT>) {( print )}; print "\n"; (close $h);
+			if ($lnk) { ( link ( $lhc.$$f[1], $lnk.$$f[1] )); ( $$f[0] = $lnk ) }
+			(( defined $xsc ) or ( print STDERR 'CANNOT ESTABLISH CROSS SECTION FOR FILE '.$$f[0].$$f[1]."\n" )); ($f) }
 		grep { (defined $$_[0]) or ( die 'Cannot open file in directory '.$lhc.' for write' ) }
 			((defined $hdr) ? [ &Local::FILE::NEXT($n) ] : ()) } (@FHT) ]]; }}
 # Processing starts with any fil sets associated with the zeroth channel
@@ -154,7 +158,6 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) { use Fcntl qw(:seek)
 # After completion of the loop over key files, processing continues if in merging mode
 # Each of the temporary file handles, along with a new header, is dumped to a suitably incremented file name in the LHC directory
 # The corresponding file is appended to the list for processing with flag 0, as a numbered lower-level file
-	# addition to the LHC directory happens only on merging ... it is blocked if the down-numbered file exists? block is skipped if LHc is non-default? correct behavior?
 
 # Perform batch mode channel filtering on processed .cut files
 for my $c (@chn) { ( print STDERR $_."\n" ) for ( @{ ( &AUXILIARY_CHANNEL($c)) || [] } ) }
@@ -1289,14 +1292,14 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 # consider undef*undef = undef, etc.? &STRING_FUNCTIONAL('$1*$2',[undef,3]) == 0;
 # OK but failed object operations can go to undef*undef => defined ... propagate undefined?
 # test implementation of DEF
+# handle inf/nan, etc.
 # add grep and map !!! {{}} deep functions?
 # mask endbins for avg, etc.?  user defined functions?
 # sometimes you want bin counts ... sometimes values weighted by endcounts ... accessible? should it be? is what is there useful/good/complete/consistent?
 # need to test & consider logic of these "nonlocal" / unbinned calculations ... & make sure *once only* computation
-# move logical operators down here with symbols?
 # Returns the compound evaluation or closure encapsulation of an input operation string
 {; my ($rex); sub STRING_FUNCTIONAL { my ($str,$vls,@map) = (( grep { s/\s+//g; ( m'(?i:[^-+/*^\$\d.)(,A-Z><=!&|])' ) && (return undef); 1 }
-	map {( qq($_))} (shift)),( map { ( ref eq q(ARRAY)) ? [(undef),(@$_)] : () } (shift)));
+	map {( qq($_))} (shift)), ( map { ( ref eq q(ARRAY)) ? [(undef),(@$_)] : () } (shift)));
 		$rex ||= do { my ($val) = qr"(?:(?>${\EXP})|(?>[-+]?[\$@]\d+))"; [
 			[ qr"^(${val})$", sub {[1,@_[1..1]]} ],
 			[ qr"(?<!(?i:[A-Z]))\((${val})\)", sub {[2,@_[1..1]]} ],
@@ -1387,6 +1390,10 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 				} ) -> {( lc $opn )} || (return undef)) :
 		(return undef); (redo) }}}
 
+# sleeps for a specified number of seconds (default 1, fractional to milliseconds), optionally up to some maximal value (randomized)
+sub SLEEP { my ($min,$max) = ((( &MAX( 0, 0+ (shift))) or (1)), (0+ (shift)));
+	select ((undef), (undef), (undef), ( $min + (($max > $min) ? (( $max - $min ) * ( rand )) : (0)))) }
+
 #**********#
 # PACKAGES #
 #**********#
@@ -1426,7 +1433,8 @@ sub NEXT { my ($rpt,$pth,$bas,$idx,$ext) =
 	map { ((::RPT), ( &PATH($$_[0],2) or (return)), (@{ &KEYS($$_[1]) or (return) })) }
 	map {[ ( ref eq q(ARRAY)) ? (@$_[0,1]) : (/^(.*\/)?([^\/]*)$/) && ((($1) or (undef)),($2)) ]} (shift);
 	while (1) { ( return ((wantarray) ? (@$_) : ( shift @$_ ))) for ( grep {((@$_) or ((($rpt--) <= 0 ) && (return)))}
-		map {[ &HANDLE([$pth,$_],[1,2,0,1]) ]} grep { !( -e $pth.( &NAME($_))) } [$bas,++$idx,$ext] ) }}
+		map {[ &HANDLE([$pth,$_],[1,2,0,1]) ]} grep { !( -e $pth.( &NAME($_))) } [$bas,++$idx,$ext] ) }
+	continue {( &SLEEP( 0.25, 0.50 ))}}
 # An input array or string is split into the path, which must be writable, and the file object keys
 # The file object index is incremented until an open file name is located
 # The file is created under an exclusive request and a locked writeable handle is returned
@@ -1494,9 +1502,9 @@ sub PATH { my ($i); my ($pth,$mod,$msk,$str) = ( [ map {(($_).q(/))} map { (/^(?
 # Acceptable path elements are '', '.', '..', '~', corresponding to root, current, parent, and home, and also word characters with dashes
 # '~' may be leading only; '' and '.' are omitted if not leading; '.' is prefixed if word characters are leading
 # An undefined or empty path canonicalizes to './'; All paths have a trailing slash
-	# relax requirements on path elements?
+	#HERE relax requirements on path elements?
 
-	# recall issue of exhaustion of file descriptors & manual lookup & close ...
+	#HERE recall issue of exhaustion of file descriptors & manual lookup & close ...
 # Deselects, closes, and frees extraneous references to associated filehandle object upon exit of scope
 sub DESTROY { do { (($_) eq (select)) && ( select STDOUT ); ( return ( close $_ )); } for ( grep {(defined)} ${((shift) or (return))} ); () }
 
