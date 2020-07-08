@@ -169,19 +169,20 @@ for my $c (@chn) { ( print STDERR $_."\n" ) for ( @{ ( &AUXILIARY_CHANNEL($c)) |
 # Returns a subroutine closure encapsulating access by index or hashed key to runtime command line parameters
 sub LOAD_OPTS { my (@opts); my (%opts) = map { ( /^-(-)?([A-Za-z]\w*)(?:=(.*))?$/ ) ? do { ($1) ? ((lc $2) => ((defined $3) ? qq($3) : q(1))) :
 	( map {((lc) => q(1))} ( $2 =~ /([A-Za-z])/g )) } : do { push @opts, $_; () }} (@_); sub { my ($key) = ( lc shift );
-		(return $_) for ( map { (m/^(TRUE)|(FALSE)|(UNDEF)$/i) ? (($1)?(1):($2)?(0):(undef)) : ($_) }
+		(return $_) for ( map { (m/^(DEFAULT)|(TRUE)|(FALSE)|(UNDEF)$/i) ? (($1)?(0):($2)?(+1):($3)?(-1):(undef)) : ($_) }
 		(( exists $opts{$key} ) ? ($opts{$key}) : ( shift @opts ))); }}
 # --KEY=VAL : KEY begins alpha and is subsequently word characters; VAL is arbitrary; without the '=', VAL is '1'
 # -ABC : each of the flags keyed by 'A', 'B', and 'C' is set to '1'
 # Other: string is pushed onto the ordered queue
 # On query, existing (case insensitive) KEYs return VAL and missing keys shift values from the front of the queue
-# Special strings TRUE, FALSE, and UNDEF are mapped internally to 1, 0, and undef
+# Special strings DEFAULT, TRUE, FALSE, and UNDEF are mapped internally to 0, +1, -1, and undef
+	#HERE ... on/off instead of t/f ... 0/1 vs -1/+1; 3code?
 
 # Returns a data structure encoding user specified AEACuS meta language instructions
 {; my ($abc,$idx,$val); sub LOAD_CARD { my ($crd,$err,$fil) = (+{},[]);
 	$abc ||= qr'((?i:[A-Z][A-Z\d]{2}))'; $idx ||= qr'(\d{1,3})'; $val ||= do { my ($key) =
 		[ qr"(?:${idx}|${abc}(?:_${idx})?)", sub { (shift); ( map { (length) ? (0+ $_) : ( +{ ( lc (shift)) => (0+ (shift)) } ) } (shift))[0] } ]; [
-		[ qr'(?i:TRUE|FALSE|UNDEF)', sub { ${{ true => 1, false => 0, undef => undef }}{ lc (shift) }} ],
+		[ qr'(?i:DEFAULT|TRUE|FALSE|UNDEF)', sub { ${{ default => (0), true => (+1), false => (-1), undef => (undef) }}{ lc (shift) }} ],
 		[ qr"${\EXP}", sub { 0+(shift) } ],
 		[ qr'"([^"]*)"', sub {( &UNESCAPE_STRING((shift,shift)[1] ))} ], ($key),
 		[ qr'\{([^}]*)}', sub { my ($q,@t) = ((shift,shift)[1] );
@@ -666,7 +667,7 @@ sub GAUSS_RANDOM { my ($m,$s) = (((@_)?0+(shift):(0)),((@_)?0+(shift):(1))); {; 
 
 #HERE other outputs, for all testable values? central definition of valid keys -- no spooky action at a distance ?
 # Returns requested kinematic components extracted from a list of input lhco objects
-{; my ($i,$srt) = (1); sub OUTPUT_OBJECT { my ($out,%i) = (shift); $srt ||= do { +{ map {(($_)=>($i++))} ( qw( eta phi ptm mas ep0 ep1 ep2 ep3 dm1 dm2 )) }};
+{; my ($i,$srt); sub OUTPUT_OBJECT { my ($out,%i) = (shift); $srt ||= do { $i = 1; +{ map {(($_)=>($i++))} ( qw( eta phi ptm mas ep0 ep1 ep2 ep3 dm1 dm2 )) }};
 	grep { ( shift @$_ ); 1 } sort { our ($a,$b); (($$a[2] <=> $$b[2]) or ($$a[0] <=> $$b[0])) } map { my ($k,$v,$x) = (%$_); map {[ $_, $k, $v, $x, $i{$k}++ ]}
 	((( $v = ( &MAX(0,( int $v )))) && (($$srt{$k}) or (( $k =~ /^x(\d{2})$/ ) && ( $i + ( $x = 0+$1 ))))) or ()) } grep {( ref eq q(HASH))} (@{$out||[]}) }}
 
