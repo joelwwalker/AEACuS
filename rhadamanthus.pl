@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# rhadamanthus.pl Version 1.8	#
-# September '14 - July '20	#
+# rhadamanthus.pl Version 1.9	#
+# September '14 - August '20	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -18,10 +18,10 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-require q(aeacus.pl); ( &UNIVERSAL::VERSION(q(Local::AEACuS),3.30)); our ($OPT);
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.31 )); }
 
 # Read event plotting specifications from cardfile
-my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
+our ($OPT); my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
 	( &LOAD_CARD([ (($1) or ( q(./Cards/))), [ ((defined) ? ($2) : ( q(plt_card))), q(), q(.dat) ]]));
 	($crd) or ((defined) ? ( die 'Cannot open card file for read' ) : (exit));
 	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
@@ -57,7 +57,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 			map { my ($msr) = 1; my (@msr) = ( map { my ($i) = $_; (($$s[$i]) or ($$p[$i] < 0) or ( do { $msr *=
 				(((0+ $$p[$i]) or ($$n[$i] != 0) or ($$wdt[$i][0])) / (($$eql[$i]) ? ($$wdt[$i][0]) : (1))); ($$eql[$i]) } )) } (0..($dim-1)));
 				((($_)*($msr)) / (( grep {(!($_))} (@msr)) ? ( &Local::TENSOR::OUTER_PRODUCT(
-					map {(($$msr[$_]) ? [(1)x(@{$$wdt[$_]})] : ($$wdt[$_]))} (0..($dim-1)))) : (1))) }
+					map {(($msr[$_]) ? [(1)x(@{$$wdt[$_]})] : ($$wdt[$_]))} (0..($dim-1)))) : (1))) }
 
 			# Extract portion of data intended for visualization, discarding undefined (0), underflow (1), and overflow (-1) bins
 			map {( scalar (($_) -> SLICE( map {[[2,-2]]} (0..($dim-1)))))}
@@ -272,10 +272,10 @@ if dim == 1:
 
 	for i in range(n):
 		upper = [ k if ( ymin is None or k >= ymin ) else ymin/2.0 if log else ymin-1.0 for j in zip(wght[i],wght[i]) for k in j ]
-		if fill[i%f]: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=0.6, edgecolor="none", facecolor=color[i%c], hatch="", zorder=i-3*n )
-		if h: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=1.0, edgecolor="0.25", facecolor="none", hatch=hatch[i%h], zorder=i-2*n )
-		if bold[i%b]: ax.plot( edges, upper, color="#DDDDDD", linewidth=2.0, linestyle="solid", zorder=i-1*n )
-		ax.plot( edges, upper, color=color[i%c], linewidth=(2.0,2.0)[bold[i%b]], linestyle=("solid","dashed")[bold[i%b]], zorder=i-1*n )
+		if fill[i%f]: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=0.6, edgecolor="none", facecolor=color[i%c], hatch="", zorder=i-2*n )
+		if h: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=1.0, edgecolor="0.25", facecolor="none", hatch=hatch[i%h], zorder=i-1*n )
+		if bold[i%b]: ax.plot( edges, upper, color="#DDDDDD", linewidth=2.0, linestyle="solid", zorder=i+1 )
+		ax.plot( edges, upper, color=color[i%c], linewidth=(2.0,2.0)[bold[i%b]], linestyle=("solid","dashed")[bold[i%b]], zorder=i+1 )
 		if stack: lower = upper
 
 	if ( ymin is None or ymin <= 0.0 ):
@@ -292,7 +292,7 @@ if dim == 1:
 			for i in range(n) ]
 		lgd = ax.legend( patches, lgnd, loc=<[LOC]>, prop=font )
 		# lgd = ax.legend( patches, lgnd, loc="center right", bbox_to_anchor=(1.22, 0.5), prop=font )
-		lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1.0 ); lgd.set(zorder=0)
+		lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1.0 ); lgd.set(zorder=n+1)
 
 	for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
 	for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontproperties(font)
