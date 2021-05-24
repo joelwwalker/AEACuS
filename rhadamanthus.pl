@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 #*******************************#
-# rhadamanthus.pl Version 1.9	#
+# rhadamanthus.pl Version 1.009	#
 # September '14 - August '20	#
 # Joel W. Walker		#
 # Sam Houston State University	#
@@ -18,7 +18,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.31 )); }
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.032 )); }
 
 # Read event plotting specifications from cardfile
 our ($OPT); my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -32,14 +32,14 @@ our ($OPT); my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$f
 my ($cpl) = ( &CAN_MATPLOTLIB());
 
 # Generate histograms
-for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) = ( ${$$PLT{$hky}||[]}[0] || {} ); HIST: for my $i (1..(@{$$PLT{$hky}||[]}-1)) {
+for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) = ( ${$$PLT{$hky}||[]}[0] || {} ); HST: for my $i (1..(@{$$PLT{$hky}||[]}-1)) {
 
-	my ($hst) = (( $$PLT{$hky}[$i] ) || (next HIST)); do {(( exists $$hst{$_} ) or ( $$hst{$_} = $$def{$_} ))} for ( keys %{$def} );
+	my ($hst) = (( $$PLT{$hky}[$i] ) || (next HST)); do {(( exists $$hst{$_} ) or ( $$hst{$_} = $$def{$_} ))} for ( keys %{$def} );
 	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$hst{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
 	my ($obj,$eql,$wdt,$edg,$cnt) = map {( $_, ( map {( [ map {( &EQUAL(@$_))} (@$_) ], $_ )} [ ($_) -> WIDTHS() ] ),[ ($_) -> EDGES() ], [ ($_) -> CENTERS() ] )}
 		grep { (( grep {($_ > 3)} (( &Local::TENSOR::OBJECT((undef), $_ )), (undef,undef))[1..$dim] ) == $dim ) or
-			do { print STDERR 'INVALID BINNING SPECIFICATION IN HISTOGRAM '.$i."\n"; (next HIST) }}
+			do { print STDERR 'INVALID BINNING SPECIFICATION IN HISTOGRAM '.$i."\n"; (next HST) }}
 		do { my (@t) = map {((@{$_||[]} == 1) ? do { my ($t) = @$_; [ map {[$t]} (1..$dim) ] } : ( &SPANS($dim,$_)))} @$hst{( qw( lft rgt spn bns ))};
 			( &Local::HISTOGRAM::NEW( map {[ map {[ grep {(defined)} @{( shift @$_ )} ]} (@t) ]} (1..$dim))) };
 	my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$hst{( qw( sum nrm per avg ))} );
@@ -109,9 +109,9 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ))} @{$key||[]}[0..($dim-1)]];
 						my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? (@$_) : ((undef),$_))} ($$_[2][0]))))) or (
 								do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR HISTOGRAM '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
-							grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), 0+( $_ = ( int abs )), ( @{ (($_) && ( $$PLT{esc}[$_] )) or
+							grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$PLT{esc}[( abs )] )) or
 								do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN HISTOGRAM '.$i."\n"; +{}}}{( qw( key cut ))} ) ]}
-							grep {(defined)} (@{$esc||[]});
+							map {((defined) ? ( int ) : ())} (@{$esc||[]});
 						my ($wgt) = map {((defined) ? (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? (@$_) :
 								((undef),((ref eq 'HASH') ? ($_) : +{ wgt => (0+ $_) } ))))) or
 							do { print STDERR 'INVALID CHANNEL WEIGHT SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ) :
@@ -138,7 +138,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 			# Pass through datasets one at a time, threading over channels indicated for merging and functional transformation
 			(@set) = map { my ($i) = $_; [ map {( $$_[(@$_-1)&&($i)] )} (@chn) ] } (0..(($j)&&($j-1))); } (@set) }} (@{$$hst{chn}||[]}) };
 
-	do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR HISTOGRAM '.$i."\n"; (next HIST) } unless (@vls);
+	do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR HISTOGRAM '.$i."\n"; (next HST) } unless (@vls);
 
 	my ($log,$min,$fpo); my (%dat) = (
 		DIM	=> $dim,

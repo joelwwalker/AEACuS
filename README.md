@@ -12,9 +12,13 @@ and Manipulation: The Histogram Utility Suite)
 does automated plotting
 of statistics computed by AEACuS.
 
+MInOS (Machine Intelligent Optimization of Statistics)
+performs automated signal and background discrimination
+using a Boosted Decision Tree (XGBoost backend).
+
 Enter EXAMPLE directories for
-four quick-start tutorials, including
-sample card files for both programs.
+five quick-start tutorials, including
+sample card files for all three programs.
 
 Please contact the author directly
 ( Joel Walker <jwalker@shsu.edu> )
@@ -38,12 +42,7 @@ of the interface have changed.  Most
 critically, program invocation is now:
 ./aeacus.pl card_file lhco_file cross_section_pb
 
-Slides from a talk on AEACuS and RHADAManTHUS at the 2016 CERN
-"(Re)interpreting the results of new physics searches at the LHC" workshop are
-included with the package distribution, and also available
-[online.](https://indico.cern.ch/event/571190/contributions/2377484/attachments/1387477/2112084/AEACuS_RHADAManTHUS_CERN.pdf)
-
-Full documentation will
-be forthcoming on the arXiv
-at a later date.
+Slides from a talk on MInOS, AEACuS, and RHADAManTHUS at PHENO 2021
+workshop are included with the package distribution
+Full documentation will be forthcoming on the arXiv at a later date.
 

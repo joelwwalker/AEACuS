@@ -1,0 +1,44 @@
+
+Synopsis
+./minos.pl
+
+This example introduces the training 
+of a Boosted Decision Tree for
+discrimination of signal from background.
+
+Several example ".cut" statistics
+output files precomputed by AEACuS are
+provided in this case, and stored under
+the ./Cuts/ directory.
+
+The controlling card file "min_card.dat"
+is stored inside the ./Cards/ directory,
+and is independently commented.
+
+The AEACuS card "cut_card.dat" used to produce 
+the .cut files is also provided for reference.
+
+To generate training and associated plots,
+simply run "./minos.pl".
+An output directory ./Models/ will be created to
+store the two sets of training, one with supplemental
+event selections (TRN_001) and one without (TRN_011).
+
+Note that "minos.pl" requires inclusion
+of "aeacus.pl" in the same directory as a
+subroutine library, even if the latter is not
+invoked directly.
+
+When executed it will merge the requested
+features into a subdirectory ./CSV/ of each training,
+correctly combining event weights.
+
+MInOS additionally requires the installation
+of MatPlotLib, and XGBoost for Python3.
+If you do not have these packages then
+the BDT script "minos.py" will be copied
+into each training directory inside Models
+but it will not be run.  Once this script
+is run it will place the generated plots
+into a further subdirectory ./Plots
+ 

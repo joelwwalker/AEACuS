@@ -1,0 +1,112 @@
+# 1412.0618 MT2 Han/Liu
+# 1409.7058 Baer, Mustafayev, Tata
+# 1706.05339 Current authors
+
+CUT_CHN_000 = CAP:500000, LHC:"../../LHCO", OUT:"../../Cuts"
+
+******* Object Reconstruction *******
+
+OBJ_ELE_000 = PRM:[0,2.5], PTM:0				# central electrons
+OBJ_MUO_000 = PRM:[0,2.5], PTM:0				# central muons
+OBJ_TAU_000 = PRM:[0,2.5], CUT:[0,0]				# veto on hadronic taus
+OBJ_JET_000 = PTM:20, PRM:[0,4.5]				# all jets with pt > 20 GeV
+
+OBJ_JET_001 = SRC:+000, PTM:30, CUT:[1,2]			# one or two harder jets
+OBJ_JET_002 = SRC:+001, PRM:[2.5,UNDEF], CUT:[0,0]		# any of these must be central
+OBJ_JET_003 = SRC:+001, SET:LED, OUT:[PTM_003,ETA_003]		# the leading jet, output pt, eta
+OBJ_JET_004 = SRC:[+001,-003], OUT:[PTM_004,ETA_004]		# the subleading jet, output pt, eta
+OBJ_JET_005 = SRC:+001, EFF:SUM, OUT:MAS_003			# the vector sum of jets, output mass
+OBJ_JET_006 = SRC:+000, HFT:1, PRM:[0,2.5], CUT:[0,0]		# veto on heavy flavor tag
+
+OBJ_LEP_001 = SRC:+000, EMT:+2, SET:[DIL,-1,+1,0,UNDEF], CUT:2	# require opposite sign dimuon pair
+OBJ_LEP_002 = SRC:+001, EFF:SUM, OUT:MAS_001			# the dilepton vector sum, output mass
+OBJ_LEP_003 = SRC:+001, SET:LED, OUT:[PTM_001,ETA_001]		# the leading lepton, output pt, eta
+OBJ_LEP_004 = SRC:[+001,-003], OUT:[PTM_002,ETA_002]		# the subleading lepton, output pt, eta
+
+******* Event Selection *******
+
+EVT_MET_000 = CUT:30 						# require 30 GeV MET
+EVT_TTM_001 = LEP:001, JET:005					# compute ditau mass with jet sum
+EVT_CTS_001 = LEP:001						# compute cosine-theta-star
+
+EVT_ATM_001 = MET:000, MOD:[GEN,LEP_003,LEP_004,100,100]	# compute MT2 with massive hypothesis
+EVT_ATM_002 = MET:000, MOD:[GEN,LEP_003,LEP_004,0,0]		# compute MT2 with massless hypothesis
+
+EVT_MDP_001 = MET:000, LEP:003					# compute Delta-Phi from MET to lepton 1
+EVT_MDP_002 = MET:000, LEP:004					# compute Delta-Phi from MET to lepton 2
+EVT_MDP_003 = MET:000, JET:003					# compute Delta-Phi from MET to jet 1
+EVT_MDP_004 = MET:000, JET:004					# compute Delta-Phi from MET to jet 2
+
+EVT_ODP_001 = LEP:001						# compute Delta-Phi from lepton 1 to lepton 2
+EVT_ODP_002 = LEP:003, JET:003					# compute Delta-Phi from lepton 1 to jet 1
+EVT_ODP_003 = LEP:003, JET:004					# compute Delta-Phi from lepton 1 to jet 2
+EVT_ODP_004 = LEP:004, JET:003					# compute Delta-Phi from lepton 2 to jet 1
+EVT_ODP_005 = LEP:004, JET:004					# compute Delta-Phi from lepton 2 to jet 2
+EVT_ODP_006 = JET:001						# compute Delta-Phi from jet 1 to jet 2
+
+EVT_VAR_001 = VAL:{ TNH( ABS($2-$1)), ETA_001, ETA_002 }	# compute Tanh Abs Delta-Eta from lepton 1 to lepton 2
+EVT_VAR_002 = VAL:{ TNH( ABS($2-$1)), ETA_001, ETA_003 }	# compute Tanh Abs Delta-Eta from lepton 1 to jet 1
+EVT_VAR_003 = VAL:{ TNH( ABS($2-$1)), ETA_001, ETA_004 }	# compute Tanh Abs Delta-Eta from lepton 1 to jet 2
+EVT_VAR_004 = VAL:{ TNH( ABS($2-$1)), ETA_002, ETA_003 }	# compute Tanh Abs Delta-Eta from lepton 2 to jet 1
+EVT_VAR_005 = VAL:{ TNH( ABS($2-$1)), ETA_002, ETA_004 }	# compute Tanh Abs Delta-Eta from lepton 2 to jet 2
+EVT_VAR_006 = VAL:{ TNH( ABS($2-$1)), ETA_003, ETA_004 }	# compute Tanh Abs Delta-Eta from jet 1 to jet 2
+
+EVT_VAR_011 = VAL:{ $1/$2, PTM_001, MET_000 }			# compute pt / MET for lepton 1
+EVT_VAR_012 = VAL:{ $1/$2, PTM_002, MET_000 }			# compute pt / MET for lepton 2
+EVT_VAR_013 = VAL:{ $1/$2, PTM_003, MET_000 }			# compute pt / MET for jet 1
+EVT_VAR_014 = VAL:{ $1/$2, PTM_004, MET_000 }			# compute pt / MET for jet 2
+
+EVT_VAR_021 = VAL:{ ($1-100)/$2, ATM_001, ATM_002 }		# compute ratio of MT2 deviations
+
+******* Event Sorting *******
+
+CUT_ESC_001 = KEY:JET_001, CUT:[1,1]				# cut enforces monojet
+
+CUT_CHN_001 = ESC:[+001]					# monojet channel
+CUT_CHN_002 = ESC:[-001]					# dijet channel
+
+#  "$N_\tau$"
+#  "$N_\ell^{\pm}$"
+#  "$N_j$"
+#  "$M_{\ell\ell}$"
+#  "$N_j^{\rm FWD}$"
+#  "$\eta_{\ell_1}$"
+#  "${P}_{\rm T}^{\ell_1}$"
+#  "$\eta_{j_1}$"
+#  "${P}_{\rm T}^{j_1}$"
+#  "$\eta_{\ell_2}$"
+#  "${P}_{\rm T}^{\ell_2}$"
+#  "$\eta_{j_2}$"
+#  "${P}_{\rm T}^{j_2}$"
+#  "$M_{jj}$"
+#  "$N_j^{\rm BTag}$"
+#  "${/\!\!\!\!E}_{\rm T}^{\rm CAL}$"
+#  "${/\!\!\!\!E}_{\rm T}$"
+#  "$H_{\rm T}$"
+#  "$M_{\rm eff}$"
+#  "$M_{\rm T2}^{100}$"
+#  "$M_{\tau\tau}$"
+#  "$\Delta \phi_{\ell_1 \ell_2}$"
+#  "$\Delta \phi_{\ell_1 {/\!\!\!\!E}_{\rm T}}$"
+#  "$\cos \theta^*$"
+#  "$\tanh \vert \Delta \eta_{\ell_1 \ell_2} \vert$"
+#  "$M_{\rm T2}^0$"
+#  "$\Delta \phi_{\ell_1 j_1}$"
+#  "$\Delta \phi_{\ell_2 {/\!\!\!\!E}_{\rm T}}$"
+#  "$\tanh \vert \Delta \eta_{\ell_1 j_1} \vert$"
+#  "$\Delta \phi_{\ell_1 j_2}$"
+#  "$\Delta \phi_{j_1 {/\!\!\!\!E}_{\rm T}}$"
+#  "$\tanh \vert \Delta \eta_{\ell_1 j_2} \vert$"
+#  "$\Delta \phi_{\ell_2 j_1}$"
+#  "$\Delta \phi_{j_2 {/\!\!\!\!E}_{\rm T}}$"
+#  "$\tanh \vert \Delta \eta_{\ell_2 j_1} \vert$"
+#  "$\Delta \phi_{\ell_2 j_2}$"
+#  "$\tanh \vert \Delta \eta_{\ell_2 j_2} \vert$"
+#  "$\Delta \phi_{j_1 j_2}$"
+#  "$\tanh \vert \Delta \eta_{j_1 j_2} \vert$"
+#  "${P}_{\rm T}^{\ell_1}\div {/\!\!\!\!E}_{\rm T}$"
+#  "${P}_{\rm T}^{\ell_2}\div {/\!\!\!\!E}_{\rm T}$"
+#  "${P}_{\rm T}^{j_1}\div {/\!\!\!\!E}_{\rm T}$"
+#  "${P}_{\rm T}^{j_2}\div {/\!\!\!\!E}_{\rm T}$"
+#  "$(M_{\rm T2}^{100}-100) \div M_{\rm T2}^0$'
+

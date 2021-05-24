@@ -1,0 +1,27 @@
+
+# Construct Data Sets From Files
+MIN_DAT_001 = DIR:"./Cuts", FIL:["TTBarJJ_*"]
+MIN_DAT_002 = DIR:"./Cuts", FIL:["ZZJJ_*","AZJJ_*","WZJJ_*","WWJJ_*"]
+MIN_DAT_003 = DIR:"./Cuts", FIL:"llJJJ_*"
+MIN_DAT_101 = DIR:"./Cuts", FIL:"MulMulJJ_sl_110_n1_50_*"
+
+# Specify training features for inclusion (Channel 000 is for defaults)
+MIN_CHN_000 = INC:[
+	MAS_001,MAS_003,PTM_001,PTM_002,PTM_003,ETA_001,ETA_002,ETA_003,
+	MET_000,MHT_000,MEF_000,TTM_001,CTS_001,ATM_001,ATM_002,
+	MDP_001,MDP_002,MDP_003,ODP_001,ODP_002,ODP_004,
+	VAR_001,VAR_002,VAR_004,VAR_011,VAR_012,VAR_013,VAR_021 ]
+
+# Construct Channels from Data Sets
+MIN_CHN_001 = DAT:[001,002,003], LBL:0
+MIN_CHN_101 = DAT:101, LBL:1
+# Construct Training from Channels
+MIN_TRN_001 = CHN:[001,101]
+
+# Apply Secondary Event Selections Before Training 
+MIN_ESC_001 = KEY:MAS_001, CUT:[101,81] # Z-Window Cut
+MIN_ESC_002 = KEY:MET_000, CUT:75 # Require MET > 75 GeV
+MIN_CHN_011 = DAT:[001,002,003], LBL:0, ESC:[+001,+002]
+MIN_CHN_111 = DAT:101, LBL:1, ESC:[+001,+002]
+MIN_TRN_011 = CHN:[011,111]
+
