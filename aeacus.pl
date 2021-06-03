@@ -129,6 +129,8 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) {
 			do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; ( next FILE ) };
 		# The cross-section record associated with the key is initialized with the command line value or the Merged_XSEC.TXT value or UNDEF
 		push @xsc, [ my ($xsc) = (( defined $xsc ) ? ($xsc) : ( &MERGED_XSEC($fil))) ];
+		# The cross-section record associated with the key is initialized with the command line value or the SUMMARY.TXT value or UNDEF
+		push @xsc, [ my ($xsc) = (( defined $xsc ) ? ($xsc) : ( &SUMMARY_XSEC($fil))) ];
 		# The cross-section record associated with the key is initialized with the command line value or the Pythia.LOG value or UNDEF
 		push @xsc, [ my ($xsc) = (( defined $xsc ) ? ($xsc) : ( &PYTHIA_XSEC($fil))) ]; local ($_);
 		# An inner loop processes each line in the current file
@@ -378,12 +380,20 @@ sub AUXILIARY_CHANNEL { my (@err); my ($chn) = grep {(( ref eq q(HASH)) or (retu
 	print $FHO q(), ( splice @$txt, 0, -2 ), ($hdr), (@$txt); local ($_); while (
 		defined ( $_ = ((<$FHT>) or (<$FHI>)))) {( print )}} ((@err) ? (\@err) : (undef)) }
 
+# HERE ... unify the below.  Include pythia8 / other sources?
 # Returns the same-directory Merged_XSEC.TXT event production cross section (mean) and error (RMS) associated with a standardized .lhco file
 sub MERGED_XSEC { my ($FHI,@xsc,@dev) = ( &Local::FILE::HANDLE(
 	grep {(( $$_[-1] =~ s/(?:^|\/)([\w-]+?)_(?:delphes|pgs)_events\.lhco(?:\.gz)?$/${1}_merged_xsecs.txt/ ) or (return))}
 	map {[ ( ref eq q(ARRAY)) ? (@$_) ? (@$_) : (return) : (($_),((@_)?(shift):())) ]} (shift)) or (return));
 	local ($_); while (<$FHI>) {(( m/^\s*${\EXP}\s+(${\EXP})\s+(${\EXP})\s*$/ ) && ( push @xsc, (0+ $1)) && ( push @dev, (0+ $2)))}
 	map { (wantarray) ? ( $_, ( &RMS( @dev ))) : ( return $_ ) } ( &ARITHMETIC( @xsc )) }
+
+# Returns the same-directory SUMMARY.TXT event production cross section and error associated with a standardized .lhco file
+sub SUMMARY_XSEC { my ($FHI,$xsc,$dev) = ( &Local::FILE::HANDLE(
+	grep {(( $$_[-1] =~ s/(?:^|\/)([\w-]+?)_(?:delphes|pgs)_events\.lhco(?:\.gz)?$/summary.txt/ ) or (return))}
+	map {[ ( ref eq q(ARRAY)) ? (@$_) ? (@$_) : (return) : (($_),((@_)?(shift):())) ]} (shift)) or (return));
+	local ($_); while (<$FHI>) {((($xsc,$dev) = ( m/^\s*Total\s+cross\s+section:\s+(${\EXP})\s+\+-\s+(${\EXP})\s+pb/i )) && (last))}
+	map { (wantarray) ? ( $_, ( 0+ $dev )) : ( return $_ ) } ( 0+ $xsc ) }
 
 # Returns the same-directory Pythia.LOG event production cross section associated with a standardized .lhco file (fragmentation corrected, old file format)
 sub PYTHIA_XSEC { use Fcntl qw(:seek); my ($FHI) = grep {( seek ($_,-80,SEEK_END))} ( &Local::FILE::HANDLE(
@@ -429,7 +439,8 @@ sub CUT_METRIC { my ($e); my ($m) = (
 
 # Attempts to generates an LHCO event file from a DELPHES event file in the fashion of the standard MadGraph script "run_delphes3"
 sub ROOT_2_LHCO { my ($fil,$r2l,%cfg,$xpb) = (( grep {(( ref eq q(ARRAY)) or (return undef))} (shift)), (shift));
-	do { my ($FHI) = (( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(me5_configuration.txt) ])) or (return undef));
+	do { my ($FHI) = (( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(me5_configuration.txt) ])) or
+		( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(amcatnlo_configuration.txt) ])) or (return undef));
 		local ($_); while (<$FHI>) { ( $cfg{$1} = $2 ) if ( m/^\s*([\w-]+)\s*=\s*(\S*)\s*$/ ) }};
 	my ($dph) = (( &Local::FILE::PATH([ $cfg{mg5_path}, ( &DEFINED( $cfg{delphes_path}, q(./Delphes))) ])) or (return undef));
 	my ($pth,$run) = ( $$fil[0] =~ /^(.*\/)([^\/]+)\/$/ ) or (return undef);
