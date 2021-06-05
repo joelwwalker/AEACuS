@@ -474,7 +474,7 @@ tree = ROOT.TFile.Open( '${pth}${run}/${tag}_delphes_events.root', 'READ' )
 handle = open( '${pth}${run}/delphes_events.lhco', 'w' )
 nE = 1; handle.write( '   #  typ      eta      phi      pt    jmas   ntrk   btag  had/em   dum1   dum2' + ( ''.join(( '        ' + auxKey( i )) for i in range( amx ))) + '\\n' )
 for e in tree.Delphes :
-  nO = 1; handle.write(( '{:4d} {:13d} {:8d}' + ( '      {:10.3E}' if wgt else '' ) + '\\n' ).format( 0, nE, 0, ( e.Event[0].Weight if wgt else None )))
+  nO = 1; handle.write(( '{:4d} {:13d} {:8d}' + ( '      {:10.3E}' if wgt else '' ) + '\\n' ).format( 0, nE, 0, ( e.Weight[ e.Weight_size - 1 ].Weight if wgt else None )))
   for o in e.Photon :
     nO = printObject( o, nO, 0, eta=o.Eta, phi=o.Phi, pt=o.PT, hadem=o.EhadOverEem )
   for o in e.Electron :
