@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 3.032	#
-# March '11 - August '20	#
+# aeacus.pl Version 3.033	#
+# March '11 - July '21		#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -11,7 +11,7 @@
 #*******************************#
 
 # Require minimal perl version and specify AEACuS package version
-{; package Local::AEACuS; require 5.008_009; our ($VERSION) = 3.032; }
+{; package Local::AEACuS; require 5.008_009; our ($VERSION) = 3.033; }
 
 # Apply a strict coding pragma and define numerical constants
 use strict; use sort q(stable); use constant +{
@@ -324,10 +324,21 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 		# Filter on user-defined composite event statistics
 	[ var => sub { my ($sub,@val) = map { ( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ ) } (${$_[0]{val}||$_[0]{key}||[]}[0]);
 		(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@val)))}, -1 ],
+		# Filter on externally defined event statistics
+# HERE ... run once, tick-tock with VAR, itemize die, use system/IPC ... safety wrapper
+	[ ext => sub { (( my ($exe) = ( grep {((length) && ( -x ))} (( ${$_[0]{exe}||[]}[0] =~ /^(.*\/)?([^\/]+)$/ ) ?
+		( join q(), @{ ( &Local::FILE::HANDLE([ (($1) or ( q(./External/))), ($2) ]))[1]||[] } ) : ()))) or
+		( die 'Cannot execute external routine' ));
+		( map {(((length) && !(m/UNDEF/i)) ? ( sprintf q(%+10.3E), (0+ $_)) : (undef))}
+		map {`($_)`} ( join q( ), (($exe), ( map {((defined) ? ( sprintf q(%+10.3E), $_ ) : q(UNDEF))}
+		map { my ($sub,@val) = ( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ );
+			(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@val))) } (@{$_[0]{key}||[]})))))[0]
+		}, -1 ],
 		# Construct event analysis closure and list of reported statistics
 	], 1 ], ); ( [ map {[ @{ $k[$_] }[ @{ $i[$_] } ]]} (0..(@i-1)) ], [ map {(@$_)} (@k) ], sub { my ($o,$v) = (+{},+{});
 		@$o{( qw( nbr trg wgt cal obj ))} = ( @{(shift)||[]}[0..2], [((shift) or (return))], [[ @{((shift) || (return))} ]] ); ( -1,
-			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ( $i, (undef), $_ )) if ($t) } for
+			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ( $i, $_ )) if ($t) } for
+#			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ( $i, (undef), $_ )) if ($t) } for # HERE ... BUG
 			[ map {( !(defined) && ($t = 1))} ( @$_[ @{ $i[$i] } ] ) ]; 1 }
 			[ map {(($_)->($o,$v))} (@{ $c[$i] }) ] } (0..(@i-1)) ] ) } ) }
 

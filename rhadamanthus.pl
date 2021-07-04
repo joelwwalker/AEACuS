@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# rhadamanthus.pl Version 1.009	#
-# September '14 - August '20	#
+# rhadamanthus.pl Version 1.011	#
+# September '14 - July '21	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -18,7 +18,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.032 )); }
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.033 )); }
 
 # Read event plotting specifications from cardfile
 our ($OPT); my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =

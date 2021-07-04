@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# minos.pl Version 0.1 (BETA)	#
-# August '20 - May '21		#
+# minos.pl Version 0.3 (BETA)	#
+# August '20 - July '21		#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -14,7 +14,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.032 )); }
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.033 )); }
 
 # Read event plotting specifications from cardfile
 our ($OPT); my ($MIN) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -133,100 +133,138 @@ __DATA__
 
 import sys
 if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 7))) :
-        sys.exit( 'MInOS requires Python versions 2.7 or 3.X' )
+    sys.exit( "MInOS requires Python versions 2.7 or 3.X" )
 
 import matplotlib as mpl
 if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) :
-        sys.exit( 'MInOS requires MatPlotLib version 1.3.0 or Greater' )
+    sys.exit( "MInOS requires MatPlotLib version 1.3.0 or Greater" )
 
-import warnings as wrn; wrn.filterwarnings("ignore")
-
-import matplotlib.pyplot as plt
+import warnings; warnings.filterwarnings("ignore")
 
 import math, os, glob
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 import xgboost as xgb
 
-mpl.rcParams['mathtext.fontset'] = 'cm'; mpl.rcParams['font.family'] = 'STIXGeneral'
+mpl.rcParams["mathtext.fontset"] = "cm"; mpl.rcParams["font.family"] = "STIXGeneral"
+
+"""
+cross-validate ... distinct backgrounds & diff signals
+plot names and labels / diff versions distinct
+truth histogram validation under interpolation
+composite trainings ...
+    need the mdl for each & their "own-dmx" xsec / score interpolations
+    generate a .predict object composite ...
+    apply it to the MERGED dmx & generate an interpolant
+    do the merger auto/internal or manual/external?
+    general tools can be bundled into safe/compact macros
+card structure / logic / calling methodology
+card options & parameters
+one script vs many scripts
+"""
 
 def main () :
-    lum = 300000 # events per pb
-    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
-    bgs = tuple( x for x in ( loadCSV( x ) for x in glob.glob( "./CSV/NEG_*.csv" )) if x is not None )
-    sig = tuple( x for x in ( loadCSV( x ) for x in glob.glob( "./CSV/POS_*.csv" )) if x is not None )
-    dmx_all = tuple( getDMatrix(( mergeCSV( bgs ), mergeCSV( sig )), 3, False ))[0]
-    bdt_all = trainBDT( dmx_all )
-    scr_all = scoreBDT( bdt_all, dmx_all )
-    f = tuple( {
-        "density":interpolateTrapezoid(
-            *( pointsFromDensityEdge(
-            *( binDensity( c["score"], c["weight"], bins=25, b2=500, smooth=4. ))))),
-        "xsec":c["xsec"] } for c in scr_all )
-    ff = tuple( tuple((( 1. - _["density"]( xx, -1 )), ( lum * _["xsec"] ))) for _ in f )
-    if not os.path.exists( "./Plots/" ) : os.mkdir( "./Plots/" )
-    plotDistribution( xx, f[0]["density"]( xx ), f[1]["density"]( xx ))
-    plotROC ( ff[0][0], ff[1][0] )
-    plotSignificance( xx, *( tuple( _[0] * _[1] for _ in ff )))
-    plotImportance( bdt_all )
+    # do merged training
+    csv_all = tuple( tuple( CSV( csv ) for csv in glob.glob( cls )) for cls in ( "./CSV/NEG_*.csv", "./CSV/POS_*.csv" ))
+    dmx_all = next( DMX( tuple( mergeCSV( *x ) for x in csv_all )))
+    bdt_all = BDT( dmx_all )
+    doPlots( bdt_all, lum=300000., idx=1 )
+    # do split training with recombination
+    bdt = tuple( BDT( next( DMX(( x, csv_all[1][0] )))) for x in csv_all[0] )
+    bdt_merge = BDT( dmx_all, mergeMDL( *bdt ))
+    doPlots( bdt_merge, lum=300000., idx=2 )
     return
 
-# load CSV data record into numpy array
-def loadCSV ( f ) :
-    text = np.loadtxt( f, delimiter=",", dtype=np.float64 )
-    if len( text.shape ) == 1 :
-        if text.shape[0] == 0 : return None
-        text = np.array([ text ])
-    return text
+# instantiate object with method for the weighted recombination of a training ensemble
+class mergeMDL :
+    def __init__ ( self, *bdt ) :
+        self.predict = lambda dmx : (( lambda s :
+            s * np.array( tuple(( lambda a,b : ( a / b ) if b else np.full( len( a ), ( 1 / ( len( a ) or 1 )), dtype=np.float64 ))( x, x.sum())
+            for x in np.array( tuple( np.sum(( x["xsec"] * x["density"](s) for x in bdt[i]["density"] ), axis=0 )
+            for i,s in enumerate( s )), dtype=np.float64, ndmin=2 ).transpose())).transpose())
+            ( np.array( tuple( x["model"].predict( dmx ) for x in bdt ), dtype=np.float64, ndmin=2 ))).sum( axis=0 )
 
-# merge numpy arrays generated from CSV data records
-def mergeCSV ( csv ) : return np.concatenate( tuple( csv ), axis=0 )
+# generate BDT dictionary object with test dmatrix, model, and density
+def BDT ( dmx, mdl=None ) :
+    if mdl is None : mdl = MDL( dmx )
+    return { "dmatrix":dmx, "model":mdl, "density":DNS( SCR( mdl, dmx )) }
 
-# convert CSV data records into DMatrix objects for training and testing
-def getDMatrix ( csv, prt=2, fld=False ) :
-    # shuffle csv data and split into prt partitions for each supervisory class
-    prt = max( 2, int( prt )); csv = tuple( np.array_split(
-        ( np.random.default_rng( seed=0 ).shuffle( x ) or x ), prt, axis=0 )
-        for x in ( np.copy( x ) for x in csv ))
+# generate collection of plots corresponding to an input dmx object
+def doPlots ( bdt, lum=1., idx=None ) :
+    if not os.path.exists( "./Plots/" ) : os.mkdir( "./Plots/" )
+    plotImportance( bdt["model"], idx=idx )
+    plotDistribution( bdt["density"], idx=idx )
+    plotROC ( bdt["density"], idx=idx )
+    plotSignificance( bdt["density"], lum=lum, idx=idx )
+    return
+
+# load CSV data into tuple of numpy arrays (events) of arrays (weight & features)
+def CSV ( *fil, prt=3 ) :
+    # minimal partition is 2 for separation of training and test samples
+    prt = max( 2, int( prt ))
+    # numpy import utility generates uniform 2x2 matrices of floating point values to be joined across files
+    csv = (( lambda x : np.concatenate( x, axis=0 ) if len(x) > 1 else x[0] if x else np.empty((0,1), dtype=np.float64 ))(
+        tuple( filter(( lambda x : x.shape[0] ), ( np.loadtxt( x, delimiter=",", dtype=np.float64, ndmin=2 ) for x in fil )))))
+    # fail out records with no features or fewer events than the partition
+    if csv.shape[1] < 2 or csv.shape[0] < prt : return tuple()
+    # shuffle event records in place using fixed seed
+    np.random.default_rng( seed=0 ).shuffle( csv, axis=0 )
+    # return tuple of event partitions
+    return tuple( np.array_split( csv, prt, axis=0 ))
+
+# merge sets of CSV data partitions into a single tuple of numpy arrays of arrays
+def mergeCSV ( *csv ) : return tuple( np.concatenate( x, axis=0 ) if len(x) > 1 else x[0] for x in zip( *filter( None, csv )))
+
+# yield dictionaries of dmx objects for each fold from input CSV partitions for each class
+def DMX ( cls, fld=False ) :
+    # count available partitions for each class
+    prt = min( tuple( len( x ) for x in cls ) or (0,))
     # internal method for construction of dmx objects
-    def dmx ( csv, prt, idx ) :
+    def dmx ( cls, prt, idx ) :
         # merge selected csv partitions and separate weights from features
-        csv = tuple(( lambda x : ( x[1], x[0].flatten()))( np.split(
-            np.concatenate( tuple( csv[i][j] for j in idx )), [1], axis=1 ))
-            for i in range( len( csv )))
+        cls = tuple(( lambda x : ( x[1], x[0].flatten()))( np.split(
+            np.concatenate( tuple( cls[i][j] for j in idx )), [1], axis=1 ))
+            for i in range( len( cls )))
         # count residual events in each class
-        events = tuple( len( x[0] ) for x in csv )
+        events = tuple( len( x[0] ) for x in cls )
         # sum cross section of residual events in each class
-        xsec = tuple( np.sum( x[1] ) for x in csv )
+        xsec = tuple( np.sum( x[1] ) for x in cls )
         # return data structure with merged dmatrix, event counts, and cross sections
         return {
+            # instance of core XGBoost data matrix object
             "dmatrix":xgb.DMatrix(
-                data=np.concatenate( tuple( x[0] for x in csv ), axis=0 ),
+                # merge event samples from each class into a list of feature lists
+                data=np.concatenate( tuple( x[0] for x in cls ), axis=0 ),
+                # generate a list with the class label for each merged event
                 label=np.concatenate( tuple( np.full( x, i ) for i,x in enumerate( events ))),
                 # normalize total cross section weight to unity for each class
-                weight=np.concatenate( tuple(( x[1] / xsec[i] ) for i,x in enumerate( csv ))),
+                weight=np.concatenate( tuple(( x[1] / xsec[i] ) for i,x in enumerate( cls ))),
+                # assign plain text names for each ordered training feature
                 feature_names=feature_names ),
+            # array with number of sequential event samples belonging to each class
             "events":np.array( events ),
-            # scale up to represent the inclusive physical sample for each class
+            # array with scaled inclusive physical cross sections for each class
             "xsec":np.array( tuple(( x * prt / len( idx )) for x in xsec )) }
-    # generator function yields tuple of (train,test) dmx objects for each fold
-    for i in range( prt if fld else 1 ) : yield tuple( dmx( csv, prt, idx )
-        for idx in ( tuple( j for j in range( prt ) if j != i ), ( i, )))
+    # generator function yields dictionary of (train,test) dmx objects for each fold
+    for i in range( prt if fld else prt and 1 ) : yield { key : dmx( cls, prt, idx )
+        for key, idx in (( "train", tuple( j for j in range( prt ) if j != i )), ( "test", ( i, ))) }
 
-# Train a dmx object and generate a bdt object
-def trainBDT ( dmx ) :
-    ( train, test ) = ( x["dmatrix"] for x in dmx ); progress = dict()
-    return xgb.train( param, train,
-        num_boost_round=40, early_stopping_rounds=5,
-	evals=[ ( train, "train" ), ( test, "test" ) ],
-        verbose_eval=False, evals_result=progress )
+# generate a mdl object via training and validation of dmx object pair
+def MDL ( dmx, trs=40, stp=5 ) :
+    prg = dict(); return xgb.train( param, dmx["train"]["dmatrix"],
+        num_boost_round=trs, early_stopping_rounds=stp,
+        evals=[ ( dmx["train"]["dmatrix"], "train" ), ( dmx["test"]["dmatrix"], "test" ) ],
+        verbose_eval=False, evals_result=prg )
 # HERE print ( bst.best_score , bst.best_iteration )
 
-# Score a dmx object against a trained bdt
-def scoreBDT ( bdt, dmx, test=1 ) :
-    ( dmatrix, events, xsec ) = ( dmx[test][x] for x in ( "dmatrix", "events", "xsec" ))
-    ( score, weight ) = ( bdt.predict( dmatrix ), dmatrix.get_weight())
+# generate score object by projecting member (default:test) of dmx object pair onto mdl object
+def SCR ( mdl, dmx ) :
+    ( dmatrix, events, xsec ) = ( dmx["test"][x] for x in ( "dmatrix", "events", "xsec" ))
+    ( score, weight ) = ( mdl.predict( dmatrix ), dmatrix.get_weight())
+    # return tuple with dictionary of sorted data for each supervisory class
     return tuple((( lambda i,j,k : (( lambda i,x : {
         # generate sorted data structure with scores, weights, and cross section
         "score":score[x], "weight":weight[x], "xsec":xsec[i] } )(
@@ -234,21 +272,28 @@ def scoreBDT ( bdt, dmx, test=1 ) :
         i, ( j + np.argsort( score[j:k], kind="stable" )))))(
         # establish boundary indices of events in ith class
         i, events[0:i].sum(), events[0:i+1].sum()))
-        # loop over each supervisory class
+        # perform outer loop over each supervisory class
         for i in range( len( events )))
 
-# Integrates histogram densities and edges
-def binIntegrate ( d, e, leftward=False ) :
+# generate an interpolated score density object dns from a score object
+def DNS ( scr, bins=None, b2=1000, smooth=4. ) : return tuple( {
+    "density":interpolateTrapezoid(
+        *( pointsFromDensityEdge(
+        *( binDensity( x["score"], x["weight"], bins=bins, b2=b2, smooth=smooth ))))),
+    "xsec":x["xsec"] } for x in scr )
+
+# integrate histogram densities and edges
+def binIntegrate ( d, e, left=False ) :
     d = np.asarray( d ); e = np.asarray( e ); a = d * ( e[1:] - e[:-1] )
-    return np.flip( np.cumsum( np.flip( a ))) if leftward else np.cumsum( a )
+    return np.flip( np.cumsum( np.flip( a ))) if left else np.cumsum( a )
 
-# Bins samples and weights into densities and edges by edge specification
-def binEdge ( s, w, bins=None ) :
-    return np.histogram( s, weights=w, range=( 0., 1. ), density=True,
-        bins=( 2 * binsSturges( len( s )) if bins is None else bins ))
+# bin samples and weights into densities and edges by edge specification
+def binEdge ( s, w, bins=None ) : return np.histogram(
+    s, weights=w, range=( 0., 1. ), density=True,
+    bins=( 2 * binsSturges( len( s )) if bins is None else bins ))
 
-# Bins samples and weights into densities and edges by density specification
-def binDensity ( x, y, bins=None, b2=500, smooth=1. ) :
+# bin samples and weights into densities and edges by density specification
+def binDensity ( x, y, bins=None, b2=None, smooth=1. ) :
     ( p, s, a, e, w, n, t ) = ( 0., 0., 0., [ 0. ], [ 0. ], len( x ),
         ( 1. / ( 2 * binsSturges( len( x )) if bins is None else bins )))
     for i in range( n ) :
@@ -281,8 +326,7 @@ def binDensity ( x, y, bins=None, b2=500, smooth=1. ) :
 
 def evaluatePolynomial ( p, x ) :
     v = 0.
-    for c in p[::-1] :
-        v = c + ( v * x )
+    for c in p[::-1] : v = c + ( v * x )
     return v
 
 def polynomialIntegral ( p, a=0. ) :
@@ -298,7 +342,7 @@ def pointsFromDensityEdge ( d, e ) :
     return tuple(( e, np.concatenate(
         ( [ 0. ], (( d[:-1] * h[:-1] + d[1:] * h[1:] ) / ( h[:-1] + h[1:] )), [ 0. ] ))))
 
-# Cubic Spline interpolation, after Burden and Faires
+# perform Cubic Spline interpolation, after Burden and Faires
 def interpolateSpline ( x, y, slope_left=None, slope_right=None ) :
     x = np.asarray( x ); y = np.asarray( y ); h = ( x[1:] - x[:-1] ); n = len( h )
     a = np.concatenate((
@@ -317,7 +361,7 @@ def interpolateSpline ( x, y, slope_left=None, slope_right=None ) :
         [[ y[i], b[i+1] - h[i] * ( c[i+1] + 2*c[i] ) / 3, c[i],
         ( c[i+1] - c[i] ) / ( 3*h[i] ) ] for i in range( n ) ] ))
 
-# Linear Trapezoidal interpolation
+# perform Linear Trapezoidal interpolation
 def interpolateTrapezoid ( x, y ) :
     x = np.asarray( x ); y = np.asarray( y ); h = ( x[1:] - x[:-1] ); n = len( h )
     return polynomialAccessor( x, np.array(
@@ -331,15 +375,19 @@ def polynomialAccessor ( e, p ) :
         d[-1][i] = polynomialIntegral( d[0][i], t )
         t = evaluatePolynomial( d[-1][i], ( e[i+1] - e[i] ))
     for _ in d : _ /= t
-    return np.vectorize( lambda x, i=0 : (
+    return np.vectorize(( lambda x, i=0 : (
         lambda j : evaluatePolynomial( d[i][j], ( x - e[j] )))(
-        np.clip(( np.searchsorted( e, x ) - 1 ), 0, ( n - 1 ))))
+        np.clip(( np.searchsorted( e, x ) - 1 ), 0, ( n - 1 )))),
+        otypes=[np.float64], excluded=[1] )
 
+# implement the Sturges bin count model
 def binsSturges ( n ) : return ( 1 + math.ceil( math.log( n , 2 )))
 
-# Generate donut plot of feature importance to total gain
-def plotImportance ( bdt, pth="./Plots/", idx=None ) :
-    scores = bdt.get_score( importance_type="total_gain" )
+# generate donut plot of feature importance to total gain
+def plotImportance ( mdl, pth="./Plots/", idx=None ) :
+    if not isinstance( mdl, xgb.core.Booster ) : return
+    # HERE ... setup mdl for multiple and composite print ...
+    scores = mdl.get_score( importance_type="total_gain" )
     keys = sorted( scores, key=scores.get )
     values = np.array([ scores[k] for k in keys ]); values /= values.sum()
     ( t, l, d ) = ( 0.0, 0.0, [] )
@@ -352,7 +400,7 @@ def plotImportance ( bdt, pth="./Plots/", idx=None ) :
     labels = tuple((( lambda x : ", ".join( tuple( feature_dict[k] for k in x[:3] ) +
         (( r"$\ldots$", ) if ( len( x ) > 3 ) else ())))( tuple( reversed( r[1] )))) for r in reversed( d ))
     wedges, texts, autotexts = ax.pie( [ _[0] for _ in reversed( d ) ],
-        normalize=True, radius=1.0, startangle=90.0, autopct='%1.1f%%', pctdistance=0.75,
+        normalize=True, radius=1.0, startangle=90.0, autopct="%1.1f%%", pctdistance=0.75,
         wedgeprops={ "width":0.5, "edgecolor":"black", "linewidth":0.8 }, colors=( plt.get_cmap("tab10")( range( 10 ))))
     plt.setp( autotexts, size=12, color="white" )
     kw = { "zorder": 0, "verticalalignment":"center", "arrowprops":{ "arrowstyle":"-", "linewidth":0.8 },
@@ -365,101 +413,122 @@ def plotImportance ( bdt, pth="./Plots/", idx=None ) :
         ax.annotate( labels[i], xy=( x, y ), size=12, xytext=( 1.25*np.sign(x), 1.25*y ),
             horizontalalignment=horizontalalignment, **kw )
     ax.set_title( "Feature Importance to Total Gain", size=17, verticalalignment="bottom", pad=20 )
-    fig.savefig( pth + "donut_plot" + ( "" if idx is None else ( "_" + str(idx))) + ".pdf", facecolor="white" )
+    fig.savefig( pth + "donut_plot" + indexString(idx) + ".pdf", facecolor="white" )
 
-# Generate plot of Receiver Operating Characteristic evolution with bdt score
-def plotROC ( xx, yy, pth="./Plots/" ) :
-    auc = ((( yy[:-1] + yy[1:] ) * ( xx[1:] - xx[:-1] )).sum() / ( -2. ))
-    fig = plt.figure( figsize=( 5., 5. ), tight_layout=False )
-    ax = fig.add_axes([ 0.05, .12, 0.95, 0.75 ], aspect="equal" )
-    color=( plt.get_cmap("tab10")( range( 1 )))
-    ax.set_xlim([ 0.0, 1.0 ])
-    ax.set_ylim([ 0.0, 1.0 ])
-    ax.set_xlabel( r"False Positive Rate", size=14, color="black" )
-    ax.set_ylabel( "True Positive Rate", size=14, color="black" )
-    ax.xaxis.grid( True, linewidth=0.8, color="black" )
-    ax.yaxis.grid( True, linewidth=0.8, color="black" )
-    ax.text( 0.53, 0.05, "Area Under Curve: {:4.2f}".format( auc ), fontsize=12,
-        bbox={ "boxstyle":"round,pad=0.3,rounding_size=0.3", "facecolor":"white", "edgecolor":"black", "linewidth":0.8 } )
-    tkw = dict( size=4, width=0.8 )
-    ax.tick_params( axis='x', **tkw )
-    ax.plot( xx, yy, color=color[0], linewidth=1.4, linestyle="solid", zorder=1 )
-    ax.plot( xx, xx, color="red", linewidth=1.4, linestyle="dashed", zorder=1 )
-    ax.fill_between( xx, yy, 0.0, linewidth=0.0, alpha=0.1, edgecolor="none", facecolor=color[0], hatch="", zorder=-1 )
-    ax.tick_params( axis='y', colors="black", **tkw )
-    for x in ( ax.get_xticklabels() + ax.get_yticklabels()): x.set_fontsize( 12 )
-    ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
-    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
-    fig.suptitle( r"Receiver Operating Characteristic", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "roc_plot.pdf", facecolor="white" )
-
-# Generate plot of bdt score distributions for signal and background
-def plotDistribution ( xx, bb, ss, pth="./Plots/" ) :
+# generate plot of mdl score distributions for signal and background
+def plotDistribution ( dns, pth="./Plots/", idx=None ) :
+    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
+    dd = tuple( _["density"]( xx ) for _ in dns[0:2] )
     fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
     ax = fig.add_axes([ 0.1, .14, 0.8, 0.75 ] )
     color=( plt.get_cmap("tab10")( range( 2 )))
     ax.set_xlim([ 0.0, 1.0 ])
-    label = ( r"Background", r"Signal" )
-    ax.set_xlabel( r"Signal Classification Score", size=14, color="black" )
+    label = ( "Background", "Signal" )
+    ax.set_xlabel( "Signal Classification Score", size=14, color="black" )
     ax.set_ylabel( "Probability Density", size=14, color="black" )
     ax.xaxis.grid( True, linewidth=0.8, color="black" )
     tkw = dict( size=4, width=0.8 )
-    ax.tick_params( axis='x', **tkw )
-    for i, dd in enumerate(( bb, ss )) : 
-        ax.plot( xx, dd, color=color[i], linewidth=1.4, linestyle="solid", zorder=1 )
-        ax.fill_between( xx, dd, 0.0, linewidth=0.0, alpha=0.1, edgecolor="none", facecolor=color[i], hatch="", zorder=-1 )
+    ax.tick_params( axis="x", **tkw )
+    for i in range( 2 ) :
+        ax.plot( xx, dd[i], color=color[i], linewidth=1.4, linestyle="solid", zorder=3+i )
+        ax.fill_between( xx, dd[i], 0.0, linewidth=0.0, alpha=0.1, edgecolor="none", facecolor=color[i], hatch="", zorder=i-2 )
     patches = [(
         mpl.patches.Rectangle((0,0), 1, 1, fill=True, facecolor=color[i], alpha=0.1, linewidth=0.0 ),
-        mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor=color[i], linewidth=1.4 ))
-       for i in range(2) ]
+        mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor=color[i], linewidth=1.4 )) for i in range( 2 ) ]
     lgd = ax.legend( patches, label, loc="best", fontsize=12 )
-    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1.0 ); lgd.set(zorder=2)
+    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1.0 ); lgd.set(zorder=5)
     ax.set_ylim([ 0.0, None ])
-    ax.tick_params( axis='y', colors="black", **tkw )
+    ax.tick_params( axis="y", colors="black", **tkw )
+    for x in ( ax.get_xticklabels() + ax.get_yticklabels()) : x.set_fontsize( 12 )
+    ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
+    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
+    fig.suptitle( "Signal and Background Score Distribution", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
+    fig.savefig( pth + "density_plot" + indexString(idx) + ".pdf", facecolor="white" )
+
+# generate plot of Receiver Operating Characteristic evolution with mdl score
+def plotROC ( dns, pth="./Plots/", idx=None ) :
+    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
+    ( fp, tp ) = tuple(( 1. - _["density"]( xx, -1 )) for _ in dns[0:2] )
+    auc = ((( tp[:-1] + tp[1:] ) * ( fp[1:] - fp[:-1] )).sum() / ( -2. ))
+    fig = plt.figure( figsize=( 5., 5. ), tight_layout=False )
+    ax = fig.add_axes([ 0.05, .12, 0.95, 0.75 ], aspect="equal" )
+    color=( plt.get_cmap("tab10")( range( 1 )))
+    ax.set_xlim([ 0.0, 1.0 ]); ax.set_ylim([ 0.0, 1.0 ])
+    ax.set_xlabel( "False Positive Rate", size=14, color="black" )
+    ax.set_ylabel( "True Positive Rate", size=14, color="black" )
+    ax.xaxis.grid( True, linewidth=0.8, color="black" )
+    ax.yaxis.grid( True, linewidth=0.8, color="black" )
+    ax.text( 0.53, 0.05, "Area Under Curve: {:4.2f}".format( auc ), fontsize=12, zorder=5,
+        bbox={ "boxstyle":"round,pad=0.3,rounding_size=0.3", "facecolor":"white", "edgecolor":"black", "linewidth":0.8 } )
+    tkw = dict( size=4, width=0.8 ); ax.tick_params( axis="x", **tkw )
+    ax.plot( xx, xx, color="red", linewidth=1.4, linestyle="dashed", zorder=3 )
+    ax.plot( fp, tp, color=color[0], linewidth=1.4, linestyle="solid", zorder=4 )
+    ax.fill_between( fp, tp, 0.0, linewidth=0.0, alpha=0.1, edgecolor="none", facecolor=color[0], hatch="", zorder=-1 )
+    ax.tick_params( axis="y", colors="black", **tkw )
     for x in ( ax.get_xticklabels() + ax.get_yticklabels()): x.set_fontsize( 12 )
     ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
     for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
-    fig.suptitle( r"Signal and Background Score Distribution", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "distribution_plot.pdf", facecolor="white" )
+    fig.suptitle( "Receiver Operating Characteristic", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
+    fig.savefig( pth + "roc_plot" + indexString(idx) + ".pdf", facecolor="white" )
 
-# Generate plot of significance as a function of bdt score
-def plotSignificance ( xx, bb, ss, pth="./Plots/" ) :
+# generate plot of significance as a function of mdl score
+def plotSignificance ( dns, lum=1.0, pth="./Plots/", idx=None ) :
+    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
+    ( bb, ss ) = tuple((( lum * _["xsec"] ) * ( 1. - _["density"]( xx, -1 ))) for _ in dns[0:2] )
+    yy = ( ss, ( ss / ( 1. + bb )), ( ss / np.sqrt( 1. + bb )))
     fig = plt.figure( figsize=( 7.5, 5 ), tight_layout=False )
     ax = fig.add_axes([ 0.11, .12, 0.65, 0.75 ])
-    twin1 = ax.twinx()
-    twin2 = ax.twinx()
-    twin2.spines["right"].set_position(( "axes", 1.2 ))
-    yy = [ ss, ( ss / ( 1. + bb )), ( ss / np.sqrt( 1. + bb )) ]
-    label = ( r"$S$", r"$S\div(1+B)$", r"$S\div\sqrt{(1+B)}$" ) 
-    color=( plt.get_cmap("tab10")( range( 3 )))
-    axes = ( ax, twin1, twin2 )
-    side = ( "left", "right", "right" )
-    ax.set_xlim([ 0.0, 1.0 ])
-    ax.set_xlabel( r"Signal Classification Threshold", size=14 )
+    ax.set_zorder( 0 ); ax.set_xlim([ 0.0, 1.0 ]); ax.set_ylim([ 0.0, 1.0 ])
+    ax.set_xlabel( "Signal Classification Threshold", size=14 )
     ax.xaxis.grid( True, linewidth=0.8, color="black" )
-    tkw = dict( size=4, width=0.8 )
-    ax.tick_params( axis='x', **tkw )
-    for i in range(3) :
-        axes[i].plot( xx, yy[i], color=color[i], linewidth=1.4, linestyle="solid", label=label[i], zorder=i+1 )
-        axes[i].fill_between( xx, yy[i], 0.0, linewidth=0.0, alpha=0.1, edgecolor="none", facecolor=color[i], hatch="", zorder=i-3 )
-        axes[i].set_ylabel( label[i], size=14, color=color[i] )
+    for x in ax.get_xticklabels() : x.set_fontsize( 12 )
+    tkw = dict( size=4, width=0.8 ); ax.tick_params( axis="x", **tkw )
+    ax.spines["left"].set_visible(False); ax.spines["right"].set_visible(False)
+    ax.yaxis.set_visible(False); ax.set_facecolor("none")
+    axes = tuple( ax.twinx() for _ in range( 9 ))
+    axes[5].spines["right"].set_position(( "axes", 1.2 ))
+    label = ( r"$S$", r"$S\div(1+B)$", r"$S\div\sqrt{(1+B)}$" )
+    side = ( "left", "right", "right" )
+    color=( plt.get_cmap("tab10")( range( 3 )))
+    for i in range( 3 ) :
+        axes[i].set_frame_on(False)
+        axes[i].yaxis.set_visible(False)
+        axes[i].set_zorder( i-3 )
+        axes[i].fill_between( xx, yy[i], 0.0, linewidth=0.0, alpha=0.1, edgecolor="none", facecolor=color[i], hatch="" )
         axes[i].set_ylim([ 0.0, None ])
-        axes[i].tick_params( axis='y', colors=color[i], **tkw )
-        for x in ( axes[i].get_xticklabels() + axes[i].get_yticklabels()): x.set_fontsize( 12 );
-        axes[i].tick_params( axis="y", which="both", zorder=0, color=color[i] ); axes[i].minorticks_on()
-        axes[i].spines[ side[i]].set( linewidth=1.4, color=color[i], alpha=1.0, zorder=9 )
-    fig.suptitle( r"Signal vs. Background Significance", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "sig_plot.pdf", facecolor="white" )
+    for i in range( 3 ) :
+        axes[3+i].set_zorder( 1+i )
+        axes[3+i].set_ylim( axes[i].get_ylim())
+        for sp in axes[3+i].spines.values() : sp.set_visible(False)
+        axes[3+i].spines[ side[i]].set_visible(True)
+        axes[3+i].spines[ side[i]].set( linewidth=0.8, color=color[i], alpha=1.0 )
+        axes[3+i].yaxis.set_label_position( side[i] )
+        axes[3+i].yaxis.set_ticks_position( side[i] )
+        axes[3+i].set_ylabel( label[i], size=14, color=color[i] )
+        axes[3+i].tick_params( axis="y", colors=color[i], **tkw )
+        axes[3+i].tick_params( axis="y", which="both", color=color[i] ); axes[3+i].minorticks_on()
+        for x in axes[3+i].get_yticklabels() : x.set_fontsize( 12 )
+    for i in range( 3 ) :
+        axes[6+i].set_frame_on(False)
+        axes[6+i].yaxis.set_visible(False)
+        axes[6+i].set_zorder( 4+i )
+        axes[6+i].set_ylim( axes[i].get_ylim())
+        axes[6+i].plot( xx, yy[i], color=color[i], linewidth=1.4, linestyle="solid" )
+    fig.suptitle( "Signal vs. Background Significance", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
+    fig.savefig( pth + "significance_plot" + indexString(idx) + ".pdf", facecolor="white" )
+
+# canonical three-digit numerical identifier string in range "_000" to "_999"
+def indexString( idx=None ) : return "" if idx is None else "_{0:03d}".format( min( max( 0, int(idx)), 999 )) 
 
 # NOTE: Various lists / parameters below are temporarily hard coded for BETA distribution
 
-# Ordered list of training feature keys
+# ordered list of training feature keys
 feature_names = [
     "ATM_001","ATM_002","CTS_001","ETA_001","ETA_002","ETA_003","MAS_001","MAS_003",
     "MDP_001","MDP_002","MDP_003","MEF_000","MET_000","MHT_000","ODP_001","ODP_002","ODP_004",
     "PTM_001","PTM_002","PTM_003","TTM_001","VAR_001","VAR_002","VAR_004","VAR_011","VAR_012","VAR_013","VAR_021" ]
 
-# Ordered list of training feature TeX symbols
+# ordered list of training feature TeX symbols
 feature_tex = [
     r"$M_{\rm T2}^{100}$", r"$M_{\rm T2}^0$", r"$\cos \theta^*$", r"$\eta_{\ell_1}$", r"$\eta_{\ell_2}$",
     r"$\eta_{j_1}$", r"$M_{\ell\ell}$", r"$M_{j}$", r"$\Delta \phi_{\ell_1 {/\!\!\!\!E}_{\rm T}}$", r"$\Delta \phi_{\ell_2 {/\!\!\!\!E}_{\rm T}}$",
@@ -470,10 +539,10 @@ feature_tex = [
     r"${P}_{\rm T}^{\ell_1}\div {/\!\!\!\!E}_{\rm T}$", r"${P}_{\rm T}^{\ell_2}\div {/\!\!\!\!E}_{\rm T}$",
     r"${P}_{\rm T}^{j_1}\div {/\!\!\!\!E}_{\rm T}$", r"$(M_{\rm T2}^{100}-100) \div M_{\rm T2}^0$" ]
 
-# Construct feature dictionary
+# construct feature dictionary
 feature_dict = { feature_names[i]:feature_tex[i] for i in range( len( feature_names )) }
 
-# Configure hyperparameters
+# configure hyperparameters
 param = {
     "booster":"gbtree",
     "max_depth":8,
