@@ -17,7 +17,7 @@
 use strict; use sort q(stable); use constant +{
 	NIL => 10**-8, EPS => 0.0005, ONE => 1.0, BIG => 500, HUG => 10**+8, TRY => 25, PRT => 12,
 	TUP => 64, RPT => 12, LPR => 100, BLK => 6, BMX => 52, SET => 10**+4, CAP => 250_000,
-	EXP => qr/[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?/i, IMX => ( ~0 >> 1 ), PI => 4*( atan2 (1,1)),
+	EXP => qr/[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:E[-+]?\d+)?/i, IMX => ( ~0 >> 1 ), PIE => 4*( atan2 (1,1)),
 	do { my ($inf) = 9**9**9; ( INF => ($inf), NIN => ( -1*($inf)), NAN => (($inf)/($inf))) }};
 
 # Register named and ordered parameter options from the command line input
@@ -870,10 +870,10 @@ sub CLIP_PAD_OBJECTS { my ($min,$max,$clp) = map { ( ref eq q(ARRAY)) ? @$_[0..2
 	($clp < 0) ? ($cnt > @_) ? (@_) : (@_)[(0..($cnt-1))] : ((@_), ( map { +{}} (0..($cnt-(1+@_))))) }
 
 # Returns the principal value (in the range 0 to 2Pi) corresponding to an input angle in radians
-sub PRINCIPAL_RAD { ( &INT_QUOTIENT((shift),((shift) ? PI : 2*PI),-1))[1] }
+sub PRINCIPAL_RAD { ( &INT_QUOTIENT((shift),((shift) ? PIE : 2*PIE),-1))[1] }
 
 # Returns the absolute azimuthal angular separation (in the range 0 to Pi) between two input angles in the range -Pi to 2*Pi
-sub DELTA_RAD_ABS { ( map { ($_ <= PI) ? $_ : ( abs (2*PI-$_)) } map {( abs ($$_[1]-$$_[0]))} [ grep { (defined) or (return undef) } (shift,shift) ])[0] }
+sub DELTA_RAD_ABS { ( map { ($_ <= PIE) ? $_ : ( abs (2*PIE-$_)) } map {( abs ($$_[1]-$$_[0]))} [ grep { (defined) or (return undef) } (shift,shift) ])[0] }
 
 # Returns a {hash} lhco object with unified 4-vector and collider kinematics extracted from an input 4-vector [list]
 sub LORENTZ_HASH { my ($tvrs,$msls,$ivrt,$flsh) = map { ( ref eq q(ARRAY)) ? (@$_) : () } (shift);
@@ -1036,8 +1036,9 @@ sub TRANSVERSE_ENERGY { ${ ( &LORENTZ(( scalar &LORENTZ_SUM([!1,1,!1],@_)), (1,!
 # Returns the invariant mass computed from the vector sum over a list of [4-vector] momenta components or lhco objects
 sub INVARIANT_MASS { ((undef), ( &LORENTZ_SUM(undef,@_)))[-1] }
 
+# HERE ... deal globally with massless conversion question ...
 # Returns the transverse mass computed for a list of massless transverse [4-vector] momenta components or lhco objects
-sub TRANSVERSE_MASS { ( sqrt ( &LORENTZ_PRODUCT((( &LORENTZ_SUM([1,1,!1],@_)) or (return undef))[0,0], -1, 1 ))) }
+sub TRANSVERSE_MASS { ( sqrt ( &LORENTZ_PRODUCT((( &LORENTZ_SUM([1,!1,!1],@_)) or (return undef))[0,0], -1, 1 ))) }
 
 # Returns the s-transverse mass (MT2) computed for a pair of massless transverse [4-vector] momenta components or lhco objects
 sub S_TRANSVERSE_MASS { ( sqrt ((2)*( &LORENTZ_PRODUCT(( map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (shift,shift)), +1, 1 )))) }
@@ -1124,7 +1125,7 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 				map {[ ($$_[3]**2-$$_[0]*$$_[5]), 2*($$_[1]*$$_[3]-$$_[0]*$$_[4]), -1*($dsc) ]} ( $ell->($s,$p)))[0] };
 		push @$_, ($dot,$ell,$bar,$org,$dsh); 1 } (@$_) ]}
 
-	grep { my ($t) = map { (defined) ? ( scalar &Local::MATRIX::TRANSPOSE( scalar &LORENTZ_ROTATE(undef,[0,0,((PI/2)-( &PRINCIPAL_RAD($_,1)))]))) : () } # Optimized rotation
+	grep { my ($t) = map { (defined) ? ( scalar &Local::MATRIX::TRANSPOSE( scalar &LORENTZ_ROTATE(undef,[0,0,((PIE/2)-( &PRINCIPAL_RAD($_,1)))]))) : () } # Optimized rotation
 		map { ${ ( &ETA_PHI_PTM_MAS((( &Local::VECTOR::INNER_PRODUCT(@$_)) >= 0 ) ? ( scalar &Local::TENSOR::SUM(@$_)) : ( scalar &Local::TENSOR::DIFFERENCE(@$_)))) || [] }[1] } [
 		map {[ 0, ( sqrt ( &MAX(0,(1-2*$$_[0]*$$_[3])))), ((0 <=> $$_[1])||(1))*( sqrt ( &MAX(0,(1-2*$$_[2]*$$_[3])))), 0 ]}
 		grep { push @$_, ( &RATIO(1,(( sqrt(($$_[0]-$$_[2])**2+4*$$_[1]**2)) + $$_[0] + $$_[2]))); 1 } map { my ($obj,$del) = (@$_); ($$obj[0][5]) ?
@@ -1200,17 +1201,17 @@ sub LEP_W_PROJECTION { ( return &RATIO((($$_[0][0]*$$_[1][0]) - ( &LORENTZ_PRODU
 # Returns the transverse thrust shape statistics for a list of [4-vector] momenta components or lhco objects; Independent mht or undef is leading parameter
 sub THRUST_SHAPE { my ($mhtv,@vcts) = (( map { (defined) ? ( &MAX(0,$_)) : ( grep { (defined) or (return (undef,undef)) } ( &MHT( !1, @_))) } (shift)),
 	( grep {($$_[2] > 0)} map { ( &ETA_PHI_PTM_MAS($_)) || (return (undef,undef)) } (@_))); (@vcts) or (return (undef,undef)); my ($sub) = sub {
-		my ($p) = ((shift) + ((shift) && PI/2)); [ $p, ( &SUM( map {( $$_[2]*( abs ( cos ($$_[1]-$p))))} (@vcts))) ] };
+		my ($p) = ((shift) + ((shift) && PIE/2)); [ $p, ( &SUM( map {( $$_[2]*( abs ( cos ($$_[1]-$p))))} (@vcts))) ] };
 	map { (wantarray) ? (@$_) : (return $$_[0]) } grep { ($$_[0] = (1 - $$_[0])) if (defined $$_[0]); 1 } map {[ map {( &RATIO($$_[1],$mhtv))}
 		( $_, ((wantarray) ? ( $sub->($$_[0],1)) : ())) ]} ( sort { our ($a,$b); ($$b[1] <=> $$a[1]) } map { my ($t) = $_; map { my ($min,$try,$max) =
 			( undef, ( map {( $sub->($_))} @$t[$_,($_+1)] )); do { ${ (\$min,\$max)[0+((defined $min) && ($$max[1] < $$min[1]))] } = ($try);
 			($try) = map {( $sub->($_))} ($$min[0] + $$max[0])/2; } while (($$max[0] - $$min[0])/2 > EPS); $try } (0..(@$t-2)) }
-			grep { push @$_, $$_[0]+PI; 1 } [ ( sort { our ($a,$b); ($a <=> $b) } map {( &PRINCIPAL_RAD(($$_[1]+PI/2),1))} (@vcts)) ])[0] }
+			grep { push @$_, $$_[0]+PIE; 1 } [ ( sort { our ($a,$b); ($a <=> $b) } map {( &PRINCIPAL_RAD(($$_[1]+PIE/2),1))} (@vcts)) ])[0] }
 
 # Returns the transverse spherocity shape statistic for a list of [4-vector] momenta components or lhco objects; Independent mht or undef is leading parameter
 sub SPHEROCITY_SHAPE { my ($mhtv,@vcts) = (( map { (defined) ? ( &MAX(0,$_)) : ( grep { (defined) or (return undef) }
 	( &MHT( !1, @_))) } (shift)), ( grep {($$_[2] > 0)} map { ( &ETA_PHI_PTM_MAS($_)) || (return undef) } (@_)));
-	( return ((defined) ? ((PI/2)*$_)**2 : (undef))) for map {( &RATIO($_,$mhtv))} (( sort { our ($a,$b); ($a <=> $b) } map {
+	( return ((defined) ? ((PIE/2)*$_)**2 : (undef))) for map {( &RATIO($_,$mhtv))} (( sort { our ($a,$b); ($a <=> $b) } map {
 		my ($p) = $$_[1]; ( &SUM( map {( $$_[2]*( abs ( sin ($$_[1]-$p))))} (@vcts))) } (@vcts)), undef )[0] }
 
 # Returns the transverse sphericity shape statistic for a list of [4-vector] momenta components or lhco objects
@@ -1434,8 +1435,8 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 			q(orr)	=> sub { 0+((shift) or (shift)) },
 			q(xor)	=> sub { 0+((shift) xor (shift)) },
 				} : +{
-			q(pi)	=> sub {(PI)},
-			q(pie)	=> sub {(PI)},
+			q(pi)	=> sub {(PIE)},
+			q(pie)	=> sub {(PIE)},
 			q(udf)	=> sub {(undef)},
 			q(undef)=> sub {(undef)},
 				} ) -> {( lc $opn )} ) or (( +{
