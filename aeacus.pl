@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 3.033	#
+# aeacus.pl Version 3.034	#
 # March '11 - July '21		#
 # Joel W. Walker		#
 # Sam Houston State University	#
@@ -9,6 +9,20 @@
 # arXiv:1207.3383		#
 # Copy: GNU Public License V3	#
 #*******************************#
+
+=pod
+TODO ...
+Photon global implementation
+cmp and etc have default key but accept full key (may have list of acceptable keys)
+massless question ... globally consistent implementation
+FIX transverse mass ... different variants? sum visible & invisible separately & then combine ... frame issue
+external / multiple
+OUT issues
+weights, mixing, uncertainties, correlation matrix
+document & RELEASE
+MET output
+confirm logic of isolation
+=cut
 
 # Require minimal perl version and specify AEACuS package version
 {; package Local::AEACuS; require 5.008_009; our ($VERSION) = 3.033; }
@@ -265,27 +279,29 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 				((abs) >= (10**(+3))) ? (2) : (3))) ], 0+($_) ] : [ (( !((((!1)x(4)),1)[$f])) ? q() : q(   )).q(  UNDEF), (undef) ] )) for
 			(($t) ? (($$v{$$t[0]}[$$t[1]]) = ( map {(( defined $$t[2] ) ? ($$_{aux}[$$t[2]]) : ($$_{$$t[0]}))} ( $$o{$k}[$i][$$t[3]] || +{} ))) :
 			( map { ($m) ? (($m < 0) or ( &MATCH_VALUE( $$e{cut}, $_ )) or (return undef)) : (return); ($$_) } \( $$v{$k}[$i] = (($c)->($e,$o,$v,$i))))); } ) ] } ((undef),@o) }
-		(( &CLONE($$crd{$h}{$k}[$i])) || (($i > 0) ? () : +{} )) } (( &DEFINED($a,1))..( &DEFINED($z,( &MAX(0,(@{$$crd{$h}{$k}||[]}-1)))))) } (@$l) ] } ( [ obj => [
+		(( &CLONE($$crd{$h}{$k}[$i])) || (($i > 0) ? () : +{} )) } (( &DEFINED($a,1))..( &DEFINED($z,( &MAX(0,(@{$$crd{$h}{$k}||[]}-1)))))) } (@$l) ] }
+				( [ obj => [
 		# Group photons and individual lepton flavors, and filter on kinematics, sign, and isolation
-	( map { my ($k,$src) = (($_), ( qw( pho ele muo tau all ))[$_]); [ ($src) => sub {
+	( map { my ($k,$src) = (($_), ((undef), qw( ele muo tau all ))[$_]); [ ($src) => sub {
 		my ($t) = [ grep { ($k < 0) || ($$_{typ} == $k) } (@{ $_[1]{(($k < 0)?q(obj):q(all))}[0] || [] }) ];
 		( map {( 0+@$_ )} grep { !($k < 0) && ( 0+(0,1,0)[($_[0]{jet}[0])] ) && do { do { $$_{typ} = 4 } for ( &EXCLUDE_OBJECTS($_,(@$t))) }; 1 }
-		grep { $_[1]{$src}[$_[3]] = $_; 1 } ( &SELECT_OBJECTS($_[0],$t,(undef),$_[3],(-1,0,0,0,-1)[$k],$k)))[0] }, 1, 0, 0 ] } (-1..3)),
-		# Reconstruct lepton and jet subsets consistent with various kinematic, tagging, and back-reference criteria
-	( map { my ($j,$src,$cmp) = (($_), ( qw( lep jet ))[(($_),(1-$_))] ); [ ($src) => sub {
-		( map {( 0+@$_ )} grep { $_[1]{$src}[$_[3]] = $_; 1 } ( &SELECT_OBJECTS( $_[0],
-		[ ($_[3] > 0) ? (( &INCLUDE_OBJECTS( $_[0]{src}, $_[3], $_[1]{$src} )), (($j == 0) ? () : ( &ILEP ))) :
-		(($j == 0) ? ( map {(@{ $$_[0] || [] })} (@{ $_[1] || +{}}{ qw( ele muo tau ) })) : ( grep {($$_{typ} == 4)} (@{ $_[1]{all}[0] || [] }))) ],
-		[ &INCLUDE_OBJECTS( $_[0]{cmp}, $_[3], $_[1]{$cmp} ) ], $_[3], $j )))[0] }, 1, 0 ] } (0,1)), ], !1 ], [ evt => [
+			grep { $_[1]{$src}[$_[3]] = $_; 1 } ( &SELECT_OBJECTS( $_[0], $t, (undef), $_[3], ((undef),0,0,0,-1)[$k], $k )))[0] }, 1, 0, 0 ] } (-1,(1..3))),
+		# Reconstruct photon, lepton, and jet subsets consistent with various kinematic, tagging, and back-reference criteria
+# HERE ... allow for selection of comparison group ... include explicit, implicit, allowed keys globally
+	( map { my ($j,$k,$src,$cmp) = (($_), ((undef),4,0)[$_], ( qw( lep jet pho ))[(($_),(1,0,1)[$_])] ); [ ($src) => sub {
+		my ($t) = [ ($_[3] > 0) ? (( &INCLUDE_OBJECTS( $_[0]{src}, $_[3], $_[1]{$src} )), (($j == 1) ? (( &IPHO ),( &ILEP )) : ())) :
+			(($j == 0) ? ( map {(@{ $$_[0] || [] })} (@{ $_[1] || +{}}{ qw( ele muo tau ) })) : ( grep {($$_{typ} == $k)} (@{ $_[1]{all}[0] || [] }))) ];
+		( map {( 0+@$_ )} grep { ($_[3] == 0) && ($j != 1) && ( 0+(0,1,0)[($_[0]{jet}[0])] ) && do { do { $$_{typ} = 4 } for ( &EXCLUDE_OBJECTS($_,(@$t))) }; 1 }
+			grep { $_[1]{$src}[$_[3]] = $_; 1 } ( &SELECT_OBJECTS( $_[0], $t, [ &INCLUDE_OBJECTS( $_[0]{cmp}, $_[3], $_[1]{$cmp} ) ], $_[3], $j )))[0] }, 1, 0 ] } (-1..1)),
+				], !1 ], [ evt => [
 		# Filter on user-defined event weight statistics
 	[ wgt => sub {( $_[1]{wgt} )}, -1, 0 ],
 		# Filter on the missing transverse momentum, scalar sum on transverse energy, and effective mass of various lepton and jet reconstructions
 	[ cal => sub {( ${( $_[1]{met} = [ $_[1]{cal}[0] || []] )}[0][0] )}, 2, 0, 0 ],
 	[ met => sub {(	${(( grep { my ($a,$i) = (($_[1]{met}||[]), $_[3] );
-		(($i < (@$a - 1)) ? ( splice @$a, $i, 1, $_ ) : ( splice @$a, (-1), 0, (((undef)x($i-@$a+1)),$_))); 1 } (( scalar &MET(
-		($_[3] == 0) ? (@{ $_[1]{all}[0] || [] }) : (( &INDEXED_OBJECTS( $_[0]{pho}, $_[1]{pho} )), ( &IOBJ )))) || [] ))[0] )}[0] )}, 2, 0 ],
-	[ mht => sub {(	&MHT( $_[0]{msv}, (($_[3] == 0) ? (@{ $_[1]{all}[0] || [] }) :
-		(( &INDEXED_OBJECTS( $_[0]{pho}, $_[1]{pho} )), ( &IOBJ )))))}, 2, 0 ],
+		(($i < (@$a - 1)) ? ( splice @$a, $i, 1, $_ ) : ( splice @$a, (-1), 0, (((undef)x($i-@$a+1)),$_))); 1 }
+		(( scalar &MET(($_[3] == 0) ? (@{ $_[1]{all}[0] || [] }) : ( &IOBJ ))) || [] ))[0] )}[0] )}, 2, 0 ],
+	[ mht => sub {(	&MHT( $_[0]{msv}, (($_[3] == 0) ? (@{ $_[1]{all}[0] || [] }) : ( &IOBJ ))))}, 2, 0 ],
 	[ mef => sub {(	&SUM(( scalar &INDEXED_VALUES((($_[3] > 0) ? $_[0]{met} : [0]), $_[2]{met} )),
 		( scalar &INDEXED_VALUES((($_[3] > 0) ? $_[0]{mht} : [0]), $_[2]{mht} ))))}, 2, 0 ],
 		# Filter on various compound ratios and differences composed out of the previously computed mass dimensioned statistics
@@ -334,8 +350,9 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 		map { my ($sub,@val) = ( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ );
 			(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@val))) } (@{$_[0]{key}||[]})))))[0]
 		}, -1 ],
+				], 1 ] );
 		# Construct event analysis closure and list of reported statistics
-	], 1 ], ); ( [ map {[ @{ $k[$_] }[ @{ $i[$_] } ]]} (0..(@i-1)) ], [ map {(@$_)} (@k) ], sub { my ($o,$v) = (+{},+{});
+	( [ map {[ @{ $k[$_] }[ @{ $i[$_] } ]]} (0..(@i-1)) ], [ map {(@$_)} (@k) ], sub { my ($o,$v) = (+{},+{});
 		@$o{( qw( nbr trg wgt cal obj ))} = ( @{(shift)||[]}[0..2], [((shift) or (return))], [[ @{((shift) || (return))} ]] ); ( -1,
 			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ( $i, $_ )) if ($t) } for
 #			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ( $i, (undef), $_ )) if ($t) } for # HERE ... BUG
@@ -846,7 +863,7 @@ sub EXCLUDE_OBJECTS { my (%excl) = map {($_ => 1)} @{ (shift) || [] }; grep { !(
 # Gathers the list of objects satisfying certain inclusion and exclusion criteria
 sub INCLUDE_OBJECTS { my ($inc,$exc,$obj) = (( map {( [ grep {($_ >= 0)} @$_ ], [ grep {($_ < 0)} @$_ ] )} map { my ($lvl) = (shift);
 	[ grep { ((abs) < $lvl) } @$_ ] } map { (@$_) ? [ map {(int)} @$_ ] : [0] } [ grep {(defined)} @{(shift)||[]} ]), (shift));
-	&EXCLUDE_OBJECTS( [ map { @{ $$obj[(abs)] || [] }} @$exc ],( map { @{ $$obj[$_] || [] }} @$inc )) }
+	&EXCLUDE_OBJECTS( [ map { @{ $$obj[(abs)] || [] }} @$exc ], ( map { @{ $$obj[$_] || [] }} @$inc )) }
 
 # Extracts objects from a [[list]] by the specified index; Defaults to empty object list
 sub INDEXED_OBJECTS { map {(@$_)} grep {( ref eq q(ARRAY))} map { ${ $$_[1]}[ $$_[0]] }
@@ -858,8 +875,11 @@ sub INDEXED_VALUES { grep { (wantarray) || (return $_); 1 }
 	map { ((defined $$_[0]) && ( ref $$_[1] eq q(ARRAY)) && (( abs ( int ((int $$_[0]) + 0.5))) <= (@{ $$_[1]}-1))) ?
 		${ $$_[1]}[ $$_[0]] : (undef) } map {[ ${ $_[(2*$_)] || []}[0], $_[(2*$_+1)]]} (0..((@_/2)-1)) }
 
-# Helper routines for common invocation of lepton and jet indexed objects
-sub ILEP {( &INDEXED_OBJECTS( $_[0]{lep}, $_[1]{lep} ))}; sub IJET {( &INDEXED_OBJECTS( $_[0]{jet}, $_[1]{jet} ))}; sub IOBJ {(( &ILEP ),( &IJET ))}
+# Helper routines for common invocation of photon, lepton, and jet indexed objects
+sub IPHO {( &INDEXED_OBJECTS( $_[0]{pho}, $_[1]{pho} ))}; sub ILEP {( &INDEXED_OBJECTS( $_[0]{lep}, $_[1]{lep} ))}; sub IJET {( &INDEXED_OBJECTS( $_[0]{jet}, $_[1]{jet} ))};
+
+# Helper routine for common invocation of particle indexed objects
+sub IOBJ {(( &IPHO ),( &ILEP ),( &IJET ))}
 
 # Helper routine for common invocation of met indexed value
 sub IMET {( scalar ( &INDEXED_VALUES( $_[0]{met}, $_[1]{met} )))};
