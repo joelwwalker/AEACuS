@@ -11,17 +11,9 @@
 #*******************************#
 
 =pod
-TODO ...
-Photon global implementation
-cmp and etc have default key but accept full key (may have list of acceptable keys)
-massless question ... globally consistent implementation
-FIX transverse mass ... different variants? sum visible & invisible separately & then combine ... frame issue
-external / multiple
-OUT issues
+external / multiple + interleave ...
+OUT issues, especially MET -> MPX MPY MAP
 weights, mixing, uncertainties, correlation matrix
-document & RELEASE
-MET output
-confirm logic of isolation
 =cut
 
 # Require minimal perl version and specify AEACuS package version
@@ -314,7 +306,7 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 		# Filter on various specialized discovery statistics employed by the LHC experimental collaborations
 	[ ote => sub {( &TRANSVERSE_ENERGY((( &IMET ) || ()), ( &IOBJ )))}, 2 ],
 	[ oim => sub {( &INVARIANT_MASS((( &IMET ) || ()), ( &IOBJ )))}, 2 ],
-	[ otm => sub {( &TRANSVERSE_MASS((( &IMET ) || ()), ( &IOBJ )))}, 2 ],
+	[ otm => sub {( &TRANSVERSE_MASS(( &IMET ), ( scalar &LORENTZ_SUM( undef, ( &IOBJ )))))}, 2 ],
 	[ stm => sub {( &S_TRANSVERSE_MASS( &HEMISPHERES( 0, q(LND), ( &IOBJ ))))}, 2 ],
 	[ atm => sub {( &MIN( grep {(defined)} map {( &A_TRANSVERSE_MASS(( &IMET ), (@$_)))}
 		( &AMT2_ROLES( $_[0]{mod}, $_[0]{lep}, $_[1]{lep}, $_[0]{jet}, $_[1]{jet} ))))}, 2 ],
@@ -825,7 +817,7 @@ sub SORT_LIST_ALPHA ($$) { my ($a,$b) = (shift,shift); for (0..(( &MIN(0+@$a,0+@
 # Sorts a pair of [lists] by deep numerical comparison of the stored value sequence
 sub SORT_LIST_NUM ($$) { my ($a,$b) = (shift,shift); for (0..(( &MIN(0+@$a,0+@$b))-1)) { (($_) && (return $_)) for ($$a[$_] <=> $$b[$_]) }; 0 }
 
-# Returns code to sort lhco objects according to descending transverse momentum and then ascending pseudorapidity; Leading input optionally reverses ordering
+# Returns code to sort lhco objects according to descending transverse momentum and then ascending pseudorapidity magnitude; Leading input optionally reverses ordering
 sub SORT_OBJECT_LORENTZ_CODE { my ($sort) = (0,+1,-1)[(shift)] || -1; sub ($$) { my ($a,$b) = (shift,shift); ($sort) *
 	(($$a{ptm} <=> $$b{ptm}) || ((abs $$b{eta}) <=> (abs $$a{eta})) || ($$a{mas} <=> $$b{mas}) || ($$b{eta} <=> $$a{eta}) || ($$a{phi} <=> $$b{phi})) }}
 
@@ -925,12 +917,13 @@ sub DELTA_ETA { &DELTA_RPA(shift,shift,1) }
 sub INTER_OBJECT_RPA { my ($idr,$cmp) = (shift,shift); ( &MATCH_VALUE( $idr, undef )) && ( return @_ );
 	grep { my ($t) = $_; !(0+( grep { !( &MATCH_VALUE( $idr, $_ )) } map { &DELTA_RPA($t,$_) } @{$cmp||[]} )) } (@_) }
 
-# Cuts a list of lhco objects to enforce a specified mutual separation in delta-R
-sub INTRA_OBJECT_RPA { my ($iso) = map { 0+(( ref eq q(ARRAY)) && (0,+1)[$$_[2]]) } ( my ($idr) = (shift)); ( &MATCH_VALUE( $idr, undef )) && ( return @_ );
-	while (1) { my (@i) = map {($$_[0])} sort { our ($a,$b); (( $$a[1] <=> $$b[1] ) || ( &{ &SORT_OBJECT_LORENTZ_CODE(-1) }($_[$$b[0]],$_[$$a[0]]))) } map {
-		my ($j) = $_; map { (0+@$_) ? [ $j, (($iso) ? $j : ($_[$j]{ptm})/( sqrt ((0+@$_)*( &SUM( map { ($$idr[0]-$_)**2 } @$_ ))))) ] : () } [
-			grep { !( &MATCH_VALUE( $idr, $_ )) } map { &DELTA_RPA($_[$j],$_[$_]) } grep {($_!=$j)} (0..(@_-1)) ]} (0..(@_-1)) or (last);
-		return ( &EXCLUDE_OBJECTS([ @_[@i]], @_ )) if ($iso); ( splice @_, $i[0], 1 ) }; (@_) }
+# Cuts a list of lhco objects to enforce a specified mutual separation in delta-R; Targets greater conflicts or lower sort; Optionally cuts all conflicts
+sub INTRA_OBJECT_RPA { my ($iso) = map { 0+(( ref eq q(ARRAY)) && (0,1,0)[$$_[2]]) } ( my ($idr) = (shift));
+	( &MATCH_VALUE( $idr, undef )) && ( return @_ ); my (@inc,@idx) = ((1)x(@_)); my (@iso) = ( map {[ ((!1)x(@inc)) ]} (@inc));
+	for my $i (0..(@inc-1)) { for my $j (0..($i-1)) { $iso[$i][$j] = $iso[$j][$i] = !( &MATCH_VALUE( $idr, &DELTA_RPA($_[$i],$_[$j]))) }}
+	while ((@idx) = ( grep {($inc[$_])} (0..(@inc-1)))) { my (@t) = ( map {[ $_, 0+( grep {($_)} ( @{ $iso[$_] }[ @idx ] )) ]} (@idx));
+		if ($iso) { (@idx) = ( map {($$_[0])} grep {( $$_[1] == 0 )} (@t)); (last) } else { $inc[ ( map {($$_[0])} grep {(( $$_[1] > 0 ) or (last))}
+			( &CMP( sub ($$) { my ($a,$b) = @_; ($$b[1] <=> $$a[1]) }, ( reverse (@t)))))[0]] = !1 }} ( @_[ @idx ] ) }
 
 # Cuts a list of LHCO objects on specified pseudorapidity and transverse momentum limits; Sorts by transverse momentum
 sub SELECT_PTM_PRM { my ($pts,$prs) = map { 0+(( ref eq q(ARRAY)) && (0,+1)[$$_[2]]) } ( my ($ptm,$prm,$prf) = (shift,shift));
@@ -1047,18 +1040,18 @@ sub LORENTZ_OBJECT_SORT { my ($sort) = \( &SORT_OBJECT_LORENTZ_CODE(shift)); map
 # Returns the missing transverse energy (met_tot,met_x,met_y,0) components for a list of [4-vector] or lhco objects
 sub MET { ( scalar &LORENTZ(( scalar &LORENTZ_SUM(undef,@_)), (1,1,1))) }
 
+# HERE ... deal globally with massless conversion question ... TRANSVERSE MASS, ENERGY, ETC.
 # Returns the scalar sum of transverse momenta (Default) or energies for a list of transverse [4-vector] or lhco objects
 sub MHT { ${ ( &LORENTZ_SUM([1,!( map { ( ref eq q(ARRAY)) ? ($$_[0]) : ($_) } (shift))[0],!1],@_)) || (return undef) }[0] }
 
 # Returns the transverse energy computed for a list of massless [4-vector] momenta components or lhco objects
-sub TRANSVERSE_ENERGY { ${ ( &LORENTZ(( scalar &LORENTZ_SUM([!1,1,!1],@_)), (1,!1,!1))) || (return undef) }[0] }
+sub TRANSVERSE_ENERGY { ${ ( &LORENTZ(( scalar &LORENTZ_SUM(undef,@_)), (1,!1,!1))) || (return undef) }[0] }
 
 # Returns the invariant mass computed from the vector sum over a list of [4-vector] momenta components or lhco objects
 sub INVARIANT_MASS { ((undef), ( &LORENTZ_SUM(undef,@_)))[-1] }
 
-# HERE ... deal globally with massless conversion question ...
-# Returns the transverse mass computed for a list of massless transverse [4-vector] momenta components or lhco objects
-sub TRANSVERSE_MASS { ( sqrt ( &LORENTZ_PRODUCT((( &LORENTZ_SUM([1,!1,!1],@_)) or (return undef))[0,0], -1, 1 ))) }
+# Returns the transverse mass computed for [list]s of massless transverse [4-vector] momenta components or lhco objects for the visible/invisible systems
+sub TRANSVERSE_MASS { ((undef), ( &LORENTZ_SUM([1,!1,!1],(shift,shift))))[-1] }
 
 # Returns the s-transverse mass (MT2) computed for a pair of massless transverse [4-vector] momenta components or lhco objects
 sub S_TRANSVERSE_MASS { ( sqrt ((2)*( &LORENTZ_PRODUCT(( map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (shift,shift)), +1, 1 )))) }
