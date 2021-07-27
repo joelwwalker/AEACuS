@@ -17,22 +17,22 @@ use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.033 )); }
 
 # Read event plotting specifications from cardfile
-our ($OPT); my ($MIN) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
+our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
 	( &LOAD_CARD([ (($1) or ( q(./Cards/))), [ ((defined) ? ($2) : ( q(min_card))), q(), q(.dat) ]]));
 	($crd) or ((defined) ? ( die 'Cannot open card file for read' ) : (exit));
 	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
 		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
-	@$crd{( qw( min ))}} ( &$OPT( q(crd)));
+	($crd) } ( &$OPT( q(crd)));
 
 # Establish whether Python 2.7/3.X and MatPlotLib 1.3.0+ are suitably configured for piped system calls
 my ($cxg) = ( &CAN_XGBOOST());
 
 # Perform machine learning training
-{; my ($def) = ( ${$$MIN{trn}||[]}[0] || {} ); my ($cdf) = ( ${$$MIN{chn}||[]}[0] || {} );
+{; my ($def) = ( ${$$crd{trn}||[]}[0] || {} ); my ($cdf) = ( ${$$crd{chn}||[]}[0] || {} );
 
-	TRN: for my $i (1..(@{$$MIN{trn}||[]}-1)) {
+	TRN: for my $i (1..(@{$$crd{trn}||[]}-1)) {
 
-	my ($trn) = (( $$MIN{trn}[$i] ) || (next TRN)); do {(( exists $$trn{$_} ) or ( $$trn{$_} = $$def{$_} ))} for ( keys %{$def} );
+	my ($trn) = (( $$crd{trn}[$i] ) || (next TRN)); do {(( exists $$trn{$_} ) or ( $$trn{$_} = $$def{$_} ))} for ( keys %{$def} );
 
 	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$trn{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
@@ -45,7 +45,7 @@ my ($cxg) = ( &CAN_XGBOOST());
 		# Read and bin data files into channels, combining like samples by luminosity and discrete samples by cross section
 		map { $$chn[$_] ||= do {
 
-			my ($chn) = (( $$MIN{chn}[$_] ) or do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) } );
+			my ($chn) = (( $$crd{chn}[$_] ) or do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) } );
 			do {(( exists $$chn{$_} ) or ( $$chn{$_} = $$cdf{$_} ))} for ( keys %{$cdf} );
 
 			my ($dat,$inc,$exc,$ftr,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat inc exc ftr esc wgt lbl ))};
@@ -53,7 +53,7 @@ my ($cxg) = ( &CAN_XGBOOST());
 
 			[
 
-			map { my ($dir,$fil,%ipb,%FHT) = @{ $$MIN{dat}[$_] or
+			map { my ($dir,$fil,%ipb,%FHT) = @{ $$crd{dat}[$_] or
 					do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))};
 				my ($dir) = ( map { ((defined) ? qq($_) : q(./Cuts/)) } ($$dir[0]));
 
@@ -83,7 +83,7 @@ my ($cxg) = ( &CAN_XGBOOST());
 						((@key) or do { print STDERR 'EMPTY FEATURE KEY LIST IN TRAINING CYCLE '.$i."\n"; (last CHN) } ); (@key) };
 					my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? (@$_) : ((undef),$_))} ($$_[2][0]))))) or (
 							do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR TRAINING CYCLE '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
-						grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$MIN{esc}[( abs )] )) or
+						grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
 							do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN TRAINING CYCLE '.$i."\n"; +{}}}{( qw( key cut ))} ) ]}
 						map {((defined) ? ( int ) : ())} (@{$esc||[]});
 					my ($wgt) = map {((defined) ? (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? (@$_) :

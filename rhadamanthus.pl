@@ -21,20 +21,20 @@ use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.033 )); }
 
 # Read event plotting specifications from cardfile
-our ($OPT); my ($PLT) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
+our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
 	( &LOAD_CARD([ (($1) or ( q(./Cards/))), [ ((defined) ? ($2) : ( q(plt_card))), q(), q(.dat) ]]));
 	($crd) or ((defined) ? ( die 'Cannot open card file for read' ) : (exit));
 	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
 		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
-	@$crd{( qw( plt ))}} ( &$OPT( q(crd)));
+	($crd) } ( &$OPT( q(crd)));
 
 # Establish whether Python 2.7/3.X and MatPlotLib 1.3.0+ are suitably configured for piped system calls
 my ($cpl) = ( &CAN_MATPLOTLIB());
 
 # Generate histograms
-for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) = ( ${$$PLT{$hky}||[]}[0] || {} ); HST: for my $i (1..(@{$$PLT{$hky}||[]}-1)) {
+for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) = ( ${$$crd{$hky}||[]}[0] || {} ); HST: for my $i (1..(@{$$crd{$hky}||[]}-1)) {
 
-	my ($hst) = (( $$PLT{$hky}[$i] ) || (next HST)); do {(( exists $$hst{$_} ) or ( $$hst{$_} = $$def{$_} ))} for ( keys %{$def} );
+	my ($hst) = (( $$crd{$hky}[$i] ) || (next HST)); do {(( exists $$hst{$_} ) or ( $$hst{$_} = $$def{$_} ))} for ( keys %{$def} );
 	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$hst{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
 	my ($obj,$eql,$wdt,$edg,$cnt) = map {( $_, ( map {( [ map {( &EQUAL(@$_))} (@$_) ], $_ )} [ ($_) -> WIDTHS() ] ),[ ($_) -> EDGES() ], [ ($_) -> CENTERS() ] )}
@@ -86,10 +86,10 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 		do { my (@set); CHN: {; my ($j); my (@chn) = grep { ((@$_ == 1) or ((( $j ||= @$_ ) == @$_ ) && ($j))) or
 				do { print STDERR 'DATA SET MULTIPLICITY MISMATCH IN HISTOGRAM '.$i."\n"; (last CHN) }}
 
-			map { $$chn[$_] ||= do { my ($dat,$key,$esc,$wgt) = @{ $$PLT{chn}[$_] or 
+			map { $$chn[$_] ||= do { my ($dat,$key,$esc,$wgt) = @{ $$crd{chn}[$_] or 
 				do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dat key esc wgt ))}; [
 
-				map { my ($dir,$fil,%bin,%ipb) = @{ $$PLT{dat}[$_] or
+				map { my ($dir,$fil,%bin,%ipb) = @{ $$crd{dat}[$_] or
 						do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))};
 					my ($dir) = ( map { ((defined) ? qq($_) : q(./Cuts/)) } ($$dir[0]));
 
@@ -109,7 +109,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ))} @{$key||[]}[0..($dim-1)]];
 						my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? (@$_) : ((undef),$_))} ($$_[2][0]))))) or (
 								do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR HISTOGRAM '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
-							grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$PLT{esc}[( abs )] )) or
+							grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
 								do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN HISTOGRAM '.$i."\n"; +{}}}{( qw( key cut ))} ) ]}
 							map {((defined) ? ( int ) : ())} (@{$esc||[]});
 						my ($wgt) = map {((defined) ? (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? (@$_) :

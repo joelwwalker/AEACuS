@@ -11,8 +11,11 @@
 #*******************************#
 
 =pod
-external / multiple + interleave ...
-OUT issues, especially MET -> MPX MPY MAP
+* OUT issues + sorting, especially MET -> MPX MPY MAP
+* external / multiple + interleave ...
+tree implementation & jets
+issue of undef propagation
+MT2 validation
 weights, mixing, uncertainties, correlation matrix
 =cut
 
@@ -46,7 +49,7 @@ my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
 # Program terminates with exception if lexical errors exist in the card file
 
 # Establish the event statistic and cut flow sequences and Curry the primary analysis function
-my ($flw,$stc,$paf) = (($$crd{evt}) or ($$crd{obj})) && ( &ANALYSIS_CODE($crd));
+my ($flw,$stc,$paf) = ((%$crd) ? ( &ANALYSIS_CODE($crd)) : ());
 
 # Establish primary file name base and cross section specifications
 my ($fil,$xsc,$err,$pre,$out,$ipb,$cap,$lhc,$r2l) = map {(
@@ -58,7 +61,7 @@ my ($fil,$xsc,$err,$pre,$out,$ipb,$cap,$lhc,$r2l) = map {(
 # If FIL was defined then the cross section and its error [pb], the tag prefix, the output path, and the target luminisity [/pb] are read
 
 # Establish global event channel management specifications and locate (possibly compressed) .lhco or .root event file(s)
-my (@fil); my (@chn) = ( map { my ($i,$chn) = (($_), (($$crd{cut}{chn}[$_]) or (($_ > 0) ? (undef) : +{} ))); !($chn) ? () : do {
+my (@fil); my (@chn) = ( map { my ($i,$chn) = (($_), (($$crd{chn}[$_]) or (($_ > 0) ? (undef) : +{} ))); !($chn) ? () : do {
 	# The zeroth channel, wherein statistics are computed from .lhco events and output to .cut files, runs automatically
 	# Positively numbered channels, wherein sorting is performed relative to previously computed statistics, short circuit if not elaborated in the card
 	my ($dir,$mrg) = q().( &DEFINED(($$chn{dir}[0]), (($i > 0) ? ($out) : ( q(./Events/)))));
@@ -109,9 +112,9 @@ my (@fil); my (@chn) = ( map { my ($i,$chn) = (($_), (($$crd{cut}{chn}[$_]) or (
 		(@fil) = ( map { my ($k) = $_; ( grep {($$_[2])} map {[ $k, $_, $fil{$k}[$_]]} (0..2))[0] }
 			( sort { our ($a,$b); ( $a cmp $b ) } keys %fil )); () } ) :
 	# FOR NON-ZERO CHANNELS:
-	( map { +{ cid => ($i), fil => ($fil), esc => [ map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{cut}{esc}[( abs )] )) or
+	( map { +{ cid => ($i), fil => ($fil), esc => [ map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
 		do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN CHANNEL '.$i."\n"; +{}}}{( qw( key cut ))} ) ]} (@$_) ] }}
-		grep {(@$_)} [ map {((defined) ? ( int ) : ())} (@{$$chn{esc}||[]}) ] )) }} ( 0, (1..(@{$$crd{cut}{chn}||[]}-1))));
+		grep {(@$_)} [ map {((defined) ? ( int ) : ())} (@{$$chn{esc}||[]}) ] )) }} ( 0, (1..(@{$$crd{chn}||[]}-1))));
 		# Processing proceeds if there are non-empty ESC specifications
 		# A hash is pushed onto the channels list with the channel index, the active file, and a list of processed event selection cuts
 		# Stored here is the sign (negative to reject or positive to accept), the cut index, and the referenced key/cut pair from the cardfile
@@ -225,21 +228,21 @@ sub LOAD_OPTS { my (@opts); my (%opts) = map { ( /^-(-)?([A-Za-z]\w*)(?:=(.*))?$
 
 # Returns a data structure encoding user specified AEACuS meta language instructions
 {; my ($abc,$idx,$val); sub LOAD_CARD { my ($crd,$err,$fil) = (+{},[]);
-	$abc ||= qr'((?i:[A-Z][A-Z\d]{2}))'; $idx ||= qr'(\d{1,3})'; $val ||= do { my ($key) =
-		[ qr"(?:${idx}|${abc}(?:_${idx})?)", sub { (shift); ( map { (length) ? (0+ $_) : ( +{ ( lc (shift)) => (0+ (shift)) } ) } (shift))[0] } ]; [
+	$abc ||= qr'(?i:[A-Z][A-Z\d]{2})'; $idx ||= qr'\d{1,3}'; $val ||= do { my ($key) =
+		[ qr"(?:(${idx})|(${abc})(?:_(${idx}))?)", sub { (shift); ( map { (length) ? (0+ $_) : ( +{ ( lc (shift)) => (0+ (shift)) } ) } (shift))[0] } ]; [
 		[ qr'(?i:DEFAULT|TRUE|FALSE|UNDEF)', sub { ${{ default => (0), true => (+1), false => (-1), undef => (undef) }}{ lc (shift) }} ],
 		[ qr"${\EXP}", sub { 0+(shift) } ],
 		[ qr'"([^"]*)"', sub {( &UNESCAPE_STRING((shift,shift)[1] ))} ], ($key),
 		[ qr'\{([^}]*)}', sub { my ($q,@t) = ((shift,shift)[1] );
 			while ( my $ref = ( &REX_LIST( 2, $q, [ qr",\s*$$key[0]\s*$", $$key[1]] ))) {( unshift @t, $$ref )}
-			( map { (defined) ? [$_,@t] : (undef) } ( &STRING_FUNCTIONAL($q)))[0] } ]] }; (($crd) -> {$$_[0]} -> {$$_[1]} -> [$$_[2]] = ($$_[3])) for
-	map { my ($l) = $_; ( $$l[1] =~ m/^(?:\*|\s*$)/ ) ? () : ( $$l[1] =~ m/^${abc}_${abc}(?:_${idx})?\s*=\s*(.*?)$/ ) ? [ (lc $1), (lc $2), (0+ $3),
-		do { my ($h,$q,$e) = (+{},qq($4)); while ( $q =~ m/\G(?(?!^),\s*)${abc}\s*:\s*/gc ) { $$h{lc $1} = do { my ($a,$b) = ([],!!( $q =~ m/\G\[\s*/gc ));
+			( map { (defined) ? [$_,@t] : (undef) } ( &STRING_FUNCTIONAL($q)))[0] } ]] }; (($crd) -> {$$_[0]} -> [$$_[1]] = ($$_[2])) for
+	map { my ($l) = $_; ( $$l[1] =~ m/^(?:\*|\s*$)/ ) ? () : ( $$l[1] =~ m/^(?:${abc}_)?(${abc})(?:_(${idx}))?\s*=\s*(.*?)$/ ) ? [ (lc $1), (0+ $2),
+		do { my ($h,$q,$e) = (+{},qq($3)); while ( $q =~ m/\G(?(?!^),\s*)(${abc})\s*:\s*/gc ) { $$h{lc $1} = do { my ($a,$b) = ([],!!( $q =~ m/\G\[\s*/gc ));
 		while ((($b) || !(@$a)) and (!(@$a) or ( $q =~ m/\G,\s*/gc )) and ( my $ref = ( &REX_LIST( 1, $q, @$val )))) { ( push @$a, $$ref ) && ( $q =~ m/\G\s+/gc ) }
 		($e) ||= (($b) and ( $q !~ m/\G]\s*/gc )); ($a) }} ( push @$err, $l ) if (($e) || ( $q !~ m/\G$/gc )); ($h) } ] : do { push @$err, $l; () }}
 	do { my (@t,$i,$c) = ([1]); ((( my ($FHI)),($fil)) = ( &Local::FILE::HANDLE(shift))) or (return); local ($_); while (<$FHI>) { $i++; chomp; ($c = 1) if (s/^!.*//); s/#.*//;
 		(( push @t, [$i] ) && ( undef $c )) if (m/^\S/); ( $t[-1][1] .= $_ ) unless ($c); } (@t) }; ((wantarray) ? ($crd,$err,$fil) : ($crd)) }}
-# The card data structure is an array (list) of hashes (dictionaries) of hashes, corresponding to lines of the form "ABC_ABC_IDX = ... "
+# The card data structure is an array (list) of hashes (dictionaries) of hashes, corresponding to lines of the form "ABC_IDX = ... "
 # ABC is a letter followed by precisedly two letters or digits (case-insensitive); IDX is a number with one to three digits (defaults to "_000")
 # The list elements are derived from comma-separated ABC:VAL or ABC:[VAL,VAL,...] expressions after the equality assignment; indent for line continuation
 # VAL may be one of DEFAULT, TRUE, FALSE, UNDEF, which map internally to 0, +1, -1, and undef
@@ -263,15 +266,16 @@ sub EVENT_OBJECTS { map {((wantarray) ? (@$_) : (return $_))} [ map { my ($o,$t,
 sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defined $$_[0] )} (@$_) ];
 	push @k, [ map {($$_[0])} (@$t) ]; push @i, [ grep {($$t[$_][1])} (0..(@$t-1)) ]; push @c, [ map {($$_[2])} (@$_) ]; } for
 	map { my (%t); ( push @{ $t{(shift @$_)} ||= [] }, $_ ) for (@$_); map {( $t{$_} )} sort { our ($a,$b); ( $a <=> $b ) } ( keys %t ) }
+	map { my (@t); ( push @{ $t[0+(( shift @$_ ) > 0 )] ||= [] }, $_ ) for ( sort { our ($a,$b); ( $$a[0] <=> $$b[0] ) } (@$_)); ( grep {($_)} (@t)) }
 	map { my ($h,$l,$p) = @$_; [ map { my ($k,$c,$f,$a,$z) = @$_; map { my ($i) = $_; map { my ($e,$m,@o) = ( $_,
 		( !( &MATCH_VALUE( $$_{cut}, (undef))) or ((0) <=> (($p) && ( &OUTPUT_VALUE( $$_{out} ))))), (($p) ? () : ( &OUTPUT_OBJECT( $$_{out} ))));
-		map { my ($t,$f) = ( $_, (($_) ? (( ${{ eta => 3, phi => 3 }}{$$_[0]} ) or (( $$_[0] =~ /^x\d{2}$/ ) ? (-1) : (2))) : ( 0+(0..4)[$f] )));
-			[ $i, (($t) ? ([$h,@$t[0,1],(((!1)x(4)),1)[$f]],!1) : ($m) ? ([$h,$k,$i,(((!1)x(4)),1)[$f]],($m > 0)) : ((undef),!1)), ( sub { my ($o,$v) = (shift,shift);
+		map { my ($r,$s,$n,$q,$j,$w,$x) = (!!($_),@{$_||[]}); my ($w,$f) = map {((((!1)x(4)),1)[$_],$_)} (($r) ? (( ${{ eta => 3, phi => 3 }}{$q} ) or (($w)?(-1):(2))) : ( 0+(0..4)[$f] ));
+			[ 0+($s), (($r) ? ( $j, [(undef),$q,$j,$w], !1 ) : ( $i, (($m) ? ( [$h,$k,$i,$w], ($m > 0)) : ((undef), !1 )))), ( sub { my ($o,$v) = (shift,shift);
 			( return ((defined) ? [ q().( q(       ), q(%7.1i), q(%7.1f), q(%7.3f), q(%+10.3E))[ (($f) or (((($_) == (int)) and (($_) < (10**(+7)))) ? (1) :
-				((abs) >= (10**(+3))) ? (2) : (3))) ], 0+($_) ] : [ (( !((((!1)x(4)),1)[$f])) ? q() : q(   )).q(  UNDEF), (undef) ] )) for
-			(($t) ? (($$v{$$t[0]}[$$t[1]]) = ( map {(( defined $$t[2] ) ? ($$_{aux}[$$t[2]]) : ($$_{$$t[0]}))} ( $$o{$k}[$i][$$t[3]] || +{} ))) :
+				((abs) >= (10**(+3))) ? (2) : (3))) ], 0+($_) ] : [ (($w) ? q(   ) : q()).q(  UNDEF), (undef) ] )) for
+			(($r) ? (($$v{$q}[$j]) = ( map {(($x) ? do { my ($k,$v) = (%$x); ($$_{$k}[$v]) } : ($$_{$q}))} ( $$o{$k}[$i][$n] || +{} ))) :
 			( map { ($m) ? (($m < 0) or ( &MATCH_VALUE( $$e{cut}, $_ )) or (return undef)) : (return); ($$_) } \( $$v{$k}[$i] = (($c)->($e,$o,$v,$i))))); } ) ] } ((undef),@o) }
-		(( &CLONE($$crd{$h}{$k}[$i])) || (($i > 0) ? () : +{} )) } (( &DEFINED($a,1))..( &DEFINED($z,( &MAX(0,(@{$$crd{$h}{$k}||[]}-1)))))) } (@$l) ] }
+		(( &CLONE($$crd{$k}[$i])) || (($i > 0) ? () : +{} )) } (( &DEFINED($a,1))..( &DEFINED($z,( &MAX(0,(@{$$crd{$k}||[]}-1)))))) } (@$l) ] }
 				( [ obj => [
 		# Group photons and individual lepton flavors, and filter on kinematics, sign, and isolation
 	( map { my ($k,$src) = (($_), ((undef), qw( ele muo tau all ))[$_]); [ ($src) => sub {
@@ -286,8 +290,6 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 		( map {( 0+@$_ )} grep { ($_[3] == 0) && ($j != 1) && ( 0+(0,1,0)[($_[0]{jet}[0])] ) && do { do { $$_{typ} = 4 } for ( &EXCLUDE_OBJECTS($_,(@$t))) }; 1 }
 			grep { $_[1]{$src}[$_[3]] = $_; 1 } ( &SELECT_OBJECTS( $_[0], $t, [ &INCLUDE_OBJECTS( $_[0]{cmp}, $_[3], $_[1]{$cmp} ) ], $_[3], $j )))[0] }, 1, 0 ] } (-1..1)),
 				], !1 ], [ evt => [
-		# Filter on user-defined event weight statistics
-	[ wgt => sub {( $_[1]{wgt} )}, -1, 0 ],
 		# Filter on the missing transverse momentum, scalar sum on transverse energy, and effective mass of various lepton and jet reconstructions
 	[ cal => sub {( ${( $_[1]{met} = [ $_[1]{cal}[0] || []] )}[0][0] )}, 2, 0, 0 ],
 	[ met => sub {(	${(( grep { my ($a,$i) = (($_[1]{met}||[]), $_[3] );
@@ -329,11 +331,12 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 	[ tos => sub {( &SPHEROCITY_SHAPE(( scalar &INDEXED_VALUES( $_[0]{mht}, $_[2]{mht} )), ( &IOBJ )))}, 3 ],
 	[ tss => sub {( &SPHERICITY_SHAPE( &IOBJ ))}, 3 ],
 	[ tfs => sub {( &F_MATRIX_SHAPE( &IOBJ ))}, 3 ],
+				], 1 ], [ usr => [
 		# Filter on user-defined composite event statistics
 	[ var => sub { my ($sub,@val) = map { ( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ ) } (${$_[0]{val}||$_[0]{key}||[]}[0]);
 		(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@val)))}, -1 ],
 		# Filter on externally defined event statistics
-# HERE ... run once, tick-tock with VAR, itemize die, use system/IPC ... safety wrapper
+# HERE ... itemize die, use system/IPC ... safety wrapper
 	[ ext => sub { (( my ($exe) = ( grep {((length) && ( -x ))} (( ${$_[0]{exe}||[]}[0] =~ /^(.*\/)?([^\/]+)$/ ) ?
 		( join q(), @{ ( &Local::FILE::HANDLE([ (($1) or ( q(./External/))), ($2) ]))[1]||[] } ) : ()))) or
 		( die 'Cannot execute external routine' ));
@@ -342,12 +345,14 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@c) = (shift); do { my ($t) = [ grep {( defin
 		map { my ($sub,@val) = ( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ );
 			(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@val))) } (@{$_[0]{key}||[]})))))[0]
 		}, -1 ],
+				], 1 ], [ wgt => [
+		# Filter on user-defined event weight statistics
+	[ wgt => sub {( $_[1]{wgt} )}, -1, 0 ],
 				], 1 ] );
 		# Construct event analysis closure and list of reported statistics
 	( [ map {[ @{ $k[$_] }[ @{ $i[$_] } ]]} (0..(@i-1)) ], [ map {(@$_)} (@k) ], sub { my ($o,$v) = (+{},+{});
 		@$o{( qw( nbr trg wgt cal obj ))} = ( @{(shift)||[]}[0..2], [((shift) or (return))], [[ @{((shift) || (return))} ]] ); ( -1,
 			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ( $i, $_ )) if ($t) } for
-#			[ map { my ($i) = $_; map {(@$_)} grep { my ($t); do { ( return ( $i, (undef), $_ )) if ($t) } for # HERE ... BUG
 			[ map {( !(defined) && ($t = 1))} ( @$_[ @{ $i[$i] } ] ) ]; 1 }
 			[ map {(($_)->($o,$v))} (@{ $c[$i] }) ] } (0..(@i-1)) ] ) } ) }
 
@@ -794,10 +799,10 @@ sub GAUSS_RANDOM { my ($m,$s) = (((@_)?0+(shift):(0)),((@_)?0+(shift):(1))); {; 
 	(( my ($r)) = map {( sqrt ( -2*(log)/($_)))} grep {(($_ > 0) && ($_ < 1))} ( &SUM( map {($_*$_)} (( my (@r)) = ( map {( 2*(rand) - 1 )} (0,1))))));
 	( return ( map { grep {((wantarray) or (return $_))} ( $m + $s*$r*$_ ) } (@r))); }}
 
-# Returns requested kinematic components extracted from a list of input lhco objects
-{; my ($i,$srt); sub OUTPUT_OBJECT { my ($out,%i) = (shift); $srt ||= do { $i = 1; +{ map {(($_)=>($i++))} ( qw( eta phi ptm mas ep0 ep1 ep2 ep3 dm1 dm2 )) }};
-	grep { ( shift @$_ ); 1 } sort { our ($a,$b); (($$a[2] <=> $$b[2]) or ($$a[0] <=> $$b[0])) } map { my ($k,$v,$x) = (%$_); map {[ $_, $k, $v, $x, $i{$k}++ ]}
-	((( $v = ( &MAX(0,( int $v )))) && (($$srt{$k}) or (( $k =~ /^x(\d{2})$/ ) && ( $i + ( $x = 0+$1 ))))) or ()) } grep {( ref eq q(HASH))} (@{$out||[]}) }}
+# Returns template for extraction of requested kinematic components from a list of input lhco objects
+{; my ($n,$s); sub OUTPUT_OBJECT { my (%n); $s ||= do { $n = 1; +{ map {(($_)=>($n++))} ( qw( eta phi ptm mas ep0 ep1 ep2 ep3 dm1 dm2 )) }};
+	map { my ($q,$j,$w,$x) = (%$_)[0,1]; map {[ $_, $n{$q}++, $q, $j, $w, $x ]} ((( $j = ( &MAX(0,( int $j )))) && (($$s{$q}) or (( $q =~ /^x(\d{2})$/ ) &&
+		do { ($w,$x) = ( 1, { aux => 0+$1 } ); ( $n + $1 ) } ))) or ()) } grep {( ref eq q(HASH))} (@{(shift)||[]}) }}
 
 # Tests whether output of a value has been requested
 sub OUTPUT_VALUE { (1,1,!1)[0+(0..2)[ ${ (shift) || [] }[0]]] }
