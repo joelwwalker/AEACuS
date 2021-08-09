@@ -18,7 +18,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.033 )); }
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.034 )); }
 
 # Read event plotting specifications from cardfile
 our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -29,7 +29,7 @@ our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$f
 	($crd) } ( &$OPT( q(crd)));
 
 # Establish whether Python 2.7/3.X and MatPlotLib 1.3.0+ are suitably configured for piped system calls
-my ($cpl) = ( &CAN_MATPLOTLIB());
+my ($cpl) = ( &CAN_MATPLOTLIB(1));
 
 # Generate histograms
 for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) = ( ${$$crd{$hky}||[]}[0] || {} ); HST: for my $i (1..(@{$$crd{$hky}||[]}-1)) {
@@ -172,14 +172,14 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 
 	do { use Fcntl qw(:seek); local ($.,$?); my ($t,$FHO) = ( tell DATA ); ( defined $fpo ) ?
 		do { ( $FHO = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo)) } :
-		do { ( open $FHO, q(|-), q(python 2>&1)) or ( die 'Cannot open pipe to Python' ) };
+		do { ( open $FHO, q(|-), q(python3 2>&1)) or ( die 'Cannot open pipe to Python' ) };
 		local ($_); while (<DATA>) { s/<\[(\w+)]>/$dat{$1}/g; ( print $FHO $_ ) }
 		( close $FHO ) && (($? >> 8) == 0 ) && ( defined $fpo ) && ( chmod 0755, $fpo ); ( seek DATA, $t, SEEK_SET ) }}}
 
 1
 
 __DATA__
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 7))) :

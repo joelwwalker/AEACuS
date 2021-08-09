@@ -14,7 +14,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.033 )); }
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.034 )); }
 
 # Read event plotting specifications from cardfile
 our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -24,8 +24,8 @@ our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$f
 		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
 	($crd) } ( &$OPT( q(crd)));
 
-# Establish whether Python 2.7/3.X and MatPlotLib 1.3.0+ are suitably configured for piped system calls
-my ($cxg) = ( &CAN_XGBOOST());
+# Establish whether Python 2.7/3.X, MatPlotLib 1.3.0+ and XGBoost are suitably configured for piped system calls
+my ($cxg) = ( &CAN_MATPLOTLIB(1,1));
 
 # Perform machine learning training
 {; my ($def) = ( ${$$crd{trn}||[]}[0] || {} ); my ($cdf) = ( ${$$crd{chn}||[]}[0] || {} );
