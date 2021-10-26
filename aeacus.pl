@@ -77,7 +77,7 @@ my (@fil); my (@chn) = ( map { my ($i,$chn) = (($_), (($$crd{chn}[$_]) or (($_ >
 			# or negative for unlimited single-file merging; 0 defaults to 250,000 events per file)
 			$lhc = [ (( map {((defined) ? ( qq($_)) : ())} ($$chn{lhc}[0])), ($dir)) ];
 			# Also, the LHC merged Olympics directory is read (defaults to active)
-			do { $r2l = +{ wgt => (1,1,!1)[$$_[0]], gen => (!1,1,!1)[$$_[1]], fat => (!1,1,!1)[$$_[2]], py3 => (1,1,!1)[$$_[2]] }}
+			do { $r2l = +{ wgt => (1,1,!1)[$$_[0]], gen => (!1,1,!1)[$$_[1]], fat => (!1,1,!1)[$$_[2]], py3 => (1,1,!1)[$$_[3]] }}
 				for ([ map {( $$_[0] <=> 0 )} @$chn{( qw( wgt gen fat py3 ))} ]);
 			# Also, the root2lhco conversion parameters WGT, GEN, FAT, and AUX (defaulting to True, False, False, and Empty) are read if merging
 			$$r2l{aux} = [ grep { s/\s//g; 1 }
