@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# minos.pl Version 0.3 (BETA)	#
-# August '20 - July '21		#
+# minos.pl Version 0.4 ALPHA	#
+# August '20 - March '22	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -14,7 +14,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.034 )); }
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 4.000 )); }
 
 # Read event plotting specifications from cardfile
 our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -23,9 +23,6 @@ our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$f
 	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
 		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
 	($crd) } ( &$OPT( q(crd)));
-
-# Establish whether Python 2.7/3.X, MatPlotLib 1.3.0+ and XGBoost are suitably configured for piped system calls
-my ($cxg) = ( &CAN_MATPLOTLIB(1,1));
 
 # Perform machine learning training
 {; my ($def) = ( ${$$crd{trn}||[]}[0] || {} ); my ($cdf) = ( ${$$crd{chn}||[]}[0] || {} );
@@ -37,7 +34,10 @@ my ($cxg) = ( &CAN_MATPLOTLIB(1,1));
 	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$trn{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
 #	my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$trn{( qw( sum nrm per avg ))} );
-	my ($out,$nam,$fmt,$key) = ( @$trn{( qw( out nam fmt ))} );
+	my ($out,$inc,$exc,$ftr,$tex) = ( @$trn{( qw( out inc exc ftr tex ))} ); push @{$exc||=[]}, { wgt => (undef) };
+	my ($py3) = (1,1,!1)[( ${$$trn{py3}||[]}[0] <=> 0 )]; my ($key_str,$tex_str,%tex);
+	for (0..(( int ( @{$tex||[]} / 2 )) - 1 )) { my ($k,$t) = ( $$tex[2*$_], $$tex[1+2*$_] );
+		(( ref $k eq q(HASH)) or (next)); my ($k,$v) = %{$k}; $tex{( uc $k )}[$v] = ( &RAW_STRING( $t )) }
 
 	$out = (( &Local::FILE::PATH( [ ( $out = q().( &DEFINED( $$out[0], q(./Models/)))), ( sprintf "TRN_%3.3i", $i ) ], 2 )) or ( die 'Cannot write to directory '.$out ));
 	my (@vls) = do { my ($chn) = []; map { my ($cid,@set) = $_; CHN: {; (@set) =
@@ -48,8 +48,7 @@ my ($cxg) = ( &CAN_MATPLOTLIB(1,1));
 			my ($chn) = (( $$crd{chn}[$_] ) or do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) } );
 			do {(( exists $$chn{$_} ) or ( $$chn{$_} = $$cdf{$_} ))} for ( keys %{$cdf} );
 
-			my ($dat,$inc,$exc,$ftr,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat inc exc ftr esc wgt lbl ))};
-			push @{$exc||=[]}, { wgt => (undef) };
+			my ($dat,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat esc wgt lbl ))};
 
 			[
 
@@ -60,27 +59,29 @@ my ($cxg) = ( &CAN_MATPLOTLIB(1,1));
 				FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{
 						map {(($$_[0].$$_[1]) => ($_))} grep {( $$_[1] =~ /^[\w-]+\.cut$/ )}
 						map {( &Local::FILE::LIST([$dir,$_]))} grep {(defined)} (@{$fil||[]}) }} )) {
-
 					( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
 						do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-					my ($xsc,$idx) = ( &AEACUS_XSEC( $FHI )); my ($e,$x,$l,$s,$r) = (@$xsc); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
+					my ($nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
+					my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1));
+					my ($x) = ( ${${$nnn||[]}[0]||{}}{abs} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
 					(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 					(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-					($s > 0) or do { print STDERR 'NO SURVIVING EVENTS IN FILE '.$$fil[0].$$fil[1]."\n"; (next FIL) };
-					(defined $idx) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-
-					my (@key) = do { my ($k,@key,%idx,%inc);
-						for ( keys %$idx ) { ((/^([a-z][a-z\d]{2})_(\d{3})$/) or (next)); push @{$idx{( qq($1))}||=[]}, (0+ $2); }
-						for (@{$inc||=[]}) { my ($k,$v) = (%$_); push @{$inc{$k}||=[]}, ((defined $v) ? ($v) : (@{$idx{$k}||[]})); } ((@$inc) or ((%inc) = (%idx)));
+					($s > 0) or do { print STDERR 'NO SURVIVING EVENTS WITH NON-ZERO WEIGHT IN FILE '.$$fil[0].$$fil[1]."\n"; (next FIL) };
+					(%{$idx||{}}) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
+					my (@key) = do { my ($j,@key,%idx,%inc);
+						for ( keys %$idx ) { (( m/^([a-z][a-z\d]{2})_(\d{3})$/ ) or (next)); push @{$idx{( qq($1))}||=[]}, (0+ $2); }
+						for (@{$inc||=[]}) { my ($k,$v) = (%$_); push @{$inc{$k}||=[]}, (( defined $v ) ? ($v) : (@{$idx{$k}||[]})); } ((@$inc) or ((%inc) = (%idx)));
 						for (@$exc) { my ($k,$v) = (%$_); if ( defined $v ) { $inc{$k} = [ grep {( $_ != $v )} @{$inc{$k}||[]} ] } else { delete $inc{$k}}}
-						do {(( not defined $key ) ? ( $key = $_ ) : (( $key eq $_ ) or (
-							do { print STDERR 'INCONSISTENT STATISTIC INDEXES IN TRAINING CYCLE '.$i."\n"; (last CHN) } )))} for ( join q(,), (
-							map {( sprintf q('%3.3s_%3.3i'), ((ref eq 'ARRAY') ? ( q(FTR), (++$k)) : ( map {(uc)} (%$_))))}
+						do { my ($k) = ( join q(, ), ( map {($$_[0])} (@$_))); if ( not defined $key_str ) { ($key_str,$tex_str) = ( $k, ( join q(, ), ( map {($$_[1])} (@$_)))); }
+							else { ( $key_str eq $k ) or do { print STDERR 'INCONSISTENT STATISTIC INDEXES IN TRAINING CYCLE '.$i."\n"; (last CHN) }}} for [
+							map { my ($k,$v) = ((ref eq 'ARRAY') ? (( q(FTR)), (++$j)) : (( uc ((%$_)[0] )), (0+ ((%$_)[1] )))); 
+								[ ( sprintf q("%3.3s_%3.3i"), ($k,$v)), (( defined $key_str ) ? () : ( &DEFINED(( ${$tex{$k}||[]}[$v] ), ( &LATEX_KEY_IDX($k,$v))))) ] }
 							grep { ( push @key, (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? (@$_) : ((undef),$_)))) or (
 								do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN TRAINING CYCLE '.$i."\n"; (last CHN) } ))) } ((
 							map { my ($k) = $_; map { +{ $k => (0+ $_) }} sort { our ($a,$b); ( $a <=> $b ) } ( &UNIQUE( @{$inc{$k}||[]} )) }
-							sort { our ($a,$b); ( $a cmp $b ) } ( keys %inc )), (@{$ftr||[]}))));
+							sort { our ($a,$b); ( $a cmp $b ) } ( keys %inc )), (@{$ftr||[]})) ];
 						((@key) or do { print STDERR 'EMPTY FEATURE KEY LIST IN TRAINING CYCLE '.$i."\n"; (last CHN) } ); (@key) };
+						# move some of this up ...? dont have to protect if read once ... #HERE
 					my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? (@$_) : ((undef),$_))} ($$_[2][0]))))) or (
 							do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR TRAINING CYCLE '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
 						grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
@@ -108,7 +109,7 @@ my ($cxg) = ( &CAN_MATPLOTLIB(1,1));
 						my ($wgt,$lin) = split (( q(,)), $_, 2 );  (( $wgt *= ( $l * $scl )) or (next));
 						$FHO ||= ( grep {((@$_) or ( die 'Cannot open file in directory '.$out.' for write' ))}
 							[ ( &Local::FILE::NEXT([[ $out, q(CSV) ], [ (($$lbl[0]) ? q(POS) : q(NEG)), 0, q(csv) ]])) ] )[0];
-						print +( $wgt, ( q(,)), $lin ); }} for (@{ $FHT{$tag}}) } for (keys %FHT);
+						print +( $wgt, ( q(,)), $lin ); }} for (@{ $FHT{$tag}}) } for ( sort { our ($a,$b); ( $a cmp $b ) } keys %FHT );
 
 				() }
 
@@ -119,17 +120,22 @@ my ($cxg) = ( &CAN_MATPLOTLIB(1,1));
 	if (1) {
 # ??? how to include/exclude? +/- or sep inputs? do target luminosity &  allow rescale/ absolute? how to file/merge ... memory? group by DAT or by CHN?
 	do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR TRAINING CYCLE '.$i."\n"; (next TRN) } unless (@vls);
-	my ($fpo) = $out . q(minos.py); my (%dat) = ();
+	my ($fpo) = $out . q(minos.py); my (%dat) = (
+		PYT	=> (($py3) ? q(python3) : q(python)),
+		KEY	=> ($key_str),
+		TEX	=> ($tex_str),
+		);
 	do { use Fcntl qw(:seek); local ($.,$?); my ($t,$FHO) = ( tell DATA );
 		( $FHO = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo));
 		local ($_); while (<DATA>) { s/<\[(\w+)]>/$dat{$1}/g; ( print $FHO $_ ) }
 		( close $FHO ) && ( chmod 0755, $fpo ); ( seek DATA, $t, SEEK_SET );
-		if ($cxg) { system( qq( cd ${out} && ./minos.py )) } else { print STDERR 'CANNOT VERIFY PYTHON 2.7/3.X WITH MATPLOTLIB 1.3.0+ AND XGBOOST (DELIVERING SCRIPT LITERAL)'."\n"; }}}}};
+		if ( &CAN_MATPLOTLIB( $py3, 1 )) { system( qq( cd ${out} && ./minos.py )) }
+		else { print STDERR 'CANNOT VERIFY PYTHON 2.7/3.X WITH MATPLOTLIB 1.3.0+ AND XGBOOST (DELIVERING SCRIPT LITERAL)'."\n"; }}}}};
 
 1
 
 __DATA__
-#!/usr/bin/env python3
+#!/usr/bin/env <[PYT]>
 
 import sys
 if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 7))) :
@@ -151,31 +157,19 @@ import xgboost as xgb
 
 mpl.rcParams["mathtext.fontset"] = "cm"; mpl.rcParams["font.family"] = "STIXGeneral"
 
-"""
-cross-validate ... distinct backgrounds & diff signals
-plot names and labels / diff versions distinct
-truth histogram validation under interpolation
-composite trainings ...
-    need the mdl for each & their "own-dmx" xsec / score interpolations
-    generate a .predict object composite ...
-    apply it to the MERGED dmx & generate an interpolant
-    do the merger auto/internal or manual/external?
-    general tools can be bundled into safe/compact macros
-card structure / logic / calling methodology
-card options & parameters
-one script vs many scripts
-"""
-
 def main () :
     # do merged training
-    csv_all = tuple( tuple( CSV( csv ) for csv in glob.glob( cls )) for cls in ( "./CSV/NEG_*.csv", "./CSV/POS_*.csv" ))
+    csv_all = tuple(( lambda x : x if ( len( x ) > 0 ) else sys.exit( "Insufficient Events Available for Training" ))(
+        tuple( prt for prt in ( CSV( csv ) for csv in sorted( glob.glob( cls ))) if len( prt )))
+        for cls in ( "./CSV/NEG_*.csv", "./CSV/POS_*.csv" ))
     dmx_all = next( DMX( tuple( mergeCSV( *x ) for x in csv_all )))
     bdt_all = BDT( dmx_all )
-    doPlots( bdt_all, lum=300000., idx=1 )
+    doPlots( bdt_all, lum=30000., idx=1 )
     # do split training with recombination
-    bdt = tuple( BDT( next( DMX(( x, csv_all[1][0] )))) for x in csv_all[0] )
-    bdt_merge = BDT( dmx_all, mergeMDL( *bdt ))
-    doPlots( bdt_merge, lum=300000., idx=2 )
+    if len( csv_all[0] ) > 1 :
+        bdt = tuple( BDT( next( DMX(( x, csv_all[1][0] )))) for x in csv_all[0] )
+        bdt_merge = BDT( dmx_all, mergeMDL( *bdt ))
+        doPlots( bdt_merge, lum=30000., idx=2 )
     return
 
 # instantiate object with method for the weighted recombination of a training ensemble
@@ -258,7 +252,7 @@ def MDL ( dmx, trs=40, stp=5 ) :
         num_boost_round=trs, early_stopping_rounds=stp,
         evals=[ ( dmx["train"]["dmatrix"], "train" ), ( dmx["test"]["dmatrix"], "test" ) ],
         verbose_eval=False, evals_result=prg )
-# HERE print ( bst.best_score , bst.best_iteration )
+# print ( bst.best_score , bst.best_iteration ) #HERE
 
 # generate score object by projecting member (default:test) of dmx object pair onto mdl object
 def SCR ( mdl, dmx ) :
@@ -322,7 +316,7 @@ def binDensity ( x, y, bins=None, b2=None, smooth=1. ) :
     val = np.add.reduce( tuple ( w[i] * np.exp( np.square(( cen - e[i] ) / wdt[i] ) / ( -2. )) for i in range( len( e ))), axis=0 )
     val /= ( val.sum() / b2 )
     return tuple(( val, edg ))
-# HERE : consider non-flipped association? or even sharing / other? see minos_break_ ...
+# consider non-flipped association? or even sharing / other? see minos_break_ ... #HERE
 
 def evaluatePolynomial ( p, x ) :
     v = 0.
@@ -386,7 +380,7 @@ def binsSturges ( n ) : return ( 1 + math.ceil( math.log( n , 2 )))
 # generate donut plot of feature importance to total gain
 def plotImportance ( mdl, pth="./Plots/", idx=None ) :
     if not isinstance( mdl, xgb.core.Booster ) : return
-    # HERE ... setup mdl for multiple and composite print ...
+    # ... setup mdl for multiple and composite print ... #HERE
     scores = mdl.get_score( importance_type="total_gain" )
     keys = sorted( scores, key=scores.get )
     values = np.array([ scores[k] for k in keys ]); values /= values.sum()
@@ -514,30 +508,17 @@ def plotSignificance ( dns, lum=1.0, pth="./Plots/", idx=None ) :
         axes[6+i].set_zorder( 4+i )
         axes[6+i].set_ylim( axes[i].get_ylim())
         axes[6+i].plot( xx, yy[i], color=color[i], linewidth=1.4, linestyle="solid" )
-    fig.suptitle( "Signal vs. Background Significance", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
+    fig.suptitle( r"Signal vs. Background Significance $\mathcal{L} = 30~{\rm fb}^{-1}$", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
     fig.savefig( pth + "significance_plot" + indexString(idx) + ".pdf", facecolor="white" )
 
 # canonical three-digit numerical identifier string in range "_000" to "_999"
 def indexString( idx=None ) : return "" if idx is None else "_{0:03d}".format( min( max( 0, int(idx)), 999 )) 
 
-# NOTE: Various lists / parameters below are temporarily hard coded for BETA distribution
-
 # ordered list of training feature keys
-feature_names = [
-    "ATM_001","ATM_002","CTS_001","ETA_001","ETA_002","ETA_003","MAS_001","MAS_003",
-    "MDP_001","MDP_002","MDP_003","MEF_000","MET_000","MHT_000","ODP_001","ODP_002","ODP_004",
-    "PTM_001","PTM_002","PTM_003","TTM_001","VAR_001","VAR_002","VAR_004","VAR_011","VAR_012","VAR_013","VAR_021" ]
+feature_names = [ <[KEY]> ]
 
 # ordered list of training feature TeX symbols
-feature_tex = [
-    r"$M_{\rm T2}^{100}$", r"$M_{\rm T2}^0$", r"$\cos \theta^*$", r"$\eta_{\ell_1}$", r"$\eta_{\ell_2}$",
-    r"$\eta_{j_1}$", r"$M_{\ell\ell}$", r"$M_{j}$", r"$\Delta \phi_{\ell_1 {/\!\!\!\!E}_{\rm T}}$", r"$\Delta \phi_{\ell_2 {/\!\!\!\!E}_{\rm T}}$",
-    r"$\Delta \phi_{j_1 {/\!\!\!\!E}_{\rm T}}$", r"$M_{\rm eff}$", r"${/\!\!\!\!E}_{\rm T}$", r"$H_{\rm T}$", r"$\Delta \phi_{\ell_1 \ell_2}$",
-    r"$\Delta \phi_{\ell_1 j_1}$", r"$\Delta \phi_{\ell_2 j_1}$", r"${P}_{\rm T}^{\ell_1}$", r"${P}_{\rm T}^{\ell_2}$", r"${P}_{\rm T}^{j_1}$",
-    r"$M_{\tau\tau}$", r"$\tanh \vert \Delta \eta_{\ell_1 \ell_2} \vert$",
-    r"$\tanh \vert \Delta \eta_{\ell_1 j_1} \vert$", r"$\tanh \vert \Delta \eta_{\ell_2 j_1} \vert$",
-    r"${P}_{\rm T}^{\ell_1}\div {/\!\!\!\!E}_{\rm T}$", r"${P}_{\rm T}^{\ell_2}\div {/\!\!\!\!E}_{\rm T}$",
-    r"${P}_{\rm T}^{j_1}\div {/\!\!\!\!E}_{\rm T}$", r"$(M_{\rm T2}^{100}-100) \div M_{\rm T2}^0$" ]
+feature_tex = [ <[TEX]> ]
 
 # construct feature dictionary
 feature_dict = { feature_names[i]:feature_tex[i] for i in range( len( feature_names )) }
@@ -564,6 +545,8 @@ param = {
     "colsample_bynode":1.,
     "verbosity":1,
     }
+
+# NOTE: Various parameters are temporarily hard coded for BETA distribution
 
 if __name__ == "__main__" : main()
 

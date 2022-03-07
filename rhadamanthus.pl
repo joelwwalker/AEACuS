@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# rhadamanthus.pl Version 1.011	#
-# September '14 - July '21	#
+# rhadamanthus.pl Version 1.012	#
+# September '14 - March '22	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -18,7 +18,7 @@
 use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 
 # Import AEACuS subroutine library and perform version compatibility check
-BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 3.034 )); }
+BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 4.000 )); }
 
 # Read event plotting specifications from cardfile
 our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
@@ -27,9 +27,6 @@ our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$f
 	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
 		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
 	($crd) } ( &$OPT( q(crd)));
-
-# Establish whether Python 2.7/3.X and MatPlotLib 1.3.0+ are suitably configured for piped system calls
-my ($cpl) = ( &CAN_MATPLOTLIB(1));
 
 # Generate histograms
 for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) = ( ${$$crd{$hky}||[]}[0] || {} ); HST: for my $i (1..(@{$$crd{$hky}||[]}-1)) {
@@ -43,7 +40,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 		do { my (@t) = map {((@{$_||[]} == 1) ? do { my ($t) = @$_; [ map {[$t]} (1..$dim) ] } : ( &SPANS($dim,$_)))} @$hst{( qw( lft rgt spn bns ))};
 			( &Local::HISTOGRAM::NEW( map {[ map {[ grep {(defined)} @{( shift @$_ )} ]} (@t) ]} (1..$dim))) };
 	my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$hst{( qw( sum nrm per avg ))} );
-	my ($out,$nam,$fmt) = ( @$hst{( qw( out nam fmt ))} );
+	my ($out,$nam,$fmt) = ( @$hst{( qw( out nam fmt ))} ); my ($py3) = (1,1,!1)[( ${$$hst{py3}||[]}[0] <=> 0 )];
 	my ($ttl,$lbl,$lgd) = map {[ map { ((defined) && !(ref)) ? qq($_) : (undef) } (@{$_||[]}) ]} ( @$hst{( qw( ttl lbl lgd ))} );
 	my (@vls) = do { my ($chn,$set) = []; map { my ($sub,@cid) = ((ref eq 'ARRAY') ? (@$_) : ((ref) or !(defined)) ? (undef) : ( sub {(shift)} , $_ ));
 
@@ -99,12 +96,13 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 
 						( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
 							do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-						my ($xsc,$idx) = ( &AEACUS_XSEC( $FHI )); my ($e,$x,$l,$s,$r) = (@$xsc); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
+						my ($nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
+						my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1));
+						my ($x) = ( ${${$nnn||[]}[0]||{}}{abs} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
 						(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 						(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-						($s > 0) or do { print STDERR 'NO SURVIVING EVENTS IN FILE '.$$fil[0].$$fil[1]."\n"; (next FIL) };
-						(defined $idx) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-
+						($s > 0) or do { print STDERR 'NO SURVIVING EVENTS WITH NON-ZERO WEIGHT IN FILE '.$$fil[0].$$fil[1]."\n"; (next FIL) };
+						(%{$idx||{}}) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 						my ($key) = [ map {(( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? (@$_) : ((undef),$_)))) or (
 							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ))} @{$key||[]}[0..($dim-1)]];
 						my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? (@$_) : ((undef),$_))} ($$_[2][0]))))) or (
@@ -140,7 +138,8 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 
 	do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR HISTOGRAM '.$i."\n"; (next HST) } unless (@vls);
 
-	my ($log,$min,$fpo); my (%dat) = (
+	my ($pyt,$log,$min,$fpo); my (%dat) = (
+		PYT	=> ( $pyt = (($py3) ? q(python3) : q(python))),
 		DIM	=> $dim,
 		VAL	=> '['."\n".( join ','."\n", map {( qq($_))} map {(($dim == 1) ? ($_) : ( scalar &Local::MATRIX::TRANSPOSE($_)))} (@vls)).']',
 		BIN	=> (($dim == 1) ? ( scalar &Local::TENSOR::STRING($$edg[0])) : ( '['.( join ',', map {( &Local::TENSOR::STRING($_))} (@$edg[0..($dim-1)])).']' )),
@@ -162,24 +161,25 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 		XLB	=> ( q()).( &RAW_STRING($$lbl[0])),
 		YLB	=> ( q()).( &RAW_STRING($$lbl[1])),
 		LGD	=> (( grep {(defined)} (@$lgd)) ? '['.( join ',', map {( q()).( &RAW_STRING($_))} (@$lgd[0..(@vls-1)])).']' : q(False)),
-		OUT	=> do { my ($d,$f,$e) = ((( &Local::FILE::PATH(( $out = q().( &DEFINED($$out[0],q(./Plots/)))), 2 )) or ( die 'Cannot write to directory '.$out )),
+		OUT	=> do { my ($d,$f,$e) = ((( &Local::FILE::PATH(( $out = q().( &DEFINED($$out[0],q(./Plots/)))), 2 )) or
+				( die 'Cannot write to directory '.$out )),
 				( map { (/^[\w:~-]+$/) ? ($_) : ( sprintf "HST_%3.3i", $i ) } qq($$nam[0])),
 				( map { s/^\.//; ( ${{ map {( $_ => 1 )} ( qw( pdf eps svg png jpg )) }}{$_} ) ? ( q(.).($_)) : ( q(.pdf)) } ( lc $$fmt[0] )));
-				(((undef),$fpo) =	map {( join q(), (@$_))} ((($$fmt[1] > 0) or ( !($cpl) &&
+				(((undef),$fpo) = map {( join q(), (@$_))} ((($$fmt[1] > 0) or (( not &CAN_MATPLOTLIB($py3)) &&
 					do { print STDERR 'CANNOT VERIFY PYTHON 2.7/3.X WITH MATPLOTLIB 1.3.0+ (DELIVERING SCRIPT LITERAL)'."\n"; 1 } )) ?
 					([q(./),($f),($e)],[($d),($f),q(.py)]) : ([($d),($f),($e)])))[0] },
 	);
 
 	do { use Fcntl qw(:seek); local ($.,$?); my ($t,$FHO) = ( tell DATA ); ( defined $fpo ) ?
 		do { ( $FHO = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo)) } :
-		do { ( open $FHO, q(|-), q(python3 2>&1)) or ( die 'Cannot open pipe to Python' ) };
+		do { ( open $FHO, q(|-), ($pyt).q( 2>&1)) or ( die 'Cannot open pipe to Python' ) };
 		local ($_); while (<DATA>) { s/<\[(\w+)]>/$dat{$1}/g; ( print $FHO $_ ) }
 		( close $FHO ) && (($? >> 8) == 0 ) && ( defined $fpo ) && ( chmod 0755, $fpo ); ( seek DATA, $t, SEEK_SET ) }}}
 
 1
 
 __DATA__
-#!/usr/bin/env python3
+#!/usr/bin/env <[PYT]>
 
 import sys
 if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 7))) :
