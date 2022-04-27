@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# minos.pl Version 0.4 ALPHA	#
-# August '20 - March '22	#
+# minos.pl Version 0.5 ALPHA	#
+# August '20 - April '22	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -16,13 +16,14 @@ use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 # Import AEACuS subroutine library and perform version compatibility check
 BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 4.000 )); }
 
-# Read event plotting specifications from cardfile
-our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
-	( &LOAD_CARD([ (($1) or ( q(./Cards/))), [ ((defined) ? ($2) : ( q(min_card))), q(), q(.dat) ]]));
-	($crd) or ((defined) ? ( die 'Cannot open card file for read' ) : (exit));
-	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
-		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
-	($crd) } ( &$OPT( q(crd)));
+# Read event machine learning specifications from cardfile
+our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
+	map {[ $$_[0], [ (( $$_[1] =~ /^(.*?)(?:\.dat)?$/ ) && qq($1)), q(), q(.dat) ]]}
+		( scalar &Local::FILE::SPLIT( $_, q(./Cards/), q(min_card)))));
+	($crd) or ((length) ? ( die 'Cannot open card file for read' ) : (exit));
+	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]), ( map {((ref) ?
+		( "\t".'* Line '.$$_[0].':'."\t".'>> '.( grep { s/^\s+//; s/\s+/ /g; 1 } ($$_[1]))[0].' <<' ) :
+		( "\t".'* Duplicative use of shelf '.$_ ))} (@$err)), q()))) if (@$err); ($crd) } ( &$OPT( q(crd))));
 
 # Perform machine learning training
 {; my ($def) = ( ${$$crd{trn}||[]}[0] || {} ); my ($cdf) = ( ${$$crd{chn}||[]}[0] || {} );
@@ -39,7 +40,9 @@ our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$f
 	for (0..(( int ( @{$tex||[]} / 2 )) - 1 )) { my ($k,$t) = ( $$tex[2*$_], $$tex[1+2*$_] );
 		(( ref $k eq q(HASH)) or (next)); my ($k,$v) = %{$k}; $tex{( uc $k )}[$v] = ( &RAW_STRING( $t )) }
 
-	$out = (( &Local::FILE::PATH( [ ( $out = q().( &DEFINED( $$out[0], q(./Models/)))), ( sprintf "TRN_%3.3i", $i ) ], 2 )) or ( die 'Cannot write to directory '.$out ));
+	$out = (( &Local::FILE::PATH( [ ( $out = q().( &DEFINED(( map {((length) ? qq($_) : ())} ($$out[0])), q(./Models/)))),
+		( sprintf "TRN_%3.3i", $i ) ], 2 )) or ( die 'Cannot write to directory '.$out ));
+
 	my (@vls) = do { my ($chn) = []; map { my ($cid,@set) = $_; CHN: {; (@set) =
 
 		# Read and bin data files into channels, combining like samples by luminosity and discrete samples by cross section
@@ -47,20 +50,19 @@ our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$f
 
 			my ($chn) = (( $$crd{chn}[$_] ) or do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) } );
 			do {(( exists $$chn{$_} ) or ( $$chn{$_} = $$cdf{$_} ))} for ( keys %{$cdf} );
+			my ($dat,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat esc wgt lbl ))}; [
+			map { my (%ipb,%FHT); my ($dir,$fil) = @{ $$crd{dat}[$_] or
+				do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))};
+				($dir) = ( &DEFINED(( map {((length) ? qq($_) : ())} (${$dir||[]}[0])), q(./Cuts/)));
+				FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{ map {((( &Local::FILE::DEVICE_INODE( $_ )) or
+						( die 'Invalid Device/Inode for file '.$$_[0].$$_[1] )) => ($_))}
+					grep {( $$_[1] =~ /^[\w-]+\.cut$/ )} map {( &Local::FILE::LIST( @$_[0,1], 0 ))}
+					grep {(( length $$_[1] ) or ( die 'Invalid file name specification in card file' ))}
+					map {( scalar &Local::FILE::SPLIT( $_, $dir ))} grep {(length)} (@{$fil||[]}) }} )) {
 
-			my ($dat,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat esc wgt lbl ))};
-
-			[
-
-			map { my ($dir,$fil,%ipb,%FHT) = @{ $$crd{dat}[$_] or
-					do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))};
-				my ($dir) = ( map { ((defined) ? qq($_) : q(./Cuts/)) } ($$dir[0]));
-
-				FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{
-						map {(($$_[0].$$_[1]) => ($_))} grep {( $$_[1] =~ /^[\w-]+\.cut$/ )}
-						map {( &Local::FILE::LIST([$dir,$_]))} grep {(defined)} (@{$fil||[]}) }} )) {
 					( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
 						do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
+
 					my ($nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
 					my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1));
 					my ($x) = ( ${${$nnn||[]}[0]||{}}{abs} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
@@ -546,7 +548,7 @@ param = {
     "verbosity":1,
     }
 
-# NOTE: Various parameters are temporarily hard coded for BETA distribution
+# NOTE: Various parameters are temporarily hard coded for ALPHA distribution
 
 if __name__ == "__main__" : main()
 

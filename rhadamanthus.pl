@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# rhadamanthus.pl Version 1.012	#
-# September '14 - March '22	#
+# rhadamanthus.pl Version 1.013	#
+# September '14 - April '22	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -21,12 +21,13 @@ use strict; use sort q(stable); use FindBin qw($Bin); use lib qq($Bin);
 BEGIN { require q(aeacus.pl); ( &UNIVERSAL::VERSION( q(Local::AEACuS), 4.000 )); }
 
 # Read event plotting specifications from cardfile
-our ($OPT); my ($crd) = map { (/^(.*\/)?([^\/]*?)(?:\.dat)?$/); my ($crd,$err,$fil) =
-	( &LOAD_CARD([ (($1) or ( q(./Cards/))), [ ((defined) ? ($2) : ( q(plt_card))), q(), q(.dat) ]]));
-	($crd) or ((defined) ? ( die 'Cannot open card file for read' ) : (exit));
-	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]),
-		( map {( "\t".'* Line '.$$_[0].':'."\t".'>> '.$$_[1].' <<' )} (@$err)), q()))) if (@$err);
-	($crd) } ( &$OPT( q(crd)));
+our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
+	map {[ $$_[0], [ (( $$_[1] =~ /^(.*?)(?:\.dat)?$/ ) && qq($1)), q(), q(.dat) ]]}
+		( scalar &Local::FILE::SPLIT( $_, q(./Cards/), q(plt_card)))));
+	($crd) or ((length) ? ( die 'Cannot open card file for read' ) : (exit));
+	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]), ( map {((ref) ?
+		( "\t".'* Line '.$$_[0].':'."\t".'>> '.( grep { s/^\s+//; s/\s+/ /g; 1 } ($$_[1]))[0].' <<' ) :
+		( "\t".'* Duplicative use of shelf '.$_ ))} (@$err)), q()))) if (@$err); ($crd) } ( &$OPT( q(crd))));
 
 # Generate histograms
 for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) = ( ${$$crd{$hky}||[]}[0] || {} ); HST: for my $i (1..(@{$$crd{$hky}||[]}-1)) {
@@ -41,7 +42,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 			( &Local::HISTOGRAM::NEW( map {[ map {[ grep {(defined)} @{( shift @$_ )} ]} (@t) ]} (1..$dim))) };
 	my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$hst{( qw( sum nrm per avg ))} );
 	my ($out,$nam,$fmt) = ( @$hst{( qw( out nam fmt ))} ); my ($py3) = (1,1,!1)[( ${$$hst{py3}||[]}[0] <=> 0 )];
-	my ($ttl,$lbl,$lgd) = map {[ map { ((defined) && !(ref)) ? qq($_) : (undef) } (@{$_||[]}) ]} ( @$hst{( qw( ttl lbl lgd ))} );
+	my ($ttl,$lbl,$lgd) = map {[ map { ((length) && !(ref)) ? qq($_) : (undef) } (@{$_||[]}) ]} ( @$hst{( qw( ttl lbl lgd ))} );
 	my (@vls) = do { my ($chn,$set) = []; map { my ($sub,@cid) = ((ref eq 'ARRAY') ? (@$_) : ((ref) or !(defined)) ? (undef) : ( sub {(shift)} , $_ ));
 
 		# Merge, transform, normalize, integrate, and average a dataset and its threaded channels
@@ -85,14 +86,14 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 
 			map { $$chn[$_] ||= do { my ($dat,$key,$esc,$wgt) = @{ $$crd{chn}[$_] or 
 				do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dat key esc wgt ))}; [
-
-				map { my ($dir,$fil,%bin,%ipb) = @{ $$crd{dat}[$_] or
-						do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))};
-					my ($dir) = ( map { ((defined) ? qq($_) : q(./Cuts/)) } ($$dir[0]));
-
-					FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{
-							map {(($$_[0].$$_[1]) => ($_))} grep {( $$_[1] =~ /^[\w-]+\.cut$/ )}
-							map {( &Local::FILE::LIST([$dir,$_]))} grep {(defined)} (@{$fil||[]}) }} )) {
+				map { my (%bin,%ipb); my ($dir,$fil) = @{ $$crd{dat}[$_] or
+					do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))};
+					($dir) = ( &DEFINED(( map {((length) ? qq($_) : ())} (${$dir||[]}[0])), q(./Cuts/)));
+					FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{ map {((( &Local::FILE::DEVICE_INODE( $_ )) or
+								( die 'Invalid Device/Inode for file '.$$_[0].$$_[1] )) => ($_))}
+							grep {( $$_[1] =~ /^[\w-]+\.cut$/ )} map {( &Local::FILE::LIST( @$_[0,1], 0 ))}
+							grep {(( length $$_[1] ) or ( die 'Invalid file name specification in card file' ))}
+							map {( scalar &Local::FILE::SPLIT( $_, $dir ))} grep {(length)} (@{$fil||[]}) }} )) {
 
 						( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
 							do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
@@ -161,8 +162,8 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 		XLB	=> ( q()).( &RAW_STRING($$lbl[0])),
 		YLB	=> ( q()).( &RAW_STRING($$lbl[1])),
 		LGD	=> (( grep {(defined)} (@$lgd)) ? '['.( join ',', map {( q()).( &RAW_STRING($_))} (@$lgd[0..(@vls-1)])).']' : q(False)),
-		OUT	=> do { my ($d,$f,$e) = ((( &Local::FILE::PATH(( $out = q().( &DEFINED($$out[0],q(./Plots/)))), 2 )) or
-				( die 'Cannot write to directory '.$out )),
+		OUT	=> do { my ($d,$f,$e) = ((( &Local::FILE::PATH(( $out = q().( &DEFINED(( map {((length) ? qq($_) : ())}
+				(${$out||[]}[0])), q(./Plots/)))), 2 )) or ( die 'Cannot write to directory '.$out )),
 				( map { (/^[\w:~-]+$/) ? ($_) : ( sprintf "HST_%3.3i", $i ) } qq($$nam[0])),
 				( map { s/^\.//; ( ${{ map {( $_ => 1 )} ( qw( pdf eps svg png jpg )) }}{$_} ) ? ( q(.).($_)) : ( q(.pdf)) } ( lc $$fmt[0] )));
 				(((undef),$fpo) = map {( join q(), (@$_))} ((($$fmt[1] > 0) or (( not &CAN_MATPLOTLIB($py3)) &&
