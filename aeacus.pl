@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 4.000 B_009 #
+# aeacus.pl Version 4.000 B_010 #
 # March '11 - April '22		#
 # Joel W. Walker		#
 # Sam Houston State University	#
@@ -393,17 +393,23 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@g,@c,%i,%g) = (shift); do { my ($h,$t,@t) = 
 		[ ptd => sub {( &PTD( &IOBJ ))}, 3 ],
 		[ n95 => sub {( &N95( ${$_[0]{frc}||[]}[0], [ &IOBJ ] ))}, 1 ],
 		[ npf => sub {( &NPF( $_[0]{lim}, [ &IOBJ ] ))}, 1 ],
+#THERE
+#		[ nsj => sub {( &N_SUBJETTINESS( $_[0]{lim}, [ &IOBJ ] ))}, -1 ],
+#		[ rsj => sub {( &R_SUBJETTINESS( $_[0]{lim}, [ &IOBJ ] ))}, -1 ],
+		[ sft => sub {((( @{ $_[1]{sft}[$_[3]] = [] } ) = ( @{((( &HEMISPHERES( 0, [ q(SFT), 1 ], ( &IOBJ ))),
+				(undef))[2] || [] )}[( 0, ((1)..( &MIN((0+ $_[0]{pad}[0] ), ( SMX - $_[3] )))))] ))[0] )}, -1 ],
 	]], [ usr => [
 			# Filter on user-defined composite event statistics
-		[ var => sub { my ($sub,@val) = map { ( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ ) } (${$_[0]{val}||$_[0]{key}||[]}[0]);
-			(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } : (undef) } (@val)))}, -1 ],
+		[ var => sub { my ($sub,@val) = ( map {(( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ ))} ( ${$_[0]{val}||$_[0]{key}||[]}[0] ));
+			(($sub) -> ( map { ( ref eq q(HASH)) ? ( do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } ) : (undef) } (@val))) }, -1 ],
 			# Filter on externally defined event statistics
 		[ ext => sub { (( my ($exe) = ( grep {( -x )} map {( join q(), @$_ )} grep {(defined)} ((( &Local::FILE::HANDLE(
-				( scalar &Local::FILE::SPLIT( ${$_[0]{exe}||[]}[0], q(./External/))))), (undef))[1] ))) or ( die 'Cannot execute external routine' )); my ($i);
-			(((@{$_[1]{ext}[$_[3]]=[]}) = ( map {(( $_ =~ m/^${\EXP}$/ ) ? (0+ $_) : (undef))} grep {( ++$i <= SMX )} map {(split)} map { local ($?);
-				(( open my $FHI, q(-|), $exe, (@$_)) or ( die 'Cannot open pipe to executable' )); ( map {((( close $FHI ) && (($? >> 8) == 0 )) ? (@$_) : ())} [ <$FHI> ] ) }
+				( scalar &Local::FILE::SPLIT( ${$_[0]{exe}||[]}[0], q(./External/))))), (undef))[1] ))) or ( die 'Cannot execute external routine' ));
+			(( @{ $_[1]{ext}[$_[3]] = [] } ) = ( map { local ($?); (( open my $FHI, q(-|), $exe, (@$_)) or ( die 'Cannot open pipe to executable' ));
+				(( map {(( $_ =~ m/^${\EXP}$/ ) ? (0+ $_) : (undef))} map {(split)} map {((( close $FHI ) && (($? >> 8) == 0 )) ? (@$_) : ())}
+					[ <$FHI> ] ), (undef))[( 0, ((1)..( &MIN((0+ $_[0]{pad}[0] ), ( SMX - $_[3] )))))] }
 			[ map {((defined) ? ( sprintf q(%+12.5E), $_ ) : q(NAN))} map { my ($sub,@val) = (( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , ($_)));
-				(($sub)->( map { ( ref eq q(HASH)) ? do { my ($k,$v) = (%$_); ${$_[2]{$k}||[]}[$v] } : (undef) } (@val))) } (@{$_[0]{key}||[]}) ] )), (undef))[0] }, -1 ],
+				(($sub) -> ( map { ( ref eq q(HASH)) ? do { my ($k,$v) = (%$_); ${$_[2]{$k}||[]}[$v] } : (undef) } (@val))) } (@{$_[0]{key}||[]}) ] ))[0] }, -1 ],
 	]], ); (
 		# Construct cut flow template, reported statistics list, and event analysis closure
 	( do { my ($j,@y); [ map { my ($h,@k) = ((( @{$$_[1]} > 1 ) ? ($$_[0]) : ()), (@{$$_[1]})); [ $h => \@k ] } (
@@ -761,7 +767,7 @@ sub PRODUCT { my ($prd) = ((0+@_) ? (1) : (undef)); ($prd *= $_) for ( grep { (d
 sub DIFFERENCE { my ($a,$b) = ( grep { (defined) or (return undef) } (shift,shift)); ( $a - $b ) }
 
 # Returns the safely divided ratio of two values
-sub RATIO { my ($n,$d) = grep { (defined) or (return undef) } (shift,shift); ((abs $d) <= (shift)) ? ((abs $n) <= (abs $d)) ? (0) : (shift) : ($n/$d) }
+sub RATIO { my ($n,$d) = grep { (defined) or (return undef) } (shift,shift); (( abs $d ) <= (shift)) ? (( abs $n ) <= ( abs $d )) ? (0) : (shift) : ($n/$d) }
 
 # Returns the arithmetic mean of a list of values
 sub ARITHMETIC { ( &RATIO(( &SUM(@_)),(0+@_))) }
@@ -816,7 +822,7 @@ sub ANY { do {(($_) && ( return 1 ))} for (@_); (!1) }
 sub ALL { do {(($_) || ( return !1 ))} for (@_); (1) }
 
 # Rounds numbers to the specified decimal place using "half away from zero"
-sub ROUND { my ($val,$dec) = (( grep { (defined) or (return undef) } (shift)),(int shift));
+sub ROUND { my ($val,$dec) = (( grep {(( defined ) or ( return undef ))} (shift)),( int shift ));
 	(( $val <=> 0 )*( int (( abs $val )*( 10**$dec ) + 0.5 ))/( 10**$dec )) }
 
 # Returns the bitwise and, or, and exclusive or of a list of input positive semi-definite integers
@@ -837,8 +843,8 @@ sub ORDERED { my ($min,$max,$eps,$wid) = (( map { ( ref eq q(ARRAY)) ? (@$_)[0,1
 	do { if (defined $max) { $max += $wid } if (defined $min) { $min -= $wid }} if (defined $wid); (wantarray) ? ($min,$max) : [$min,$max] }
 
 # Returns the transformed copy of an input list of values bounded by a user provided [min,max] ordered pair
-sub BOUNDED { my ($min,$max) = @{(( &ORDERED(shift)) or (return))}; grep { (wantarray) or (return $_) }
-	map { (defined) ? ($min,$_,$max)[ !((defined $min) && ($_ <= $min)) + ((defined $max) && ($_ > $max)) ] : (undef) } ((wantarray) ? (@_) : (shift)) }
+sub BOUNDED { my ($min,$max) = @{(( &ORDERED( map {(( ref eq q(ARRAY)) ? ($_) : [$_,$_] )} (shift))) or (return))}; ( grep {((wantarray) or ( return $_ ))}
+	map {((defined) ? ($min,$_,$max)[ !(( defined $min ) && ( $_ <= $min )) + (( defined $max ) && ( $_ > $max )) ] : (undef))} ((wantarray) ? (@_) : (shift))) }
 
 # Returns the max of minima and the min of maxima for a list of input [min,max] ordered pairs; Leading input optionally inverts handling
 sub MIN_Y_MAX { my ($mode) = (0+ !(!(shift))); map { (wantarray) ? (@$_) : (return $_) } map {[(
@@ -855,8 +861,8 @@ sub INT_CEILING_FLOOR { my ($val,$int,$icf) = (( map { (0+($_),(int)) } grep { (
 	((shift) <=> 0 )); $int + $icf*(( $val <=> $int ) == ($icf)) }
 
 # Returns the integer quotient and floating point remainder of a pair of numbers
-sub INT_QUOTIENT { map { (wantarray) ? ($_,($_[0] - $_*$_[1])) : (return $_) }
-	grep { (defined) or (return (undef,undef)) } ( &INT_CEILING_FLOOR(( &RATIO(@_[0,1])),($_[2]))) }
+sub INT_QUOTIENT { ( map {((wantarray) ? ( $_, ( $_[0] - ( $_ * $_[1] ))) : ( return $_ ))}
+	grep {(( defined ) or ( return (undef,undef)))} ( &INT_CEILING_FLOOR(( &RATIO( @_[0,1] )), $_[2] ))) }
 
 # Returns two raised to a bounded input integer power
 {; my ($exp); sub INT_EXP_TWO { $exp ||= do { my ($i) = 1; [ 1, ( map {($i*=2)} (1..( int BMX ))) ] }; $$exp[( int shift )] }}
@@ -943,10 +949,11 @@ sub GAUSS_RANDOM { my ($m,$s) = (((@_)?0+(shift):(0)),((@_)?0+(shift):(1))); {; 
 
 # Returns template for extraction of requested supplemental data from a list of input lhco objects
 sub OUTPUT_EXTRA { my ($k,$i,$e,@o) = ((shift,shift), ( map {( $_, ( map {(0+(0..2)[$_])} (@{$$_{out}||[]})))} ((shift) or (return))));
-	if (( $k eq q(cal)) or ( $k eq q(met))) { my ($p) = ${{ cal => q(c), met => q(m) }}{$k}; return (
+	if ( my $p = ${{ cal => q(c), met => q(m) }}{$k} ) { return (
 		[ 0, ( $p.q(px)), $i, 1, (undef), 2, (!1,1,!1)[$o[1]]], [ 0, ( $p.q(py)), $i, 2, (undef), 2, (!1,1,!1)[$o[1]]],
 		[ 0, ( $p.q(ap)), $i, ( sub { ${(( &ETA_PHI_PTM_MAS( ${${(shift)||{}}{$k}||[]}[$i] ))||[])}[1] } ), (undef), 3, (!1,1,!1)[$o[2]]] ) }
-	if ( $k eq q(ext)) { return ( map {[ 0, q(ext), ($i+$_), $_, (undef,undef), (1,1,!1)[((@o==1)?($o[0]):($o[$_]))]]} ((1)..( &MIN((0+ $$e{pad}[0] ), (SMX-$i))))) }
+	if ( ${{ sft => 1, ext => 1 }}{$k} ) { return (
+		map {[ 0, $k, ($i+$_), $_, (undef,undef), (1,1,!1)[((@o==1)?($o[0]):($o[$_]))]]} ((1)..( &MIN((0+ $$e{pad}[0] ), (SMX-$i))))) }
 	() }
 
 # Returns template for extraction of requested spanning lhco object counts from a list of input lhco object sets
@@ -1429,13 +1436,10 @@ sub N95 { my ($frc,$tot) = ((( &DEFINED((shift), 0.95 )) * ( 1 - (NIL))), 0 ); (
 sub NPF { my ($lim) = (shift); (0+ ( grep {(( $_ > 0 ) && ( &MATCH_VALUE( $lim, $_ )))} map {( ${(( &ETA_PHI_PTM_MAS($_)) or ( return undef ))}[2] )} (@{(shift)||[]}))) }
 
 #THERE ... do these on assembled subjet collections after the fact ... save the results from prior if possible ... use SPN to do multiple values ...
-sub N_SUBJETTINESS {} # NSJ
+sub N_SUBJETTINESS {}
 
 #THERE sub-jettiness ratio
-sub RSJ {}
-
-#THERE
-sub SIFT_MEASURE {} # SFT
+sub R_SUBJETTINESS {}
 
 # Master diobject reconstruction engine for optimization against invariant mass window specification serving lepton and jet subroutines
 sub DIOBJECTS { my ($win,$ord,$prs,$obj) = do { my ($t) = ( int shift ); my (@t) = map { (@$_) ? (@$_) : [0,undef] } [
@@ -1455,7 +1459,7 @@ sub DIOBJECTS { my ($win,$ord,$prs,$obj) = do { my ($t) = ( int shift ); my (@t)
 
 # Returns a list of pseudo-jets reconstructed from a list of [4-vector] momenta components or lhco objects by specified mode
 sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )} map {[ ( ref eq q(ARRAY)) ? (@$_) : ($_) ]} (shift)));
-		( map {((wantarray) ? (@$_[0..2]) : ( return ( shift @$_ )))} (( defined $mod ) ? do { ($mod) = ( uc ((ref $mod eq q(HASH)) ? (keys %$mod)[0] : ($mod))); ($hsp) } ?  do {
+		( map {((wantarray) ? (@$_[0..2]) : ( return ( shift @$_ )))} (( defined $mod ) ? do { ($mod) = ( uc ((ref $mod eq q(HASH)) ? (keys %$mod)[0] : ($mod))); ($hsp) } ? do {
 		( map { my ($s,$l,$m,$c) = (( &SORT_OBJECT_LORENTZ_CODE(-1)), @$_ ); (( my ($o,$p,$x) = ((($c) -> ( $par, ( my ($i) = [
 			map { (defined $l) ? ( grep {( $$_[0] > 0 )} (( &LORENTZ($_,@$l)) or (return))) : ($_) } ( &LORENTZ_MERGE($m,@_)) ] ))), (undef)))[0] or (return));
 			my (@i) = ( sort { our ($a,$b); (($s)->($$o[$a],$$o[$b])) } grep {( $$o[$_]{ep0} > 0 )} (0..( @{ $o = [ &LORENTZ_HASH(undef,@$o) ] } - 1 )));
@@ -1633,71 +1637,86 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 	( &INDEXED_FUNCTIONAL( $sub, ( grep { (defined) or (return undef) } map { ( ref eq q(HASH)) ? ( $$idx{( sprintf q(%3.3s_%3.3i), %$_ )} ) : (undef) } (@_)))) }
 
 # Returns the compound evaluation or closure encapsulation of an input operation string
-{; my ($rex); sub STRING_FUNCTIONAL { my ($str,$vls,@map) = (( grep { s/\s+//g; ( m'(?i:[^-+/*^\$\d.)(,A-Z><=!&|])' ) && (return undef); 1 }
-	map {( qq($_))} (shift)), ( map { ( ref eq q(ARRAY)) ? [(undef),(@$_)] : () } (shift)));
-		$rex ||= do { my ($val) = qr"(?:(?>${\EXP})|(?>[-+]?[\$@]\d+))"; [
-			[ qr"^(${val})$", sub {[1,@_[1..1]]} ],
-			[ qr"(?<!(?i:[A-Z]))\((${val})\)", sub {[2,@_[1..1]]} ],
-			[ qr"(?<=[-+])(?=[-+])(${val})(?:(?=[-+/*,)><=!&|])|$)", sub {[2,@_[1..1]]} ],
-			[ qr"((?i:[A-Z]+))\((${val}(?:,${val})*)?\)", sub {[3,(undef),@_[1..2]]} ],
-			[ qr"(?:^|(?<=[-+/*^(,><=&|]))(?![-+])(${val})(\^)(${val})(?:(?=[-+/*,)><=!&|])|$)", sub {[4,@_[1..3]]} ],
-			[ qr"(?:^|(?<=[-+(,><=&|]))(?![-+])(${val})([/*])(${val})(?:(?=[-+/*,)><=!&|])|$)", sub {[4,@_[1..3]]} ],
-			[ qr"(?:^|(?<=[(,><=&|]))(${val})([-+])(${val})(?:(?=[-+,)><=!&|])|$)", sub {[4,@_[1..3]]} ],
-			[ qr"(?:^|(?<=[(,&|]))(${val})(<|<=|<=>|==|!=|>=|>)(${val})(?:(?=[,)&|])|$)", sub {[4,@_[1..3]]} ],
-			[ qr"(?:^|(?<=[(,|]))(${val})(&&)(${val})(?:(?=[,)&|])|$)", sub {[4,@_[1..3]]} ],
-			[ qr"(?:^|(?<=[(,]))(${val})(\|\|)(${val})(?:(?=[,)|])|$)", sub {[4,@_[1..3]]} ]] }; { my ($mod,$opn,$arg) =
-	do { my ($mod,@c) = @{ ${ ( &REX_LIST( 2, $str, ( map {[ @$_[0,1], ( q(@).(0+ @map)) ]} (@$rex)))) || \(!1) } || [] };
-		( 0+($mod), $c[1], [ map { my ($s,$o,$n) = /^([-+]?)([\$@]?)(.*)$/; map {(( $s eq q(-)) ? do { my ($sub) = $_;
-			sub { -1*( grep { (defined) or (return undef) } ( $sub->()))[0] }} : ($_))} (( length $o ) ? ( $o eq q($)) ?
-			sub { ( grep { (defined) or (return undef) } ($$vls[(int $n)]))[0] } : ( splice @map, (int $n), 1, (undef)) :
-			sub { (( defined $n ) ? (0+ $n) : (undef)) } ) } map {( split q(,))} (@c[0,2]) ] ) };
-	push @map, map { my ($sub) = $_; sub { ( grep { (defined) && !(m/inf/i) && !(m/nan/i) or (return undef) } ( $sub->( map {( $_->())} (@$arg))))[0] }}
-		($mod == 1) ? do { my ($sub) = (shift @$arg); ( return (($vls) ? ( $sub->()) : ( sub { ($vls) = [(undef),(@_)]; ( $sub->()) } ))) } :
-		($mod == 2) ? (shift @$arg) :
-		($mod == 3) ? do { my ($sub,$map) = ((((@$arg) ? +{
+{; my ($rex); sub STRING_FUNCTIONAL { my ($str,$vls,@map) = (
+	( grep { s/\s+//g; (( m'(?i:[^-+/*^\$\d.)(,A-Z><=!&|])' ) && ( return undef )); 1 } map {( qq($_))} (shift)),
+	( map { ( ref eq q(ARRAY)) ? [(undef),(@$_)] : () } (shift)));
+	$rex ||= do { my ($val) = qr"(?:(?>${\EXP})|(?>[-+]?[\$@]\d+))"; [
+		[ qr"^(${val})$" => sub {[1,@_[1..1]]} ],
+		[ qr"(?<!(?i:[A-Z]))\((${val})\)" => sub {[2,@_[1..1]]} ],
+		[ qr"(?<=[-+])(?=[-+])(${val})(?:(?=[-+/*,)><=!&|])|$)" => sub {[2,@_[1..1]]} ],
+		[ qr"((?i:[A-Z]+))\((${val}(?:,${val})*)?\)" => sub {[3,(undef),@_[1..2]]} ],
+		[ qr"(?:^|(?<=[-+/*^(,><=&|]))(?![-+])(${val})(\^)(${val})(?:(?=[-+/*,)><=!&|])|$)" => sub {[4,@_[1..3]]} ],
+		[ qr"(?:^|(?<=[-+(,><=&|]))(?![-+])(${val})([/*])(${val})(?:(?=[-+/*,)><=!&|])|$)" => sub {[4,@_[1..3]]} ],
+		[ qr"(?:^|(?<=[(,><=&|]))(${val})([-+])(${val})(?:(?=[-+,)><=!&|])|$)" => sub {[4,@_[1..3]]} ],
+		[ qr"(?:^|(?<=[(,&|]))(${val})(<|<=|<=>|==|!=|>=|>)(${val})(?:(?=[,)&|])|$)" => sub {[4,@_[1..3]]} ],
+		[ qr"(?:^|(?<=[(,|]))(${val})(&&)(${val})(?:(?=[,)&|])|$)" => sub {[4,@_[1..3]]} ],
+		[ qr"(?:^|(?<=[(,]))(${val})(\|\|)(${val})(?:(?=[,)|])|$)" => sub {[4,@_[1..3]]} ]] }; {
+	my ($mod,$opn,$arg) = do { my ($mod,@c) = @{ ${ ( &REX_LIST( 2, $str, ( map {[ @$_[0,1], ( q(@).(0+ @map )) ]}
+		(@$rex)))) || \(!1) } || [] }; ((0+ $mod ), ( lc $c[1] ), [ map { my ($s,$o,$n) = /^([-+]?)([\$@]?)(.*)$/; ( map {(
+			( $s eq q(-)) ? ( do { my ($sub) = $_; sub { ((-1) * ( grep {(( defined ) or ( return undef ))}
+			( scalar (($sub) -> ())))[0] ) }} ) : ($_))} (( length $o ) ? (( $o eq q($)) ? ( sub {( $$vls[( int $n )] )} ) :
+			(( splice @map, ( int $n ), 1, (undef)) or ( die 'Cannot interpolate string functional' ))) :
+			( sub { (( defined $n ) ? (0+ $n ) : (undef)) } ))) } map {( split q(,))} (@c[0,2]) ] ) };
+	my ($sub,$bnd,$udf) = (
+		( $mod == 1 ) ? (( shift @$arg ), 0 ) :
+		( $mod == 2 ) ? (( shift @$arg ), 0 ) :
+		( $mod == 3 ) ? ( do { my ($sub,$bnd,$udf) = ( @{ ( do { my ($sub) = ( +{
+			q(pie)	=> sub { (PIE) }, q(pi)
+				=> sub { (PIE) },
+				} -> { $opn } ); (( $sub ) && [ $sub, 0 ] ) } ) or ( do { my ($sub) = ( +{
+			q(tru)	=> sub { ((@_) ? (0+ !!(shift)) : (1)) }, q(true)
+				=> sub { ((@_) ? (0+ !!(shift)) : (1)) },
+			q(fls)	=> sub { ((@_) ? (0+ !(shift)) : (0)) }, q(false)
+				=> sub { ((@_) ? (0+ !(shift)) : (0)) },
+			q(inf)	=> sub { ((@_) ? (0+ ((shift) =~ m/inf/i )) : (INF)) },
+			q(nan)	=> sub { ((@_) ? (0+ ((shift) =~ m/nan/i )) : (NAN)) },
+				} -> { $opn } ); (( $sub ) && [ $sub, [0,1]] ) } ) or ( do { my ($sub) = ( +{
+			q(udf)	=> sub { ((@_) ? (0+ ( not defined (shift))) : (undef)) }, q(undef)
+				=> sub { ((@_) ? (0+ ( not defined (shift))) : (undef)) },
+				} -> { $opn } ); (( $sub ) && [ $sub, [0,1], 1 ] ) } ) or ( do { my ($sub) = ( +{
 			q(sin)	=> sub { ( sin (shift)) },
 			q(cos)	=> sub { ( cos (shift)) },
-			q(tan)	=> sub { ( map { ( scalar ( eval { (( sin ($_)) / ( cos ($_))) } )) } (shift))[0] },
-			q(asn)	=> sub { ( map { ( scalar ( eval { atan2 ( $_, sqrt( 1 - $_*$_ )) } )) } (shift))[0] },
-			q(acs)	=> sub { ( map { ( scalar ( eval { atan2 ( sqrt( 1 - $_*$_), $_ ) } )) } (shift))[0] },
-			q(atn)	=> sub { ( atan2 ((shift), ((@_) ? (shift) : (1)) )) },
-			q(exp)	=> sub { ( map { (@_) ? ((shift) ** ($_)) : ( exp ($_)) } (shift))[0] },
-			q(log)	=> sub { ( scalar ( eval { ( log (shift)) / ((@_) ? ( log (shift)) : (1)) } )) },
-			q(snh)	=> sub { ( map { ( exp (+$_) - exp (-$_)) / 2 } (shift))[0] },
-			q(csh)	=> sub { ( map { ( exp (+$_) + exp (-$_)) / 2 } (shift))[0] },
-			q(tnh)	=> sub { ( map { (( 1 - exp (-2*$_)) / ( 1 + exp (-2*$_))) } (shift))[0] },
-			q(ash)	=> sub { ( map { ( log ( $_ + sqrt( $_*$_ + 1 ))) } (shift))[0] },
-			q(ach)	=> sub { ( map { ( scalar ( eval { ( log ( $_ + sqrt( $_*$_ - 1 ))) } )) } (shift))[0] },
-			q(ath)	=> sub { ( map { ( scalar ( eval { ( log ( 1 + $_ ) - log ( 1 - $_ )) / 2 } )) } (shift))[0] },
-			q(srt)	=> sub { ( scalar ( eval { ( sqrt (shift)) } )) },
+			q(tan)	=> sub { ( map {( eval { (( sin ($_)) / ( cos ($_))) } )} (shift))[0] },
+			q(asn)	=> sub { ( map {( eval { atan2 ( $_, sqrt( 1 - $_*$_ )) } )} (shift))[0] },
+			q(acs)	=> sub { ( map {( eval { atan2 ( sqrt( 1 - $_*$_), $_ ) } )} (shift))[0] },
+			q(snh)	=> sub { ( map {(( exp (+$_) - exp (-$_)) / 2 )} (shift))[0] },
+			q(csh)	=> sub { ( map {(( exp (+$_) + exp (-$_)) / 2 )} (shift))[0] },
+			q(tnh)	=> sub { ( map {(( 1 - exp (-2*$_)) / ( 1 + exp (-2*$_)))} (shift))[0] },
+			q(ash)	=> sub { ( map {( log ( $_ + sqrt( $_*$_ + 1 )))} (shift))[0] },
+			q(ach)	=> sub { ( map {( eval { ( log ( $_ + sqrt( $_*$_ - 1 ))) } )} (shift))[0] },
+			q(ath)	=> sub { ( map {( eval { ( log ( 1 + $_ ) - log ( 1 - $_ )) / 2 } )} (shift))[0] },
+			q(srt)	=> sub { ( eval { ( sqrt (shift)) } ) },
 			q(abs)	=> sub { ( abs (shift)) },
 			q(int)	=> sub { ( &INT_CEILING_FLOOR ((shift), 0 )) },
 			q(clg)	=> sub { ( &INT_CEILING_FLOOR ((shift), +1 )) },
 			q(flr)	=> sub { ( &INT_CEILING_FLOOR ((shift), -1 )) },
+			q(not)	=> sub { (0+ (! (shift))) },
+				} -> { $opn } ); (( $sub ) && [ $sub, 1 ] ) } ) or ( do { my ($sub) = ( +{
+			q(def)	=> sub { (0+ ( defined (shift))) },
+				} -> { $opn } ); (( $sub ) && [ $sub, 1, 1 ] ) } ) or ( do { my ($sub) = ( +{
+			q(atn)	=> sub { ( atan2 ((shift), ((@_) ? (shift) : (1)) )) },
+			q(exp)	=> sub { ( map {((@_) ? ((shift) ** ($_)) : ( exp ($_)))} (shift))[0] },
+			q(log)	=> sub { ( eval { ( log (shift)) / ((@_) ? ( log (shift)) : (1)) } ) },
 			q(rnd)	=> sub { ( &ROUND (@_)) },
-			q(dif)	=> sub { ( &DIFFERENCE (@_)) },
-			q(rat)	=> sub { ( &RATIO (@_)) },
 			q(qnt)	=> sub { ( &INT_QUOTIENT ((shift), ((@_) ? (shift) : (1)), -1 ))[0] },
 			q(mod)	=> sub { ( &INT_QUOTIENT ((shift), ((@_) ? (shift) : (1)), -1 ))[1] },
+				} -> { $opn } ); (( $sub ) && [ $sub, [1,2]] ) } ) or ( do { my ($sub) = ( +{
+			q(les)	=> sub { (0+ ((shift) < (shift))) },
+			q(leq)	=> sub { (0+ ((shift) <= (shift))) },
+			q(cmp)	=> sub { (0+ ((shift) <=> (shift))) },
+			q(eql)	=> sub { (0+ ((shift) == (shift))) },
+			q(neq)	=> sub { (0+ ((shift) != (shift))) },
+			q(geq)	=> sub { (0+ ((shift) >= (shift))) },
+			q(grt)	=> sub { (0+ ((shift) > (shift))) },
+			q(and)	=> sub { (0+ ((shift) and (shift))) },
+			q(orr)	=> sub { (0+ ((shift) or (shift))) },
+			q(xor)	=> sub { (0+ ((shift) xor (shift))) },
+			q(dif)	=> sub { ( &DIFFERENCE (@_)) },
+				} -> { $opn } ); (( $sub ) && [ $sub, 2 ] ) } ) or ( do { my ($sub) = ( +{
 			q(ife)	=> sub { ( $_[ 0+( !(shift)) ] ) },
-			q(def)	=> sub { 0+( defined (shift)) },
-			q(not)	=> sub { 0+( !(shift)) },
-			q(les)	=> sub { 0+((shift) < (shift)) },
-			q(leq)	=> sub { 0+((shift) <= (shift)) },
-			q(cmp)	=> sub { 0+((shift) <=> (shift)) },
-			q(eql)	=> sub { 0+((shift) == (shift)) },
-			q(neq)	=> sub { 0+((shift) != (shift)) },
-			q(geq)	=> sub { 0+((shift) >= (shift)) },
-			q(grt)	=> sub { 0+((shift) > (shift)) },
-			q(and)	=> sub { 0+((shift) and (shift)) },
-			q(orr)	=> sub { 0+((shift) or (shift)) },
-			q(xor)	=> sub { 0+((shift) xor (shift)) },
-				} : +{
-			q(pi)	=> sub {(PIE)},
-			q(pie)	=> sub {(PIE)},
-			q(udf)	=> sub {(undef)},
-			q(undef)=> sub {(undef)},
-				} ) -> {( lc $opn )} ) or (( +{
+				} -> { $opn } ); (( $sub ) && [ $sub, [2,3], [!1,1,1]] ) } ) or ( do { my ($sub) = ( +{
+			q(rat)	=> sub { ( &RATIO (@_)) },
+				} -> { $opn } ); (( $sub ) && [ $sub, [2,4], [!1,!1,!1,1]] ) } ) or ( do { my ($sub) = ( +{
 			q(sum)	=> sub { ( &SUM (@_)) },
 			q(prd)	=> sub { ( &PRODUCT (@_)) },
 			q(avg)	=> sub { ( &ARITHMETIC (@_)) },
@@ -1709,26 +1728,35 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 			q(eom)	=> sub { ( &ERROR_OF_MEAN (@_)) },
 			q(min)	=> sub { ( &MIN (@_)) },
 			q(max)	=> sub { ( &MAX (@_)) },
-				} -> {( lc $opn )} or (return undef)), 1 )); sub { ( scalar (
-			(($map) && (@_ == 1) && ( &ISA( 1, $_[0], q(Local::TENSOR)))) ? (($sub) -> ( map {($$_)} ((shift) -> ELEMENTS()))) :
-			((( map { ( &UNIVERSAL::can( $_, q(MAP))) || () } (@_)),(undef))[0] or sub { my ($sub) = (pop); (($sub)->(@_)) } ) -> (@_,$sub))) }} :
-		($mod == 4) ? (( +{
-			q(^)	=> sub { ( scalar ((shift) ** (shift))) },
-			q(/)	=> sub { ( scalar ( eval { ((shift) / (shift)) } )) },
-			q(*)	=> sub { ( scalar ((shift) * (shift))) },
-			q(-)	=> sub { ( scalar ((shift) - (shift))) },
-			q(+)	=> sub { ( scalar ((shift) + (shift))) },
-			q(<)	=> sub { 0+((shift) < (shift)) },
-			q(<=)	=> sub { 0+((shift) <= (shift)) },
-			q(<=>)	=> sub { 0+((shift) <=> (shift)) },
-			q(==)	=> sub { 0+((shift) == (shift)) },
-			q(!=)	=> sub { 0+((shift) != (shift)) },
-			q(>=)	=> sub { 0+((shift) >= (shift)) },
-			q(>)	=> sub { 0+((shift) > (shift)) },
-			q(&&)	=> sub { 0+((shift) and (shift)) },
-			q(||)	=> sub { 0+((shift) or (shift)) },
-				} ) -> {( lc $opn )} || (return undef)) :
-		(return undef); (redo) }}}
+				} -> { $opn } ); (( $sub ) && [ $sub, (undef) ] ) } ) or ( [] ) } ); (( $sub ) ? (( sub {
+					((( not defined $bnd ) && ( @_ == 1 ) && ( &ISA( 1, $_[0], q(Local::TENSOR)))) ?
+					(($sub) -> ( map {($$_)} ((shift) -> ELEMENTS()))) : ((
+					(( map {(( &UNIVERSAL::can( $_, q(MAP))) || ())} (@_)), (undef))[0] or
+					( sub { my ($sub) = (pop); (($sub) -> (@_)) } )) ->
+					( @_, $sub ))) } ), ($bnd,$udf)) : ()) } ) :
+		( $mod == 4 ) ? (( +{
+			q(^)	=> sub { ((shift) ** (shift)) },
+			q(+)	=> sub { ((shift) + (shift)) },
+			q(-)	=> sub { ((shift) - (shift)) },
+			q(*)	=> sub { ((shift) * (shift)) },
+			q(/)	=> sub { ( eval { ((shift) / (shift)) } ) },
+			q(<=>)	=> sub { ((shift) <=> (shift)) },
+			q(<)	=> sub { (0+ ((shift) < (shift))) },
+			q(<=)	=> sub { (0+ ((shift) <= (shift))) },
+			q(==)	=> sub { (0+ ((shift) == (shift))) },
+			q(!=)	=> sub { (0+ ((shift) != (shift))) },
+			q(>=)	=> sub { (0+ ((shift) >= (shift))) },
+			q(>)	=> sub { (0+ ((shift) > (shift))) },
+			q(&&)	=> sub { (0+ ((shift) and (shift))) },
+			q(||)	=> sub { (0+ ((shift) or (shift))) },
+				} -> { $opn } ), 2 ) :
+		()); ((( $sub ) && ( do { my ($bnd) = ( &BOUNDED( $bnd, (0+ @$arg )));
+			(( defined $bnd ) && ( $bnd == (0+ @$arg ))) } )) or ( return undef ));
+	if ( $mod == 1 ) { ( return (($vls) ? ( scalar (($sub) -> ())) :
+		( sub { ($vls) = [(undef),(@_)]; ( scalar (($sub) -> ())) } ))) }
+	push @map, ( sub { (($sub) -> ( map { my ($i) = $_; ( grep {(( defined ) or
+		(( ref $udf eq q(ARRAY)) ? ($$udf[$i]) : ($udf)) or ( return undef ))}
+		( scalar (($$arg[$i]) -> ()))) } (0..(@$arg-1)))) } ); (redo) }}}
 
 # Returns an anonymous scalar reference, optionally initialized by a user-supplied input
 sub SCALAR_REF { my ($s) = (shift); \( $s ) }
@@ -2027,8 +2055,8 @@ sub OBJECT { my ($b,$o,$s,$f,@d) = (( map {(( &::DEFINED(( blessed $_ ), (( leng
 	if ( &::ISA( 1, ${ $o = \( $$$o[0] ) }, __PACKAGE__ )); }; ( 0+(( splice @d, $i, (@d-$i), (0))[0] ) && (return)); } else { my ($d) = ( shift @d ); ($o) = \( map {
 		((( int $d[0] ) < 0 ) and ( $d[0] = $d )); [ map { grep {((defined) or (return))} ((((undef),@d) = ( &OBJECT((undef), $_, (($f)?($s):()), (@d)))),(undef))[0] }
 		(@$_) ] } map { (( &::ISA( 0, $_, q(ARRAY))) ? (((@$_) == (( $d = ( &::DEFINED($d,0+@$_))) or (return))) ? ($_) : (return)) :
-		((((defined) && !(m/inf/i) && !(m/nan/i)) or (return)) && ((( int $d ) > 0 ) ? ((length ref) ? (return) : [ ($_) x ( $d = ( int $d )) ] ) :
-		( 0+$d ) ? (return) : do { do {((wantarray) ? ( return ($_,0)) : ( return $_ ))} for ( map {((((defined) && !(m/inf/i) && !(m/nan/i)) or (return)) &&
+		((((defined) && !( m/inf/i ) && !( m/nan/i )) or (return)) && ((( int $d ) > 0 ) ? ((length ref) ? (return) : [ ($_) x ( $d = ( int $d )) ] ) :
+		( 0+$d ) ? (return) : do { do {((wantarray) ? ( return ($_,0)) : ( return $_ ))} for ( map {((((defined) && !( m/inf/i ) && !( m/nan/i )) or (return)) &&
 		(( length ref ) ? ( ref =~ /^(?:SCALAR|REF)$/ ) ? ( &::ISA( 0, $_, qw( ARRAY HASH ))) ? (return) : ($_) : (return) : 0+($_)))} ( scalar $s->($o))) } ))) }
 	($$o))[0]; ( unshift @d, $d ); } (( &::ISA( 1, ( bless $$o, $b ), __PACKAGE__ )) or (return)); ((wantarray) ? ($$o,@d) : ($$o)) }
 
@@ -2100,7 +2128,7 @@ sub STRING { ( my ($o,$d) = ( map {( &OBJECT(( blessed $_ ), ($_)))} (shift))) o
 	(($sub)->(( map {(( &::ISA( 1, $_, __PACKAGE__ )) ? ($$_[$i]) : ($_))} (@o)), $s, [ @$d[1..(@$d-1)]] )) } (0..($$d[0]-1)) ] : ( scalar (($s)->(@o)))) }} ));
 	my ($b,$d); my ($s,@o) = (( grep {(( ref eq q(CODE)) or (return))} (pop)), ( map {((( length ref ) && ( ref !~ /^(?:SCALAR|REF)$/ )) ? do {
 	grep { ((defined) or (return)); ( $b = ( &::DEFINED( $b, ( blessed $_ )))); 1 } ((((undef),@$d) = ( &OBJECT( $b, $_, @{$d||=[]} ))),(undef))[0] } :
-	((((defined) && !(m/inf/i) && !(m/nan/i)) or (return)) && (( length ref ) ? ( &::ISA( 0, $_, qw( ARRAY HASH ))) ? (return) : ($_) : 0+($_))))} (@_)));
+	((((defined) && !( m/inf/i ) && !( m/nan/i )) or (return)) && (( length ref ) ? ( &::ISA( 0, $_, qw( ARRAY HASH ))) ? (return) : ($_) : 0+($_))))} (@_)));
 	( &OBJECT( $b, (($map)->(@o,$s,$d)), @{$d||[0]} )) }}
 
 }	# End of package Local::TENSOR
@@ -2318,10 +2346,9 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 
 1
 
-# JETS vs. Mathematica VALIDATION, including PAD ... #THERE
+# JETS vs. Mathematica VALIDATION #THERE
 # MT2 validation #THERE
 # OLD/ALL validation #THERE
-# DIR / FIL ... #THERE
-# propagate undefs #THERE
 # JET CANONICALIZATION #THERE
+# COMMENTS #THERE
 
