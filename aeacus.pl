@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 4.000 B_010 #
-# March '11 - April '22		#
+# aeacus.pl Version 4.000 B_012 #
+# March '11 - May '22		#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -345,7 +345,7 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@g,@c,%i,%g) = (shift); do { my ($h,$t,@t) = 
 				map { ( @{$_[1]{$src}||=[]}[($_[3])..($_[3]+$_[4])] = ( @{$_||[]}, (undef)))[0] } ( scalar &SELECT_OBJECTS(
 					$_[0], $t, [ &INCLUDE_OBJECTS( $_[0]{cmp}, $_[3], $_[1]{$cmp} ) ], $_[3], $j )))[0] }, 1, 0 ] } (-1..1)),
 	]], [ evt => [
-			# Filter on the missing transverse momentum, scalar sum on transverse energy, and effective mass of various lepton and jet reconstructions
+			# Filter on the missing transverse momentum, scalar sum on transverse energy, and effective mass of various object reconstructions
 		[ cal => sub {( ${( $_[1]{met} = [ $_[1]{cal}[0] || []] )}[0][0] )}, 2, 0, 0 ],
 		[ met => sub {(	${(( grep { my ($a,$i) = (($_[1]{met}||[]), $_[3] );
 			(($i < (@$a - 1)) ? ( splice @$a, $i, 1, $_ ) : ( splice @$a, (-1), 0, (((undef)x($i-@$a+1)),$_))); 1 }
@@ -360,7 +360,7 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@g,@c,%i,%g) = (shift); do { my ($h,$t,@t) = 
 		[ ref => sub {( &RATIO(( scalar &INDEXED_VALUES( $_[0]{num}, $_[2]{met} )), ( scalar &INDEXED_VALUES( $_[0]{den}, $_[2]{mef} ))))}, 3 ],
 		[ rhh => sub {( &RATIO( &INDEXED_VALUES( $_[0]{num}, $_[2]{mht}, $_[0]{den}, $_[2]{mht} )))}, 3 ],
 		[ det => sub {( ${ &LORENTZ_DIFFERENCE( &INDEXED_VALUES( $_[0]{one}, $_[1]{met}, $_[0]{two}, $_[1]{met} )) || []}[0] )}, 2 ],
-			# Filter on various specialized discovery statistics employed by the LHC experimental collaborations
+			# Filter on various specialized collider observables
 		[ ote => sub {( &TRANSVERSE_ENERGY((( &IMET ) || ()), ( &IOBJ )))}, 2 ],
 		[ oim => sub {( &INVARIANT_MASS((( &IMET ) || ()), ( &IOBJ )))}, 2 ],
 		[ otm => sub {( &TRANSVERSE_MASS(( &IMET ), ( scalar &LORENTZ_SUM( undef, ( &IOBJ )))))}, 2 ],
@@ -393,23 +393,24 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@g,@c,%i,%g) = (shift); do { my ($h,$t,@t) = 
 		[ ptd => sub {( &PTD( &IOBJ ))}, 3 ],
 		[ n95 => sub {( &N95( ${$_[0]{frc}||[]}[0], [ &IOBJ ] ))}, 1 ],
 		[ npf => sub {( &NPF( $_[0]{lim}, [ &IOBJ ] ))}, 1 ],
-#THERE
-#		[ nsj => sub {( &N_SUBJETTINESS( $_[0]{lim}, [ &IOBJ ] ))}, -1 ],
-#		[ rsj => sub {( &R_SUBJETTINESS( $_[0]{lim}, [ &IOBJ ] ))}, -1 ],
-		[ sft => sub {((( @{ $_[1]{sft}[$_[3]] = [] } ) = ( @{((( &HEMISPHERES( 0, [ q(SFT), 1 ], ( &IOBJ ))),
-				(undef))[2] || [] )}[( 0, ((1)..( &MIN((0+ $_[0]{pad}[0] ), ( SMX - $_[3] )))))] ))[0] )}, -1 ],
+		[ nsj => sub { my ($pad) = ( &MAX( 0, ( &MIN(( int $_[0]{pad}[0] ), ( SMX - $_[3] ))))); (( @{ $_[1]{nsj}[$_[3]] = [] } ) =
+			( @{(( &N_SUBJETTINESS( $_[0]{prm}, $pad, [ &IOBJ ] )) || [] )}[((0)..($pad))] ))[0] }, -1 ],
+		[ rsj => sub { my ($pad) = ( &MAX( 0, ( &MIN(( int $_[0]{pad}[0] ), ( SMX - $_[3] ))))); (( @{ $_[1]{rsj}[$_[3]] = [] } ) =
+			( @{(( &R_SUBJETTINESS( $_[0]{prm}, $pad, [ &IOBJ ] )) || [] )}[((0)..($pad))] ))[0] }, -1 ],
+		[ sft => sub {((( @{ $_[1]{sft}[$_[3]] = [] } ) = ( @{((( &HEMISPHERES( 0, [ q(SFT), -1 ], ( &IOBJ ))),
+			(undef))[2] || [] )}[( 0, ((1)..( &MIN(( int $_[0]{pad}[0] ), ( SMX - $_[3] )))))] ))[0] )}, -1 ],
 	]], [ usr => [
 			# Filter on user-defined composite event statistics
 		[ var => sub { my ($sub,@val) = ( map {(( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , $_ ))} ( ${$_[0]{val}||$_[0]{key}||[]}[0] ));
-			(($sub) -> ( map { ( ref eq q(HASH)) ? ( do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } ) : (undef) } (@val))) }, -1 ],
+			(($sub) -> ( map {(( ref eq q(HASH)) ? ( do { my ($k,$v) = %$_; ${$_[2]{$k}||[]}[$v] } ) : (undef))} (@val))) }, -1 ],
 			# Filter on externally defined event statistics
 		[ ext => sub { (( my ($exe) = ( grep {( -x )} map {( join q(), @$_ )} grep {(defined)} ((( &Local::FILE::HANDLE(
 				( scalar &Local::FILE::SPLIT( ${$_[0]{exe}||[]}[0], q(./External/))))), (undef))[1] ))) or ( die 'Cannot execute external routine' ));
 			(( @{ $_[1]{ext}[$_[3]] = [] } ) = ( map { local ($?); (( open my $FHI, q(-|), $exe, (@$_)) or ( die 'Cannot open pipe to executable' ));
 				(( map {(( $_ =~ m/^${\EXP}$/ ) ? (0+ $_) : (undef))} map {(split)} map {((( close $FHI ) && (($? >> 8) == 0 )) ? (@$_) : ())}
-					[ <$FHI> ] ), (undef))[( 0, ((1)..( &MIN((0+ $_[0]{pad}[0] ), ( SMX - $_[3] )))))] }
+					[ <$FHI> ] ), (undef))[( 0, ((1)..( &MIN(( int $_[0]{pad}[0] ), ( SMX - $_[3] )))))] }
 			[ map {((defined) ? ( sprintf q(%+12.5E), $_ ) : q(NAN))} map { my ($sub,@val) = (( ref eq q(ARRAY)) ? (@$_) : ( sub {(shift)} , ($_)));
-				(($sub) -> ( map { ( ref eq q(HASH)) ? do { my ($k,$v) = (%$_); ${$_[2]{$k}||[]}[$v] } : (undef) } (@val))) } (@{$_[0]{key}||[]}) ] ))[0] }, -1 ],
+				(($sub) -> ( map {(( ref eq q(HASH)) ? do { my ($k,$v) = (%$_); ${$_[2]{$k}||[]}[$v] } : (undef))} (@val))) } (@{$_[0]{key}||[]}) ] ))[0] }, -1 ],
 	]], ); (
 		# Construct cut flow template, reported statistics list, and event analysis closure
 	( do { my ($j,@y); [ map { my ($h,@k) = ((( @{$$_[1]} > 1 ) ? ($$_[0]) : ()), (@{$$_[1]})); [ $h => \@k ] } (
@@ -428,6 +429,19 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@g,@c,%i,%g) = (shift); do { my ($h,$t,@t) = 
 			do {(( &ANY(@$_)) && ( return [ $i{$i}, $_ ] ))} for [ map { my ($g,$d) = ($g[$i][$_],$d[$_]); (($g > 0) ?
 			(( push @{$y[$g]||=[]}, $d ) && ()) : ($d)) } (0..(@{$g[$i]}-1)) ]; 1 } [ map {(($_)->($o,$v))} (@{ $c[$i] }) ] } (0..(@i-1))),
 		( do { do { my ($y) = ($y[$_]); (($y) && ( &ANY(@$y)) && ( return [ $g{$_}, $y ] )) } for (0..(@y-1)); () } ) ]] } )) }
+
+#THERE # ... timestamp
+sub COMMENT_HEADER {
+	( join "\n", (( map {( q(# ).($_))} (
+	( do { use POSIX qw(strftime); q(TIME: ).( scalar ( strftime "%a %b %e %H:%M:%S %Y", localtime )) } ),
+	( do { use Sys::Hostname qw(hostname); q(HOST: ).( scalar hostname ) } ),
+	( do { use Cwd qw(getcwd); q(PATH: ).( scalar getcwd ) } ),
+	( q(CALL: ).( $0 )),
+	( map { join q(), ( q(ARG), ( 1 + $_ ), q(: ), $ARGV[$_] ) } (0..(@ARGV-1)) ),
+	( q(CARD: ).( shift )),
+	( q(FILE: ).( shift )),
+	)), ( q())))
+}
 
 # Returns a formatted header summarizing processed and surviving event counts, and selection cut activity rates
 sub FORMAT_HEADER { my ($nnn,$act,$stc,@key) = (shift,shift,shift); (
@@ -952,14 +966,13 @@ sub OUTPUT_EXTRA { my ($k,$i,$e,@o) = ((shift,shift), ( map {( $_, ( map {(0+(0.
 	if ( my $p = ${{ cal => q(c), met => q(m) }}{$k} ) { return (
 		[ 0, ( $p.q(px)), $i, 1, (undef), 2, (!1,1,!1)[$o[1]]], [ 0, ( $p.q(py)), $i, 2, (undef), 2, (!1,1,!1)[$o[1]]],
 		[ 0, ( $p.q(ap)), $i, ( sub { ${(( &ETA_PHI_PTM_MAS( ${${(shift)||{}}{$k}||[]}[$i] ))||[])}[1] } ), (undef), 3, (!1,1,!1)[$o[2]]] ) }
-	if ( ${{ sft => 1, ext => 1 }}{$k} ) { return (
-		map {[ 0, $k, ($i+$_), $_, (undef,undef), (1,1,!1)[((@o==1)?($o[0]):($o[$_]))]]} ((1)..( &MIN((0+ $$e{pad}[0] ), (SMX-$i))))) }
+	if ( ${{ nsj => 1, rsj => 1, sft => 1, ext => 1 }}{$k} ) { return (
+		map {[ 0, $k, ($i+$_), $_, (undef,undef), (1,1,!1)[((@o==1)?($o[0]):($o[$_]))]]} ((1)..( &MIN(( int $$e{pad}[0] ), (SMX-$i))))) }
 	() }
 
 # Returns template for extraction of requested spanning lhco object counts from a list of input lhco object sets
-sub OUTPUT_PAD { my ($k,$i,$d) = (@_); ( map { my ($j) = ( $i + $_ );
-	[ 0, $k, $j, ( sub {(0+ @{ ${${(shift)||{}}{$k}||[]}[$j] || [] } )} ) ] }
-	(($i > 0) ? ((1)..( &MIN((0+ $d ), (SMX-$i)))) : ())) }
+sub OUTPUT_PAD { my ($k,$i,$d) = ((shift), ( int shift), ( int shift )); ( map { my ($j) = ( $i + $_ );
+	[ 0, $k, $j, ( sub {(0+ @{ ${${(shift)||{}}{$k}||[]}[$j] || [] } )} ) ] } (($i > 0) ? ((1)..( &MIN(($d), ( SMX - $i )))) : ())) }
 
 # Returns template for extraction of requested kinematic components from a list of input lhco objects
 {; my ($n,$s); sub OUTPUT_OBJECT { my (%n); $s ||= do { $n = 1; +{ map {(($_)=>($n++))} ( qw( eta phi ptm mas ep0 ep1 ep2 ep3 dm1 dm2 )) }};
@@ -1435,11 +1448,22 @@ sub N95 { my ($frc,$tot) = ((( &DEFINED((shift), 0.95 )) * ( 1 - (NIL))), 0 ); (
 # Returns the number of [4-vector] momenta components or lhco objects with non-zero pt, optionally enforcing a supplemental pt range limit
 sub NPF { my ($lim) = (shift); (0+ ( grep {(( $_ > 0 ) && ( &MATCH_VALUE( $lim, $_ )))} map {( ${(( &ETA_PHI_PTM_MAS($_)) or ( return undef ))}[2] )} (@{(shift)||[]}))) }
 
-#THERE ... do these on assembled subjet collections after the fact ... save the results from prior if possible ... use SPN to do multiple values ...
-sub N_SUBJETTINESS {}
+# Returns the N-Subjettiness statistics up to a specified level for an input list of [4-vector] momenta components or lhco objects
+sub N_SUBJETTINESS { my ($rad,$pow,$alp,$bet,$pad,$pts) = (
+	( map {((( &MAX( 0, (0+ ( &DEFINED(( shift @$_ ), 1 ))))) or (return)), (0+ ((0,+1,-1)[( shift @$_ )] )), (0+ ( shift @$_ )),
+		( &MAX( 0, (0+ ( &DEFINED(( shift @$_ ), 1 ))))))} map {[ (( ref eq q(ARRAY)) ? (@$_) : ($_)) ]} (shift)),
+	( &MAX( 0, ( int shift ))), ( &SUM( map {($$_{ptm})} ( my (@axl) = my (@vct) = ( grep {( $$_{ptm} > 0 )}
+		map {(( &LORENTZ_HASH((undef), $_ )) or (return))} map {(( ref eq q(ARRAY)) ? (@$_) : (return))} (shift))))));
+	( grep {((wantarray) or ( return $_ ))} [ reverse ( map { my ($i) = $_;
+		((@axl) = ( @{( &HEMISPHERES( 0, [ q(KTJ), ((-1)*( 1 + $i )), $pow ], (@axl)) || (return))} ));
+		( &RATIO(( &SUM( map { my ($v) = $_; (($$v{ptm}) * ( &MIN( map { my ($a) = $_;
+		((($$a{ptm})**($alp)) * (( &DELTA_RPA( $a, $v ))**($bet))) } (@axl)))) } (@vct))),
+		( &PRODUCT(( &MAX( map {(($$_{ptm})**($alp))} (@axl))),
+		(($rad)**($bet)), ($pts))))) } ( reverse ((0)..($pad)))) ] ) }
 
-#THERE sub-jettiness ratio
-sub R_SUBJETTINESS {}
+# Returns the ratios of adjacent N-Subjettiness statistics up to a specified level for an input list of [4-vector] momenta components or lhco objects
+sub R_SUBJETTINESS { my (@nsj) = ( @{(( &N_SUBJETTINESS( map { (($$_[1]) = ( 1 + ( &MAX( 0, ( int $$_[1] ))))); (@$_) } [ @_[0..2]] )) || (return))} );
+	( grep {((wantarray) or ( return $_ ))} [ map { my ($i) = $_; ( &RATIO( @nsj[(($i),($i-1))] )) } ((1)..(@nsj-1)) ] ) }
 
 # Master diobject reconstruction engine for optimization against invariant mass window specification serving lepton and jet subroutines
 sub DIOBJECTS { my ($win,$ord,$prs,$obj) = do { my ($t) = ( int shift ); my (@t) = map { (@$_) ? (@$_) : [0,undef] } [
@@ -1459,29 +1483,32 @@ sub DIOBJECTS { my ($win,$ord,$prs,$obj) = do { my ($t) = ( int shift ); my (@t)
 
 # Returns a list of pseudo-jets reconstructed from a list of [4-vector] momenta components or lhco objects by specified mode
 sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )} map {[ ( ref eq q(ARRAY)) ? (@$_) : ($_) ]} (shift)));
-		( map {((wantarray) ? (@$_[0..2]) : ( return ( shift @$_ )))} (( defined $mod ) ? do { ($mod) = ( uc ((ref $mod eq q(HASH)) ? (keys %$mod)[0] : ($mod))); ($hsp) } ? do {
+		( map {((wantarray) ? (@$_[0..2]) : ( return ( shift @$_ )))} (( defined $mod ) ? do {
+			($mod) = ( uc ((ref $mod eq q(HASH)) ? (keys %$mod)[0] : ($mod))); ($hsp) } ? do {
 		( map { my ($s,$l,$m,$c) = (( &SORT_OBJECT_LORENTZ_CODE(-1)), @$_ ); (( my ($o,$p,$x) = ((($c) -> ( $par, ( my ($i) = [
 			map { (defined $l) ? ( grep {( $$_[0] > 0 )} (( &LORENTZ($_,@$l)) or (return))) : ($_) } ( &LORENTZ_MERGE($m,@_)) ] ))), (undef)))[0] or (return));
 			my (@i) = ( sort { our ($a,$b); (($s)->($$o[$a],$$o[$b])) } grep {( $$o[$_]{ep0} > 0 )} (0..( @{ $o = [ &LORENTZ_HASH(undef,@$o) ] } - 1 )));
 			[[ @$o[@i]], [ (wantarray) ? ( map {[ @$i[( sort { our ($a,$b); ( $a <=> $b ) } @{ ${$p||[]}[$_] || [] } )]]} (@i)) : () ], ($x||[]) ] } ( ${{
 	KTJ => [ undef, undef, sub { # A list of pseudo-jets reconstructed by the KT-Jet family ( +1 => KT , 0 => CA , -1 => ANTI-KT ) of clustering algorithms
-		my ($rsn,$pow) = map {(((( &MAX(0,0+$$_[0])) || 1 )**(2)), 0+(0,+1,-1)[$$_[1]] )} (shift); my (@vcts,@idx,@jet,@pad,@aux) = ( &LORENTZ_HASH(undef,@{(shift)}));
-		my ($obj) = ( &Local::TREE::NEW( [[0,2*PIE,1], (undef) ], (( scalar &INT_LOG_TWO(0+ @vcts )) - 2 ),
-			(undef), # ( sub { my ($a,$b) = ( map {($$_{RAW}{ptm})} (shift,shift)); (( $pow <= 0 ) ? ( $b <= $a ) : ( $a <= $b )) } ), # correct but slower
-			( sub {[ @{(shift)}{( qw ( phi eta ))} ]} ), ( sub {( scalar &LORENTZ_HASH((undef), ( scalar &::LORENTZ_SUM((undef), ( map {($$_{RAW})} (@_))))))} ),
-			(undef), ( sub {( map {((($$_{RAW}{ptm})**(2*$pow))*( &::MIN( 1, ( $$_{RSQ} / $rsn ))))} (shift))[0] } )));
-		$obj->GRAFT(@vcts); while ( my ($slf,$nbr,$rsq,$rnk) = (($obj)->NEIGHBORHOOD())) {
-			if ( $rsq > $rsn ) { push @jet, $$slf{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$slf{LID} - 1 ); $slf->PRUNE(); }
-			else { push @aux, $rnk; $idx[ $$obj{GFT} ] = [ map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; $slf->MERGE($nbr); }}
+		my ($rsn,$cnt,$pow) = map {(((( int $$_[0] ) < 0 ) ? ( 1, ( abs int $$_[0] )) : ((( &MAX( 0, $$_[0] ))**(2)), 0 )), 0+(0,+1,-1)[$$_[1]] )} (shift);
+		my (@vcts,@idx,@jet,@pad) = ( &LORENTZ_HASH(undef,@{(shift)})); my ($obj) = ( &Local::TREE::NEW(
+			[[ 0, 2*PIE, 1 ], (undef) ], (( scalar &INT_LOG_TWO(0+ @vcts )) - 2 ), (undef),
+		#	( sub { my ($a,$b) = ( map {($$_{RAW}{ptm})} (shift,shift)); (( $pow <= 0 ) ? ( $b <= $a ) : ( $a <= $b )) } ), # slower than default undef
+			( sub {[ @{(shift)}{( qw ( phi eta ))} ]} ), ( sub {( scalar &LORENTZ_HASH((undef), ( scalar &LORENTZ_SUM((undef), ( map {($$_{RAW})} (@_))))))} ), (undef),
+			( sub {( map {(( $rsn == 0 ) ? ( $$_{RSQ} ) : ((($$_{RAW}{ptm})**(2*$pow))*( &MIN( 1, ( $$_{RSQ} / $rsn )))))} (shift))[0] } )));
+		$obj->GRAFT(@vcts); while (((($obj)->LEAVES()) > $cnt ) && ( my ($slf,$nbr,$rsq,$rnk) = (($obj)->NEIGHBORHOOD()))) {
+			if (( $cnt == 0 ) && ( $rsq > $rsn )) { push @jet, $$slf{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$slf{LID} - 1 ); $slf->PRUNE(); }
+			else { $idx[ $$obj{GFT} ] = [ map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; $slf->MERGE($nbr); }}
 		( [ map {( scalar &LORENTZ($_))} ( @jet, ( map {($$_{RAW})} (($obj)->LEAVES()))) ],
-			[ @pad, ( map {( $idx[$_] || [$_] )} map {( $$_{LID} - 1 )} (($obj)->LEAVES())) ], [ reverse @aux ] ) } ],
+			[ @pad, ( map {( $idx[$_] || [$_] )} map {( $$_{LID} - 1 )} (($obj)->LEAVES())) ], (undef)) } ],
 	SFT => [ undef, undef, sub { # A list of pseudo-jets reconstructed by the M-Jet/SIFT family ( >=1 => COUNT , 0 => ISOLATE , -1 => DROP ) of clustering algorithms
-		my ($cnt,$iso,$drp) = ( map {(@$_)} map { ([0,1,!1],[$_,!1,!1],[0,1,1])[ $_ <=> 0 ] } ( int ${(shift)}[0] )); my (@vcts,@idx,@jet,@pad,@aux) = ( &LORENTZ_HASH(undef,@{(shift)}));
-		my ($obj) = ( &Local::TREE::NEW( [[(undef),(undef),-1], (undef), [0,2*PIE,+1]], (( scalar &INT_LOG_TWO(0+ @vcts )) - 2 ), (-1),
+		my ($cnt,$iso,$drp) = ( map {(@$_)} map { ( [0,1,!1], [0,1,1], [(abs),!1,!1] )[ $_ <=> 0 ] } ( int ${(shift)}[0] ));
+		my (@vcts,@idx,@jet,@pad,@aux) = ( &LORENTZ_HASH(undef,@{(shift)})); my ($obj) = ( &Local::TREE::NEW(
+			[[ (undef,undef), -1 ], (undef), [ 0, 2*PIE, +1 ]], (( scalar &INT_LOG_TWO(0+ @vcts )) - 2 ), (-1),
 			( sub { my ($ep0,$ep3,$phi) = @{(shift)}{( qw ( ep0 ep3 phi ))}; my ($a,$b) = (log($ep0+$ep3),log($ep0-$ep3)); [($a+$b)/2,($a-$b)/2,$phi] } ),
-			( sub {( scalar &LORENTZ_HASH((undef), ( scalar &::LORENTZ_SUM((undef), ( map {($$_{RAW})} (@_))))))} ),
+			( sub {( scalar &LORENTZ_HASH((undef), ( scalar &LORENTZ_SUM((undef), ( map {($$_{RAW})} (@_))))))} ),
 			( sub { use Math::Trig; my ($a,$b) = (shift,shift); my (@del) = (( 1 - (( tanh($$b[0]-$$a[0]))**2)),( cosh($$b[1]-$$a[1])),( cos($$b[2]-$$a[2])));
-				my ($cof) = ( &::PRODUCT( map {(( &::ISA( 1, $_, q(Local::TREE::LEAF))) ? ( map { my ($mas,$ptm) = @{$_}{( qw ( mas ptm ))};
+				my ($cof) = ( &PRODUCT( map {(( &ISA( 1, $_, q(Local::TREE::LEAF))) ? ( map { my ($mas,$ptm) = @{$_}{( qw ( mas ptm ))};
 					( 1 / sqrt( 1 + (($mas/$ptm)**(2)))) } ( ${(($$_{PRM}) or ($_))}{RAW} )) : (( $del[2] <= 0 ) ? (0) : (1)))} ($a,$b)));
 					((( $del[1] - ( $cof * $del[2] )) * ( sqrt( $del[0] ))), $del[0], (0+ ( $$b[0] > $$a[0] ))) } ), (undef)));
 		$obj->GRAFT(@vcts); while (((($obj)->LEAVES()) > $cnt ) && ( my ($slf,$nbr,$rsq,$rnk,$eis,$idx) = (($obj)->NEIGHBORHOOD()))) {
@@ -1686,6 +1713,7 @@ sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return 
 			q(ach)	=> sub { ( map {( eval { ( log ( $_ + sqrt( $_*$_ - 1 ))) } )} (shift))[0] },
 			q(ath)	=> sub { ( map {( eval { ( log ( 1 + $_ ) - log ( 1 - $_ )) / 2 } )} (shift))[0] },
 			q(srt)	=> sub { ( eval { ( sqrt (shift)) } ) },
+			q(sgn)	=> sub { ((shift) <=> (0)) },
 			q(abs)	=> sub { ( abs (shift)) },
 			q(int)	=> sub { ( &INT_CEILING_FLOOR ((shift), 0 )) },
 			q(clg)	=> sub { ( &INT_CEILING_FLOOR ((shift), +1 )) },
@@ -1819,7 +1847,7 @@ sub NEXT { my ($rpt,$pth,$bas,$idx,$ext) = ( map { ((::RPT), ( &PATH( $$_[0], 2 
 # Returns a list of files located at some level below the specified path that match the specified file pattern
 sub LIST { my ($ino,$pth,$nam,$lvl,$flt,$fil) =
 	((( &DEVICE_INODE([ shift ])), (undef))[0,1], ( &NAME((shift), 1 ) or (return)),
-	( int (shift)), ((@_) ? (shift) : (wantarray)), ((@_) ? (shift) : +{} )); (
+	( int shift ), ((@_) ? (shift) : (wantarray)), ((@_) ? (shift) : +{} )); (
 	map {(@$_)} grep {((@$_) and (($flt) or ( return $_ )))}
 	map {[ (( map {[ $pth, $_ ]} grep {(( -f ($pth.$_)) && ( $_ =~ $nam ) &&
 		( $_ eq ( &NAME($_))))} (($lvl < 1) ? (@$_) : ())),
@@ -2185,7 +2213,7 @@ sub REAL_ROOTS { my ($p,$b,@s) = (( map { ( &OBJECT($_)) or (return undef) } (sh
 			(0,1) } (@$_) } ( @s[(0..0+(($$b[2]) && (@s-1)))] ))))) }} )) }
 
 # Returns a least squares polynomial with specified limit of terms for input range, domain, and weight ~ 1/Sqrt(Var) factors
-sub LEAST_SQUARES { my ($x,$y) = map { my ($t) = $_; my ($e) = ( map {( &::MIN((( &::MAX( 0, ( int (shift)))) || $_ ), $_ ))}
+sub LEAST_SQUARES { my ($x,$y) = map { my ($t) = $_; my ($e) = ( map {( &::MIN((( &::MAX( 0, ( int shift ))) || $_ ), $_ ))}
 	1+( grep {($$t[$_][0] > $$t[($_-1)][0])} (1..(@$t-1)))); ([ map { ( scalar &Local::VECTOR::POWERS($$_[0],$e,$$_[2])) } (@$t) ],
 		[ map {[ $$_[1] ]} (@$t) ]) } map {[ sort { our ($a,$b); ($$a[0] <=> $$b[0]) } (@$_) ]} map { ($$_[2] == 3) ? [ grep { ($$_[2] > 0)
 			&& do { $$_[1] *= $$_[2]; 1 }} (@{ $$_[0] }) ] : ($$_[2] == 2) ? ($$_[0]) : () } [ &Local::MATRIX::OBJECT( &::CLONE(shift)) ];
@@ -2348,7 +2376,9 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 
 # JETS vs. Mathematica VALIDATION #THERE
 # MT2 validation #THERE
+# NSJ validation #THERE
 # OLD/ALL validation #THERE
 # JET CANONICALIZATION #THERE
+# GOTO PRM for ALL paramters ... ?
 # COMMENTS #THERE
 
