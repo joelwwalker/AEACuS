@@ -26,13 +26,14 @@ our ($OPT) = ( &LOAD_OPTS(@ARGV));
 if ( $0 =~ /\/aeacus\.pl$/ ) {
 
 # Read event filtering, object reconstruction and event selection specifications from cardfile
-my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
+my ($crd,$cfl) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 	map {[ $$_[0], [ (( $$_[1] =~ /^(.*?)(?:\.dat)?$/ ) && qq($1)), q(), q(.dat) ]]}
 		( scalar &Local::FILE::SPLIT( $_, q(./Cards/), q(cut_card)))));
 	($crd) or ((length) ? ( die 'Cannot open card file for read' ) : (exit));
 	( die ( join "\n", ( 'Malformed instruction(s) in card '.($$fil[0].$$fil[1]), ( map {((ref) ?
 		( "\t".'* Line '.$$_[0].':'."\t".'>> '.( grep { s/^\s+//; s/\s+/ /g; 1 } ($$_[1]))[0].' <<' ) :
-		( "\t".'* Duplicative use of shelf '.$_ ))} (@$err)), q()))) if (@$err); ($crd) } ( &$OPT( q(crd))));
+		( "\t".'* Duplicative use of shelf '.$_ ))} (@$err)), q()))) if (@$err);
+	( $crd, ($$fil[0].$$fil[1])) } ( &$OPT( q(crd))));
 # If the CRD parameter includes the '/' character then the path is treated literally; it otherwise defaults to './Cards/'
 # If the CRD parameter includes no file name characters then the default cut card is 'cut_card'; otherwise it must be given explicitly
 # The cut card file must use the extension '.dat', but it is not necessary to write the extension explicitly in the CRD parameter
@@ -108,7 +109,7 @@ my ($cap,$lhc,$r2l,@fil); my (@chn) = ( map { my ($i,$chn) = (($_), (($$crd{chn}
 		# Only the zon-zero set of files having the lowest numbered flag is stored for each key
 	# FOR NON-ZERO CHANNELS:
 	grep { (0+ @{$$_{esc}} ) or do { print STDERR 'NO ACTIVE EVENT SELECTION CUT SPECIFICATIONS IN CHANNEL '.($$_{cid})."\n"; !1 }}
-	map { +{ cid => ($i), fki => ( &FORMAT_KEY_IDX( chn => $i )), fil => ($fil), esc => [
+	map { +{ cfl => ($cfl), fil => ($fil), cid => ($i), fki => ( &FORMAT_KEY_IDX( chn => $i )), esc => [
 		sort { our ($a,$b); (( $$a[0] <=> $$b[0] ) or ( $$a[1] <=> $$b[1] )) } grep { !( &MATCH_VALUE( $$_[4], (undef))) }
 		map { my ($abs,$inv,$esc) = (( abs ), (0+ ( $_ < 0 )), ( !!($_) && ( $$crd{esc}[( abs )] ))); (($esc) ?
 			[ $abs, $inv, ( &FORMAT_KEY_IDX( [ ( qw( esc inv ))[$inv] => $abs ], 1 )), @$esc{( qw( key cut ))} ] :
@@ -197,11 +198,11 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) {
 				print STDERR 'CANNOT ESTABLISH CROSS SECTION IN CUT FLOW FOR KEY '.$k."\n";
 				( next FILE ) } my ($hdr) = ( &FORMAT_HEADER($nnn,$act,$stc)); 
 			# Cut files are run through higher order channel filters for channels with no files specified in the card (forced for command-line files)
-			do { my ($f) = ($_); for my $c (@chn) { for ( @{ ( &AUXILIARY_CHANNEL($c,$f)) || [] } ) {( print STDERR $_."\n" )}}} for
-				( map { my ($h,$f) = (( shift @$_ ), ( shift @$_ )); print $hdr; for (@FHT) {
+			do { my ($f) = ($_); for my $c (@chn) { for ( @{ ( &AUXILIARY_CHANNEL($c,$f)) || [] } ) {( print STDERR $_."\n" )}}} for ( map {
+				my ($h,$f) = (@$_); print +(( &COMMENT_HEADER ( $cfl, $$fil[0].$$fil[1], $$f[0].$$f[1] )), $hdr ); for (@FHT) {
 					(( my ($FHT,$per,$fix,$scl) = ( @{$_||[]} )) or (next));
 					(( seek $FHT, 0, SEEK_SET ) or ( die 'Cannot rewind temporary file' ));
-					local ($_); while (<$FHT>) { print (( m/^(\d+\s+(?:\S.*?\s+)?)(${\EXP})$/ ) ?
+					local ($_); while (<$FHT>) { print +(( m/^(\d+\s+(?:\S.*?\s+)?)(${\EXP})$/ ) ?
 						(($1).( sprintf q(%+12.5E), (($per) ? ( $fix * $2 ) : (0+ $fix))))."\n" :
 						( die 'Cannot rescale cross-section in generation of .cut file' )); }
 					(($scl) && ( print STDERR 'EXTERNAL ('.( sprintf q(%+10.3E), (0+ $$scl[1])).') AND PER-EVENT (' .
@@ -234,7 +235,7 @@ LOOP: while ( my ($k,$m,$f) = @{(( shift @fil ) || [] )} ) {
 				map { my ($h,$f,$i) = (( shift @$_ ), ( shift @$_ )); print $hdr; for (@FHT) {
 					(( my ($FHT,$per,$fix,$scl) = ( @{$_||[]} )) or (next));
 					(( seek $FHT, 0, SEEK_SET ) or ( die 'Cannot rewind temporary file' ));
-					local ($_); while (<$FHT>) { print (( m/^\s*0\s+(\d+)(?:(?:\s+(\d+))(?:\s+(${\EXP}))?)?/ ) ?
+					local ($_); while (<$FHT>) { print +(( m/^\s*0\s+(\d+)(?:(?:\s+(\d+))(?:\s+(${\EXP}))?)?/ ) ?
 						( sprintf qq(%4i %13d %8d    %+12.5E\n), (0,(++$i),(0+ $2),(($per) ? ( $fix * $3 ) : (0+ $fix)))) : ($_)); }
 					(($scl) && ( print STDERR 'EXTERNAL ('.( sprintf q(%+10.3E), (0+ $$scl[1])).') AND PER-EVENT (' .
 						( sprintf q(%+10.3E), (0+ $$scl[2])).') '.(($$scl[0]) ? q(ABSOLUTE ) : q()) .
@@ -430,18 +431,15 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@g,@c,%i,%g) = (shift); do { my ($h,$t,@t) = 
 			(( push @{$y[$g]||=[]}, $d ) && ()) : ($d)) } (0..(@{$g[$i]}-1)) ]; 1 } [ map {(($_)->($o,$v))} (@{ $c[$i] }) ] } (0..(@i-1))),
 		( do { do { my ($y) = ($y[$_]); (($y) && ( &ANY(@$y)) && ( return [ $g{$_}, $y ] )) } for (0..(@y-1)); () } ) ]] } )) }
 
-#THERE # ... timestamp
-sub COMMENT_HEADER {
-	( join "\n", (( map {( q(# ).($_))} (
-	( do { use POSIX qw(strftime); q(TIME: ).( scalar ( strftime "%a %b %e %H:%M:%S %Y", localtime )) } ),
-	( do { use Sys::Hostname qw(hostname); q(HOST: ).( scalar hostname ) } ),
-	( do { use Cwd qw(getcwd); q(PATH: ).( scalar getcwd ) } ),
-	( q(CALL: ).( $0 )),
+# Returns a formatted comment header summarizing the contextual environment of the program invocation and operation
+sub COMMENT_HEADER { ( join "\n", (( q()), ( map {( q(# ).($_))} (
+	( do { use POSIX qw(strftime); q(TIME: ).( strftime "%a %b %e %H:%M:%S %Y", ( localtime $^T )) } ),
+	( do { use Sys::Hostname qw(hostname); q(HOST: ).( hostname ) } ),
+	( do { use Cwd qw(getcwd); q(PATH: ).( getcwd ) } ), ( q(CALL: ).( $0 )),
 	( map { join q(), ( q(ARG), ( 1 + $_ ), q(: ), $ARGV[$_] ) } (0..(@ARGV-1)) ),
-	( q(CARD: ).( shift )),
-	( q(FILE: ).( shift )),
-	)), ( q())))
-}
+	( map {((length) ? ( q(CARD: ).( $_ )) : ())} (shift)),
+	( map {((length) ? ( q(FROM: ).( $_ )) : ())} (shift)),
+	( map {((length) ? ( q(FILE: ).( $_ )) : ())} (shift)))), ( q()))) }
 
 # Returns a formatted header summarizing processed and surviving event counts, and selection cut activity rates
 sub FORMAT_HEADER { my ($nnn,$act,$stc,@key) = (shift,shift,shift); (
@@ -463,18 +461,19 @@ sub FORMAT_HEADER { my ($nnn,$act,$stc,@key) = (shift,shift,shift); (
 		"\n".( uc $stc )."\n" : q()))) : (undef)) }
 
 # Returns data structures representing a formatted header summary of processed and surviving event counts, and selection cut activity rates
-sub IMPORT_HEADER { my ($FHI) = ( grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q(Local::FILE)))) &&
-	((tell $_) >= 0) or (return) } (shift)); my (@nnn,%act,$stc,%idx); local ($_); while (<$FHI>) {
-	( m/^NNN(?:\s|$)/i ) ? do { my ((undef), @k ) = ( map {(( m/^(?!NUL)(${\KEY})_NNN$/i ) ? ( lc $1 ) : (undef))} (split));
-		local ($_); while (<$FHI>) { (( m/^(\d{3})(?:\s|$)/i ) or (last)); ((undef), @{ $nnn[0+$1] = +{}}{ @k } ) =
-		( map {(( $_ =~ m/^${\EXP}$/ ) ? (0+ $_) : ( m/^(?!NUL)${\KEY}_${\IDX}$/i ) ? (uc) : (undef))} (split)); }} :
-	( m/^(EID_000\s+(?:\S.*?\s+)?WGT_000)$/i ) ? do { my ($i); ( %idx ) = ( map {((( m/^(?!NUL)${\KEY}_${\IDX}$/i ) ?
-		(lc) : (last)) => ($i++))} ( split )); ((chomp), ( $stc = (uc)), (last)) } :
-	( m/^(?!NUL)(${\KEY}_${\IDX})(?:\s|$)/i ) ? do { $act{( uc $1 )} = do { my ((undef), @k ) = ( map {(uc)} (split)); my ($m,@m) = (1);
+sub IMPORT_HEADER { my ($FHI) = ( grep {((( ref eq q(GLOB)) or ( &ISA( 1, $_, q(Local::FILE)))) &&
+	((tell $_) >= 0) or (return))} (shift)); my (@pre,@nnn,%act,$stc,%idx); local ($_); while (<$FHI>) { ((@nnn) ? (
+	( m/^(EID_000\s+(?:\S.*?\s+)?WGT_000)$/i ) ? ( do { my ($i); ( %idx ) = ( map {((( m/^(?!NUL)${\KEY}_${\IDX}$/i ) ?
+		(lc) : (last)) => ($i++))} ( split )); ((chomp), ( $stc = (uc)), (last)) } ) :
+	( m/^(?!NUL)(${\KEY}_${\IDX})(?:\s|$)/i ) ? ( do { $act{( uc $1 )} = do { my ((undef), @k ) = ( map {(uc)} (split)); my ($m,@m) = (1);
 		local ($_); while (<$FHI>) { (( m/^(?!NUL)(${\KEY}_${\IDX})(?:\s|$)/i ) or (last)); (( $m &&= (( uc $1 ) eq $k[@m] )) or (next));
 			((undef), @{ $m[@m] = [] } ) = ( map {(( $_ =~ m/^${\EXP}$/ ) ? (0+ $_) : (undef))} (split)); }
-		( map {((defined) ? [ \@k, $_ ] : (undef))} (($m) ? ( scalar &Local::MATRIX::OBJECT( \@m, 0+@k, -1 )) : (undef)))[0] }} :
-	(next) } ( \@nnn, \%act, $stc, \%idx ) }
+		( map {((defined) ? [ \@k, $_ ] : (undef))} (($m) ? ( scalar &Local::MATRIX::OBJECT( \@m, 0+@k, -1 )) : (undef)))[0] }} ) : (next)) : (
+	( m/^NNN(?:\s|$)/i ) ? ( do { my ((undef), @k ) = ( map {(( m/^(?!NUL)(${\KEY})_NNN$/i ) ? ( lc $1 ) : (undef))} (split));
+		local ($_); while (<$FHI>) { (( m/^(\d{3})(?:\s|$)/i ) or (last)); ((undef), @{ $nnn[0+$1] = +{}}{ @k } ) = (
+			map {(( $_ =~ m/^${\EXP}$/ ) ? (0+ $_) : ( m/^(?!NUL)${\KEY}_${\IDX}$/i ) ? (uc) : (undef))} (split)); }} ) :
+	( m/^(?:#|$)/i ) ? ( push @pre, $_ ) : (next))) } while ((@pre) && ( $pre[-1] =~ m/^$/ )) {( pop @pre )}
+	(( join q(), (@pre)), \@nnn, \%act, $stc, \%idx ) }
 
 # Returns a formatted string with uppercase leading-alpha alphanumeric 3-key and numeric 3-index with filtering for validity and (optionally not) for duplication
 {; my (%key); sub FORMAT_KEY_IDX { my ($k,$i) = ( map {(( ref eq q(ARRAY)) ? (@$_) : ( ref eq q(HASH)) ? (%$_) : ( $_, (shift)))} (shift)); my ($d) = !(shift);
@@ -483,34 +482,35 @@ sub IMPORT_HEADER { my ($FHI) = ( grep { (( ref eq q(GLOB)) or ( &ISA( 1, $_, q(
 
 # Applies auxiliary channel filtering specification to an existing .cut event selection file
 sub AUXILIARY_CHANNEL { my (@err); my ($chn) = grep {(( ref eq q(HASH)) or (return undef))} (shift);
-	my ($fil) = grep {( ref eq q(ARRAY))} (shift); my ($cid,$fki) = @$chn{( qw( cid fki ))};
+	my ($fil) = grep {( ref eq q(ARRAY))} (shift); my ($cfl,$cid,$fki) = @$chn{( qw( cfl cid fki ))};
 	CHN: for my $fil ( sort SORT_LIST_ALPHA ( values %{{ map {((( &Local::FILE::DEVICE_INODE( $_ )) or
 		( die 'Invalid Device/Inode for file '.$$_[0].$$_[1] )) => ($_))} grep {( $$_[1] =~ /^[\w-]+\.cut$/ )}
 		(($fil) ? ($$chn{fil}) ? () : ($fil) : ( map {( &Local::FILE::LIST( @$_[0,1], 0 ))} map {(@$_)} (@{$$chn{fil}||[]}))) }} )) {
-		( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or do { push @err, 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]; (next CHN) };
-		( my ($nnn,$act,$stc,$idx) = ( &IMPORT_HEADER($FHI))) or do { push @err, 'CANNOT CUE HANDLE OF FILE '.$$fil[0].$$fil[1]; (next CHN) };
-		(( &SUM( map {(int)} ( @{${$nnn||[]}[-1]||{}}{( qw( epw enw ezw ))} ))) > 0 ) or do { push @err, 'NO SURVIVING EVENTS IN FILE '.$$fil[0].$$fil[1]; (next CHN) };
-		( %{$idx||{}} ) or do { push @err, 'CANNOT INTERPRET HEADER OF FILE '.$$fil[0].$$fil[1]; (next CHN) };
+		( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or do { push @err, 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]; ( next CHN ) };
+		( my ($pre,$nnn,$act,$stc,$idx) = ( &IMPORT_HEADER($FHI))) or do { push @err, 'CANNOT CUE HANDLE OF FILE '.$$fil[0].$$fil[1]; ( next CHN ) };
+		(( &SUM( map {(int)} ( @{${$nnn||[]}[-1]||{}}{( qw( epw enw ezw ))} ))) > 0 ) or do { push @err, 'NO SURVIVING EVENTS IN FILE '.$$fil[0].$$fil[1]; ( next CHN ) };
+		( %{$idx||{}} ) or do { push @err, 'CANNOT INTERPRET HEADER OF FILE '.$$fil[0].$$fil[1]; ( next CHN ) };
 		( my (@cut) = grep { ( $$_[3] = ( &HASHED_FUNCTIONAL( $idx, ( map { ( ref eq q(ARRAY)) ? (@$_) : (undef,$_) } ($$_[3][0]))))) or
 			do { print STDERR 'INVALID KEY IN EVENT SELECTION '.$$_[0].' FOR CHANNEL '.$cid.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 }}
-			map {[(@$_)]} (@{$$chn{esc}||[]})) or do { push @err, 'NO ACTIVE SELECTION FOR FILE'.$$fil[0].$$fil[1].' IN CHANNEL '.$cid; (next CHN) };
+			map {[(@$_)]} (@{$$chn{esc}||[]})) or do { push @err, 'NO ACTIVE SELECTION FOR FILE'.$$fil[0].$$fil[1].' IN CHANNEL '.$cid; ( next CHN ) };
 		my ($h,@k) = ((( @cut > 1 ) ? ($fki) : ()), ( map {($$_[2])} (@cut))); my ($e,$x,$n,$d) =
 			(( map {[(0)x(3)]} (0..1)), (( @k > 1 ) ? (( scalar &Local::MATRIX::UNIT( 0+@k, 0 )), 0 ) : ()));
-		( my ($FHT) = ( &Local::FILE::HANDLE())) or do { push @err, 'CANNOT OPEN TEMPORARY FILE FOR READ/WRITE'; (next CHN) };
+		( my ($FHT) = ( &Local::FILE::HANDLE())) or do { push @err, 'CANNOT OPEN TEMPORARY FILE FOR READ/WRITE'; ( next CHN ) };
 		local ($_); while (<$FHI>) { my ($s,$w,$l,$v,$f) = (( m/^\d+\s+(?:\S.*?\s+)?(${\EXP})$/ ) ?
-			(( $1 <=> 0 ), ( abs $1 ), qq($_), [ map { (/^UNDEF$/) ? (undef) : (0+ $_) } ( split ) ] ) : do { print $FHT $_; (last) } );
+			(( $1 <=> 0 ), ( abs $1 ), qq($_), [ map { (/^UNDEF$/) ? (undef) : (0+ $_) } ( split ) ] ) : do { ( print ); (last) } );
 			my (@f) = ( map { my ((undef),$i,(undef),$k,$c) = @$_; ((0+ ( not (($i) xor ( &MATCH_VALUE( $c, (($k)->($v))))))) && ( $f = 1 )) } (@cut));
-			if ($f) { if ($n) { $n += ( $w * ( &Local::VECTOR::OUTER_PRODUCT(\@f,\@f))); $d += $w }} else { $$e[$s]++; $$x[$s] += $w; print $FHT $l }}
+			if ($f) { if ($n) { $n += ( $w * ( &Local::VECTOR::OUTER_PRODUCT(\@f,\@f))); $d += $w }} else { $$e[$s]++; $$x[$s] += $w; ( print $l ) }}
 		do { my ($epw,$enw,$ezw,$xpb,$abs) = (( @$e[+1,-1,0] ), ( $$x[+1] - $$x[-1] ), ( $$x[+1] + $$x[-1] ));
 			my ($eff,$prd) = ( map { my ($d) = ( ${${$nnn||[]}[$_]||{}}{abs} ); (( $d > 0 ) ? ( $abs / $d ) : (1)) } (-1,0));
 			( @{ ${$nnn||[]}[@{$nnn||[]}] = +{}}{( qw( key epw enw ezw xpb abs err ipb eff prd ))} ) = (($h,$epw,$enw,$ezw,$xpb,$abs),
 				( &PRODUCT(( sqrt( $prd )), ( ${${$nnn||[]}[0]||{}}{err} ))), ( &RATIO(( $epw + $enw ), ($abs), 0, 0 )), ($eff,$prd)); };
 		if ( @k > 1 ) { ${$act||{}}{$h} ||= [[ @k ], (($n) && (( $d > 0 ) ? ( $n / $d ) : ( scalar &Local::MATRIX::UNIT( 0+@k, 0 )))) ]; }
-		( my ($hdr) = ( &FORMAT_HEADER($nnn,$act,$stc))) or do { push @err, 'CANNOT FORMAT HEADER FOR CHANNEL '.$cid.' OF '.$$fil[0].$$fil[1]; (next CHN) };
-		( seek $FHT, 0, SEEK_SET ) or do { push @err, 'CANNOT REWIND TEMPORARY FILE WHILE FILTERING '.$$fil[0].$$fil[1].' IN CHANNEL '.$cid; (next CHN) };
+		( my ($hdr) = ( &FORMAT_HEADER($nnn,$act,$stc))) or do { push @err, 'CANNOT FORMAT HEADER FOR CHANNEL '.$cid.' OF '.$$fil[0].$$fil[1]; ( next CHN ) };
+		( seek $FHT, 0, SEEK_SET ) or do { push @err, 'CANNOT REWIND TEMPORARY FILE WHILE FILTERING '.$$fil[0].$$fil[1].' IN CHANNEL '.$cid; ( next CHN ) };
 		( my ($FHO) = ( &Local::FILE::HANDLE([[ $$fil[0], $fki.q(/) ], $$fil[1]], 1 ))) or
-			do { push @err, 'CANNOT WRITE TO FILE '.$$fil[0].$fki.q(/).$$fil[1]; (next CHN) };
-		print $FHO $hdr; local ($_); while ( defined ( $_ = ((<$FHT>) or (<$FHI>)))) {( print )}}
+			do { push @err, 'CANNOT WRITE TO FILE '.$$fil[0].$fki.q(/).$$fil[1]; ( next CHN ) };
+		print +(($pre), ( &COMMENT_HEADER( $cfl, $$fil[0].$$fil[1], $$fil[0].$fki.q(/).$$fil[1] )), ($hdr));
+		local ($_); while ( defined ( $_ = (( <$FHT> ) or ( <$FHI> )))) {( print )}}
 	((@err) ? (\@err) : (undef)) }
 
 # Returns the same-directory Merged_XSEC.TXT event production cross section (mean) and error (RMS) associated with a standardized .lhco file
@@ -962,12 +962,12 @@ sub GAUSS_RANDOM { my ($m,$s) = (((@_)?0+(shift):(0)),((@_)?0+(shift):(1))); {; 
 	( return ( map { grep {((wantarray) or (return $_))} ( $m + $s*$r*$_ ) } (@r))); }}
 
 # Returns template for extraction of requested supplemental data from a list of input lhco objects
-sub OUTPUT_EXTRA { my ($k,$i,$e,@o) = ((shift,shift), ( map {( $_, ( map {(0+(0..2)[$_])} (@{$$_{out}||[]})))} ((shift) or (return))));
+sub OUTPUT_EXTRA { my ($k,$i,$e,@o) = ((shift), ( int shift), ( map {( $_, ( map {(0+(0..2)[$_])} (@{$$_{out}||[]})))} ((shift) or (return))));
 	if ( my $p = ${{ cal => q(c), met => q(m) }}{$k} ) { return (
 		[ 0, ( $p.q(px)), $i, 1, (undef), 2, (!1,1,!1)[$o[1]]], [ 0, ( $p.q(py)), $i, 2, (undef), 2, (!1,1,!1)[$o[1]]],
 		[ 0, ( $p.q(ap)), $i, ( sub { ${(( &ETA_PHI_PTM_MAS( ${${(shift)||{}}{$k}||[]}[$i] ))||[])}[1] } ), (undef), 3, (!1,1,!1)[$o[2]]] ) }
 	if ( ${{ nsj => 1, rsj => 1, sft => 1, ext => 1 }}{$k} ) { return (
-		map {[ 0, $k, ($i+$_), $_, (undef,undef), (1,1,!1)[((@o==1)?($o[0]):($o[$_]))]]} ((1)..( &MIN(( int $$e{pad}[0] ), (SMX-$i))))) }
+		map {[ 0, $k, ($i+$_), $_, (undef,undef), (1,1,!1)[((@o==1)?($o[0]):($o[$_]))]]} ((1)..( &MIN(( int $$e{pad}[0] ), ( SMX - $i ))))) }
 	() }
 
 # Returns template for extraction of requested spanning lhco object counts from a list of input lhco object sets
@@ -1040,7 +1040,7 @@ sub INCLUDE_OBJECTS { my ($inc,$exc,$obj) = (( map {( [ grep {($_ >= 0)} @$_ ], 
 
 # Extracts objects from a [[list]] by the specified index; Defaults to empty object list
 sub INDEXED_OBJECTS { map {(@$_)} grep {( ref eq q(ARRAY))} map { ${ $$_[1]}[ $$_[0]] }
-	grep { (defined $$_[0]) && (ref $$_[1] eq q(ARRAY)) && (( abs ( int ((int $$_[0]) + 0.5))) <= (@{ $$_[1]}-1)) }
+	grep { ( defined $$_[0] ) && ( ref $$_[1] eq q(ARRAY)) && (( abs ( int (( int $$_[0] ) + 0.5 ))) <= ( @{$$_[1]} - 1 )) }
 	map {[ ${ $_[(2*$_)] || []}[0], $_[(1+2*$_)]]} (0..((@_/2)-1)) }
 
 # Extracts values from a [list] by the specified index; Defaults to undefined value
@@ -1457,9 +1457,8 @@ sub N_SUBJETTINESS { my ($rad,$pow,$alp,$bet,$pad,$pts) = (
 	( grep {((wantarray) or ( return $_ ))} [ reverse ( map { my ($i) = $_;
 		((@axl) = ( @{( &HEMISPHERES( 0, [ q(KTJ), ((-1)*( 1 + $i )), $pow ], (@axl)) || (return))} ));
 		( &RATIO(( &SUM( map { my ($v) = $_; (($$v{ptm}) * ( &MIN( map { my ($a) = $_;
-		((($$a{ptm})**($alp)) * (( &DELTA_RPA( $a, $v ))**($bet))) } (@axl)))) } (@vct))),
-		( &PRODUCT(( &MAX( map {(($$_{ptm})**($alp))} (@axl))),
-		(($rad)**($bet)), ($pts))))) } ( reverse ((0)..($pad)))) ] ) }
+			((($$a{ptm})**($alp)) * (( &DELTA_RPA( $a, $v ))**($bet))) } (@axl)))) } (@vct))),
+			( &PRODUCT(($pts), ( &MAX( map {(($$_{ptm})**($alp))} (@axl))), (($rad)**($bet)))))) } ( reverse ((0)..($pad)))) ] ) }
 
 # Returns the ratios of adjacent N-Subjettiness statistics up to a specified level for an input list of [4-vector] momenta components or lhco objects
 sub R_SUBJETTINESS { my (@nsj) = ( @{(( &N_SUBJETTINESS( map { (($$_[1]) = ( 1 + ( &MAX( 0, ( int $$_[1] ))))); (@$_) } [ @_[0..2]] )) || (return))} );
@@ -1512,8 +1511,10 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 					( 1 / sqrt( 1 + (($mas/$ptm)**(2)))) } ( ${(($$_{PRM}) or ($_))}{RAW} )) : (( $del[2] <= 0 ) ? (0) : (1)))} ($a,$b)));
 					((( $del[1] - ( $cof * $del[2] )) * ( sqrt( $del[0] ))), $del[0], (0+ ( $$b[0] > $$a[0] ))) } ), (undef)));
 		$obj->GRAFT(@vcts); while (((($obj)->LEAVES()) > $cnt ) && ( my ($slf,$nbr,$rsq,$rnk,$eis,$idx) = (($obj)->NEIGHBORHOOD()))) {
-			if (( not $iso ) or ( $rnk < $eis )) { push @aux, $rnk; $idx[ $$obj{GFT} ] = [ map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; $slf->MERGE($nbr) } # cluster
-			elsif ( $rnk < 1 ) { my ($sft) = ($nbr,$slf)[$idx]; ($drp) or do { push @jet, $$sft{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$sft{LID} - 1 ) }; $sft->PRUNE(); } # drop
+			if (( not $iso ) or ( $rnk < $eis )) { push @aux, $rnk; $idx[ $$obj{GFT} ] = [
+				map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; $slf->MERGE($nbr) } # cluster
+			elsif ( $rnk < 1 ) { my ($sft) = ($nbr,$slf)[$idx]; ($drp) or do { push @jet, $$sft{RAW};
+				push @pad, map {( $idx[$_] || [$_] )} ( $$sft{LID} - 1 ) }; $sft->PRUNE(); } # drop
 			else { for ($slf,$nbr) { push @jet, $$_{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$_{LID} - 1 ); $_->PRUNE(); }}} # isolate
 		( [ map {( scalar &LORENTZ($_))} ( @jet, ( map {($$_{RAW})} (($obj)->LEAVES()))) ],
 			[ @pad, ( map {( $idx[$_] || [$_] )} map {( $$_{LID} - 1 )} (($obj)->LEAVES())) ], [ reverse @aux ] ) } ],
@@ -1572,7 +1573,7 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 			map {[ $_, (($sub)->( @{ ( &LORENTZ_HASH(undef,$_)) || +{}}{ @key } )) ]} @{(shift)} ] :
 			($end < 0) ? [ reverse @{(shift)} ] : (shift))}, 0, $len ) ] },
 	}}{$mod} || sub {} ) -> ( $par, [ &LORENTZ_CLIP(PRT,@_) ] )) || (return))) } : [[ @_ ], (undef,undef) ] )) }
-#THERE ... complete integration of subjets / multiple pads + aux variables
+# THERE ... complete integration of subjets / multiple pads + aux variables
 
 # Returns a list of array reference combinatoric roles for AMT2 analysis partioned from a list of [4-vector] momenta components or lhco objects
 sub AMT2_ROLES { my ($mode,$pars,$lepx,$leps,$jetx,$jets) =
@@ -2374,11 +2375,11 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 
 1
 
-# JETS vs. Mathematica VALIDATION #THERE
-# MT2 validation #THERE
-# NSJ validation #THERE
-# OLD/ALL validation #THERE
-# JET CANONICALIZATION #THERE
-# GOTO PRM for ALL paramters ... ?
-# COMMENTS #THERE
+# VALIDATION:
+#	KTJ/SFT vs Mathematica
+#	MT2
+#	OLD/ALL
+# INCLUDE JET CANONICALIZATION ROUTINES ?
+# GO TO PRM FOR ALL PARAMETERS ?
+# THERE
 
