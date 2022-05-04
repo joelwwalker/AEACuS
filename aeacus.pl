@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 4.000 B_012 #
-# March '11 - May '22		#
+# aeacus.pl Version 4.000 B_013 #
+# March 2011 - May 2022		#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -612,7 +612,6 @@ sub CUT_METRIC { my ($e); my ($m) = (
 	( &Local::MATRIX::OBJECT(shift) or (return))); ( $$m[$_][$_] = 1 ) for (0..(@$m-1));
 	((wantarray) or ( return $m )); ($e,$m) }
 
-
 # Attempts to generates an LHCO event file from a DELPHES event file in the fashion of the standard MadGraph script "run_delphes3"
 sub ROOT_2_LHCO { my ($fil,$r2l,%cfg,$xpb) = (( grep {(( ref eq q(ARRAY)) or (return undef))} (shift)), (shift));
 	do { my ($FHI) = (( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(me5_configuration.txt) ])) or
@@ -1085,7 +1084,7 @@ sub DELTA_RPA { my ($obja,$objb) = grep { ($$_[2] > 0) or (return) } map { ( &ET
 
 # Returns the spherical angular separation (in the range 0 to Pi) between two [4-vector] references or lhco objects; Transverse only is trailing parameter
 sub DELTA_RSA { ( return ( atan2 ( sqrt ( &MAX(0,(1 - $_**2))), $_ ))) for map { ( 1 - ( &RATIO(( &LORENTZ_PRODUCT(@$_[0,1],-1,1)), $$_[0][0]*$$_[1][0] ))) }
-	[ grep { ($$_[0] > NIL) or (return undef) } map { ( &LORENTZ($_,!(!$_[0]),1,!1)) or (return undef) } (shift,shift) ] }
+	[ grep {(( $$_[0] > NIL ) or (return undef))} map { ( &LORENTZ($_,!(!$_[0]),1,!1)) or (return undef) } (shift,shift) ] }
 
 # Returns the azimuthal angular separation (in the range 0 to Pi) between two [4-vector] references or lhco objects
 sub DELTA_PHI { &DELTA_RSA(shift,shift,1) }
@@ -1250,7 +1249,7 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 	map { my (@leg) = @$_; my ($min,$scl) = ($leg[0][2][0],2*$leg[0][0][10]*$leg[1][0][10]); (($min), my ($max,$dsc)) =
 		do { my ($max) = ( &MIN( grep {(defined)} ($leg[0][2][1],$leg[1][2][1]))); map { my ($max,$dsc) = (@$_);
 			(( map {( &FLUSH(( &MAX(0,$_)), NIL ))} ( &ORDERED([($min),(($dsc) ? (defined $max) ? ( &MIN($max,BIG)) : (BIG) : ($max))],-1))),($dsc)) }
-			grep { (( &ORDERED([$min,$max],NIL)) && ($min <= BIG)) or (return undef); 1 }
+			grep { (( &ORDERED( [$min,$max], NIL )) && ($min <= BIG)) or (return undef); 1 }
 		0+( map { my ($trg,$prj) = @leg[$_,(1-$_)]; ($$trg[0][0][5]) ? ( grep {((( &MAX(0,$_)) - ($$trg[1][1])) <= NIL )} # Type III unbalanced
 			map {(( sqrt ($$trg[0][2]**2+$$_[1]**2+$$_[2]**2)) - ($$trg[0][3][1]*$$_[1]+$$trg[0][3][2]*$$_[2]))}
 			( scalar $$prj[5]->($$trg[2][0],1))) : () } (0,1)) ? [$min,!1] :
@@ -1264,15 +1263,15 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 			my ($dsc) = -1*(($t[0][2]*$t[1][0]-$t[1][2]*$t[0][0])**2 + ($t[0][2]*$t[1][1]-$t[1][2]*$t[0][1])*($t[0][0]*$t[1][1]-$t[1][0]*$t[0][1]));
 			map { ($min,$max) = ( &MIN_Y_MAX(!1,[$min,$max],$_)); (($$prj[4]) || ((defined $$_[0]) &&
 				((( 2*($t[0][2]*$t[1][0]+$t[0][0]*$t[1][2]) - $t[0][1]*$t[1][1] )->EVALUATE($$_[0])) <= NIL ))) ? [$min,!1] : [$max,$dsc] }
-			map { ( &MAX_O_MIN($_,NIL)) or (return undef) } grep { (pop) if (( abs $$_[2]) <= NIL ); 1 } map {[ @$_[0..2]]}
+			map { ( &MAX_O_MIN( $_, NIL )) or (return undef) } grep { (pop) if (( abs $$_[2]) <= NIL ); 1 } map {[ @$_[0..2]]}
 				(($$prj[4]) ? ($dsc) : ($t[1][1]**2-4*$t[1][0]*$t[1][2])) } : () } (0,1)))[-1] || [$max,1] };
-		[ ($min,$max)[0,0,1], (undef,undef,$scl), ( map { my (@u) = map {( &Local::POLY::OBJECT($_,NIL))} (@$_);
+		[ ($min,$max)[0,0,1], (undef,undef,$scl), ( map { my (@u) = map {( &Local::POLY::OBJECT($_, NIL ))} (@$_);
 			(($dsc) ? ($leg[0][0][0][5] || $leg[1][0][0][5]) ? sub {(0)} : do { my ($sub) = # Closure "dsc": degenerate root count
-				map {( &Local::POLY::REAL_ROOTS($_,undef))} ((ref $dsc) ? ($dsc) : ( &Local::POLY::OBJECT(( &QUARTIC_DISCRIMINANT(@u)),NIL)));
-				sub { 0+( $sub->([ @{ ( &ORDERED([(shift),($max)],NIL)) || (return 0) }[0,1], 1 ])) }} : (undef)),
+				map {( &Local::POLY::REAL_ROOTS($_,undef))} ((ref $dsc) ? ($dsc) : ( &Local::POLY::OBJECT(( &QUARTIC_DISCRIMINANT(@u)), NIL )));
+				sub { 0+( $sub->([ @{ ( &ORDERED( [(shift),($max)], NIL )) || (return 0) }[0,1], 1 ])) }} : (undef)),
 			sub { my ($s) = (shift); do { do { (return 1) if (($_ > 0) or !(defined)) } # Closure "qrt": Boolean intersection status
-				for ( &Local::POLY::REAL_ROOTS(@$_)) } for map { my ($o) = ( &MIN((NIL)*( &FLUSH( &Local::VECTOR::NORM($$_[0]), ONE )), (EPS)));
-				($o > 0) ? ([($$_[0]+$o),$$_[1]],[($$_[0]-$o),$$_[1]]) : ($_) } [ ( &Local::POLY::OBJECT([ map {( $_->EVALUATE($s))} (@u) ],NIL)),
+				for ( &Local::POLY::REAL_ROOTS(@$_)) } for map { my ($o) = ( &MIN(((NIL)*( &FLUSH( &NORM(@{$$_[0]||[]}), ONE ))), (EPS)));
+				($o > 0) ? ([($$_[0]+$o),$$_[1]],[($$_[0]-$o),$$_[1]]) : ($_) } [ ( &Local::POLY::OBJECT([ map {( $_->EVALUATE($s))} (@u) ], NIL )),
 				(( &ORDERED(( scalar &MIN_Y_MAX( !1, ( map {( $leg[$_][6])->($s,$_)} (0,1)))),NIL,EPS)) or (return !1)) ] ; !1 }}
 			map { my ($v) = $_; [ ($$v[2]*$$v[10]-$$v[4]**2), ($$v[0]*$$v[10]+$$v[2]*($$v[7]+$$v[9])-2*$$v[3]*$$v[4]), # u_i
 				($$v[0]*($$v[7]+$$v[9])+$$v[2]*($$v[6]-$$v[8])-$$v[3]**2-2*$$v[1]*$$v[4]),
@@ -1312,7 +1311,7 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 				( &RATIO(( map {(($$obj[2]**2-$_**2), 2*($_))} (($$obj[0][0]) ? ($$del[1]) : ( $$del[0]->EVALUATE($s)))),NIL,HUG)); map { my ($i) = $_;
 				grep { ($p) && (($_) = ($$obj[7]*($$obj[9][$i]-$_))) ; 1 } ($t)*(($$obj[0][0]) ? ($$obj[3][$i]) : ($$obj[1][$i])) } (1,2) } ), (undef) ] ) };
 		my ($dsh) = sub { my ($s,$p) = (( grep { (defined) or (return undef) } (shift)),(shift)); # Closure "dsh": conic coordinate bounds
-			($bar) ? [( $bar->($s,$p))[0,1]] : ( map { ((defined $dsc) or 0+( &FLUSH($$_[1],NIL))) ? ( scalar &MAX_O_MIN($_,-1)) : do { my ($i) =
+			($bar) ? [( $bar->($s,$p))[0,1]] : ( map { ((defined $dsc) or 0+( &FLUSH( $$_[1], NIL ))) ? ( scalar &MAX_O_MIN($_,-1)) : do { my ($i) =
 				0+(($p) xor ((($$obj[0][0]) ? ($$obj[3][2]) : ($$obj[1][2])) < 0 )); [ (( $org->($s,$p)), (undef))[$i,(1-$i)]] }}
 				map {[ ($$_[3]**2-$$_[0]*$$_[5]), 2*($$_[1]*$$_[3]-$$_[0]*$$_[4]), -1*($dsc) ]} ( $ell->($s,$p)))[0] };
 		push @$_, ($dot,$ell,$bar,$org,$dsh); 1 } (@$_) ]}
@@ -1328,7 +1327,7 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 
 	map {[ grep { my ($obj) = (@$_); push @$_, (($$obj[0][0]) ? do { my ($t) = grep { push @{$$obj[0]}, ( map {( $$_[0] <= EPS**2 )} (@$_)); 1 } [ # Factors "del"
 			( map {[ $$_[3]**2, $_ ]} ( scalar &LORENTZ_DIFFERENCE($$obj[1],$$obj[3]))),
-			( map {[ ($_ >= -1*NIL) ? ( &MAX(0,$_)) : (return undef) ]} ($$obj[4]**2-($$obj[2]+$$obj[8]*$$obj[6])**2)/(2*$$obj[8])),
+			( map {[ ( $_ >= -1*NIL ) ? ( &MAX(0,$_)) : (return undef) ]} ($$obj[4]**2-($$obj[2]+$$obj[8]*$$obj[6])**2)/(2*$$obj[8])),
 			( map {[ ( &MAX(0,($_-$$obj[5]*$$obj[6]))), ($_+$$obj[5]*$$obj[6]), $_ ]} ( &LORENTZ_PRODUCT($$obj[1],$$obj[3],-1,1))) ];
 		[ ( &Local::POLY::OBJECT([ -1*(($$obj[4]**2+$$obj[5]**2)/2+$$obj[8]*$$t[2][2]), +1/$$obj[7]])),
 			($$t[1][0]+$$obj[2]*$$obj[6]), $$t[0][1], $$t[0][0], +1, $$t[2][0]*$$t[2][1], $$t[2][2]] } : do {
@@ -2004,7 +2003,8 @@ sub OUTER_PRODUCT { my ($a,$b) = map {( &OBJECT($_) or (return))} (shift,shift);
 	([ map { my ($t) = $_; [ map {($t*$_)} (@$b) ] } (@$a) ]) }
 
 # Returns the cartesian norm of a list of input VECTOR objects
-sub NORM { ( return ((defined) ? (sqrt) : (undef))) for ( &INNER_PRODUCT(( &Local::TENSOR::SUM(@_))[0,0])) }
+sub NORM { ( return ((defined) ? (sqrt) : (undef))) for ( &INNER_PRODUCT(
+	(( &Local::TENSOR::SUM(( scalar &Local::VECTOR::OBJECT(shift)), (@_))), (undef))[0,0])) }
 
 # Returns an array reference with specified count of ascending input coordinate powers; includes dimension in list context
 sub POWERS { my ($x,$e,$a) = (( map { (defined) or (return); (0+$_) } (shift)), (( &::MAX(0,( int shift ))) || (return)), 0+(shift));
@@ -2375,11 +2375,9 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 
 1
 
-# VALIDATION:
-#	KTJ/SFT vs Mathematica
-#	MT2
-#	OLD/ALL
+# COMPLETE PAD IMPLEMENTATION IN HEMISPHERES
 # INCLUDE JET CANONICALIZATION ROUTINES ?
 # GO TO PRM FOR ALL PARAMETERS ?
+# VALIDATION: KTJ/SFT vs Mathematica, OLD/ALL
 # THERE
 
