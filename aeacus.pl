@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 4.000 B_013 #
+# aeacus.pl Version 4.000 B_014 #
 # March 2011 - May 2022		#
 # Joel W. Walker		#
 # Sam Houston State University	#
@@ -293,11 +293,12 @@ sub LOAD_OPTS { my (@opts); my (%opts) = map { ( /^-(-)?([A-Za-z]\w*)(?:=(.*))?$
 # Return list of event objects encapsulating kinematic and tagging variables converted from list of LHCO formatted strings
 sub EVENT_OBJECTS { map {((wantarray) ? (@$_) : (return $_))} [ map { my ($o,$t,$s) = ( $_, (( map {(int)} ( split /\./, ( shift @$_ ))), 0 ));
 	((( $t < 0 ) or ( $t == 5 ) or ( $t > 6 )) ? () : ( grep { (( @$o[1,2,3] ) = (( &PRINCIPAL_RAD($$o[1])), ( map {( &MAX(0,$_))} ( @$o[2,3] ))));
-	( @$_{ qw( typ sub eta phi ptm mas trk muo sgn hft fem ptc etr ep0 ep1 ep2 ep3 dm1 dm2 aux )} ) = ( $t, ( scalar ( &INT_2_FLAGS($s))), @$o[0..3],
-	( map {(($t == 4) ? (((( map {(int)} ( split /\./ )), 0 )[0,1] ), 0 ) : (( int abs ), 0, (((undef),1,1,1)[$t] ? ( $_ <=> 0 ) : (0))))} ($$o[4])), (($t == 4) ? ( abs $$o[5] ) : (0)),
-	( map {(($t == 2) ? ((undef), (int), (( &RATIO((int), $$o[2] )) + ((abs) - ( int abs )))) : ((1/( 1 + (abs))), (undef,undef)))} ($$o[6])),
-	( map {(( sqrt (($$o[3])**2 + ($$_[0])**2 + ($$_[1])**2 + ($$_[2])**2)), @$_ )} [ map {($_*$$o[2])} (( cos $$o[1] ), ( sin $$o[1] ),
-	( map {( &RATIO(( cos $_ ), ( sin $_ )))} 2*( atan2 (( exp ( -1 * $$o[0] )), 1 )))[0] )] ), (@$o[7,8]), [( splice @$o, 9 )] ); 1 } +{} )) }
+		( @$_{ qw( typ sub eta phi ptm mas ep0 ep1 ep2 ep3 trk muo sgn hft fem ptc etr dm1 dm2 aux )} ) = (
+		($t), ( scalar ( &INT_2_FLAGS($s))), ( @$o[0..3] ), ( @{ ( &EP0_EP1_EP2_EP3( $o )) || [] }[0..3] ),
+		( map {(($t == 4) ? (((( map {(int)} ( split /\./ )), 0 )[0,1] ), 0 ) : (( int abs ), 0,
+			(((undef),1,1,1)[$t] ? ( $_ <=> 0 ) : (0))))} ($$o[4])), (($t == 4) ? ( abs $$o[5] ) : (0)),
+		( map {(($t == 2) ? ((undef), (int), (( &RATIO((int), $$o[2] )) + ((abs) - ( int abs )))) :
+			((1/( 1 + (abs))), (undef,undef)))} ($$o[6])), (@$o[7,8]), [( splice @$o, 9 )] ); 1 } +{} )) }
 	grep {(( shift @$_ ) > 0 )} map {[ map {(( m/^NAN$/i ) ? (undef) : (0+ $_))} ( split ) ]}
 	grep {( m/^\s*(\d+)\s+(\d+)/ )} map {( qq($_))} map {(( ref eq q(ARRAY)) ? (@$_) : ($_))} (@_) ] }
 
@@ -779,7 +780,7 @@ sub PRODUCT { my ($prd) = ((0+@_) ? (1) : (undef)); ($prd *= $_) for ( grep { (d
 # Returns the difference of a pair of values
 sub DIFFERENCE { my ($a,$b) = ( grep { (defined) or (return undef) } (shift,shift)); ( $a - $b ) }
 
-# Returns the safely divided ratio of two values
+# Returns the safely divided ratio of two values, with optional epsilon and divergence substitutions
 sub RATIO { my ($n,$d) = grep { (defined) or (return undef) } (shift,shift); (( abs $d ) <= (shift)) ? (( abs $n ) <= ( abs $d )) ? (0) : (shift) : ($n/$d) }
 
 # Returns the arithmetic mean of a list of values
@@ -1072,11 +1073,17 @@ sub LORENTZ_HASH { my ($tvrs,$msls,$ivrt,$flsh) = map { ( ref eq q(ARRAY)) ? (@$
 	map { my ($vctr) = ( &LORENTZ($_,$tvrs,$msls,$ivrt,$flsh)) || (return); grep { (wantarray) or (return $_) }
 	grep { @$_{ qw( ep0 ep1 ep2 ep3 eta phi ptm mas )} = ( @$vctr[0..3], @{ ( &ETA_PHI_PTM_MAS($vctr)) || [] }[0..3] ); 1 } +{}} (@_) }
 
-# Returns a [eta,phi,ptm,mas] list reference corresponding to a [4-vector] or lhco object
+# Returns a [ep0,ep1,ep2,ep3] list reference corresponding to a [eta,phi,ptm,mas] or lhco object
+sub EP0_EP1_EP2_EP3 { [ map {(0+$_)} map { ( &ISA( 0, $_, q(HASH))) ? @$_{( qw( ep0 ep1 ep2 ep3 ))} : ( &ISA( 0, $_, q(ARRAY))) ? do {
+	my ($eta,$phi,$ptm,$mas) = @$_; ( map {(( sqrt (($mas*$mas) + ($$_[0]*$$_[0]) + ($$_[1]*$$_[1]) + ($$_[2]*$$_[2]))), @$_ )}
+	[ map {($ptm*$_)} (( cos $phi ), ( sin $phi ), ( map {( &RATIO(( cos $_ ), ( sin $_ )))}
+		2*( atan2 (( exp ( -1 * $eta )), 1 )))[0] ) ] ) } : (return undef) } (shift) ] }
+
+# Returns a [eta,phi,ptm,mas] list reference corresponding to a [ep0,ep1,ep2,ep3] or lhco object
 sub ETA_PHI_PTM_MAS { [ map {(0+$_)} map { ( &ISA( 0, $_, q(HASH))) ? @$_{( qw( eta phi ptm mas ))} : ( &ISA( 0, $_, q(ARRAY))) ? do {
-	my ($ptm) = ( sqrt (($$_[1]*$$_[1])+($$_[2]*$$_[2]))); my ($ptr) = ( &RATIO((( sqrt (($ptm*$ptm)+($$_[3]*$$_[3]))) - $$_[3] ), $ptm ));
-	((( $ptm && $ptr ) ? ( -1*( log ( $ptr )), ( &PRINCIPAL_RAD( atan2 ($$_[2],$$_[1])))) : (undef,undef)),
-		($ptm), ( sqrt ( &MAX( 0, (($$_[0]*$$_[0])-($ptm*$ptm)-($$_[3]*$$_[3])))))) } : (return undef) } (shift) ] }
+	my ($ep0,$ep1,$ep2,$ep3) = @$_; my ($ptm) = ( sqrt (($ep1*$ep1) + ($ep2*$ep2))); my ($psq) = (($ptm*$ptm) + ($ep3*$ep3));
+	my ($ptr) = ( &RATIO((( sqrt ( $psq )) - $ep3 ), $ptm )); ((( $ptm && $ptr ) ? ( -1*( log ( $ptr )), ( &PRINCIPAL_RAD( atan2 ($ep2,$ep1)))) :
+		(undef,undef)), ($ptm), ( sqrt ( &MAX( 0, (($ep0*$ep0) - $psq ))))) } : (return undef) } (shift) ] }
 
 # Returns the pseudorapidity - azimuth separation in radians between two [4-vector] references or lhco objects; longitudinal only is trailing parameter
 sub DELTA_RPA { my ($obja,$objb) = grep { ($$_[2] > 0) or (return) } map { ( &ETA_PHI_PTM_MAS($_)) || (return undef) } (shift,shift);
@@ -1464,20 +1471,21 @@ sub R_SUBJETTINESS { my (@nsj) = ( @{(( &N_SUBJETTINESS( map { (($$_[1]) = ( 1 +
 	( grep {((wantarray) or ( return $_ ))} [ map { my ($i) = $_; ( &RATIO( @nsj[(($i),($i-1))] )) } ((1)..(@nsj-1)) ] ) }
 
 # Master diobject reconstruction engine for optimization against invariant mass window specification serving lepton and jet subroutines
-sub DIOBJECTS { my ($win,$ord,$prs,$obj) = do { my ($t) = ( int shift ); my (@t) = map { (@$_) ? (@$_) : [0,undef] } [
-	map {[ 0+(shift @$_), ( map { (defined) ? 0+($_) : (undef) } (shift @$_)), ( grep {( ref eq q(CODE))} (shift @$_)) ]}
-	grep { ( ref eq q(ARRAY)) or (return) } map { ( ref eq q(ARRAY)) ? (@$_) : () } (shift) ]; ((\@t),
-		(($t > 0) ? (undef,$t) : ($t) ? (undef,undef) : ([ ( &ORDERINGS([0..(@t-1)])) ],0+@t))) };
-	my (@vcts) = grep { ( &LORENTZ($_)) || (return) } (@_); ( map { (shift @$_); (@$_) } grep {(defined)}
-		( &CMP( sub ($$) { my ($a,$b) = @_; (( @$b <=> @$a ) or ( $$a[0] <=> $$b[0] )) }, ( grep {(defined $$_[0])}
+sub DIOBJECTS { my ($win,$ord,$prs,$obj) = do { my ($t) = ( int shift ); my (@t) = map {((@$_) ? (@$_) : [ 0, (undef) ] )} [
+	map {[ 0+(shift @$_), ( map {((defined) ? (0+ $_ ) : (undef))} (shift @$_)), ( grep {( ref eq q(CODE))} (shift @$_)) ]}
+	grep {(( ref eq q(ARRAY)) or (return))} map {(( ref eq q(ARRAY)) ? (@$_) : ())} (shift) ]; ((\@t),
+		(($t > 0) ? ((undef), $t ) : ($t) ? ((undef),(undef)) : ([ ( &ORDERINGS([0..(@t-1)])) ],0+@t))) };
+	my (@vcts) = grep {(( &LORENTZ($_)) || (return))} (@_); ( map { (shift @$_); (@$_) } grep {(defined)}
+		( &CMP( sub ($$) { my ($a,$b) = @_; (( @$b <=> @$a ) or ( $$a[0] <=> $$b[0] )) }, ( grep {( defined $$_[0] )}
 		map { my ($t) = $_; [ ( &MIN( grep {(defined)} map {( &NORM(@$_))} map { my (@t) = @$_;
-			[ map {( $$t[$_][$t[$_]] )} (0..(@$t-1)) ]} (@{($ord)||[[(0)x(@$t)]]}))), ( map {[ @$_[-3..-1]]} (@$t)) ]}
-		map {[ grep { ($prs) or (defined $$_[0]) } map { $$obj[$$_[0]][$$_[1]] ||= do {
-			my ($obj,$mas) = ( &LORENTZ_SUM(undef,( my (@obj) = @vcts[@$_] )));
-			my (@t) = map { my ($t) = ( abs ($mas-$$_[0])); &{ ($$_[2]) || sub { 1 }}(@obj) ? (defined $$_[1]) ?
-			( map { ((defined) && ($_ <= 1)) ? ($_) : (undef) } ( &RATIO(($t,( abs $$_[1] ))[($$_[1]>=0)?(0,1):(1,0)]))) :
-			( sqrt (1+$t**2)) : (undef) } (@$win); [ (($ord) ? (@t) : ( &MIN( grep {(defined)} (@t)))), @obj, $obj ] }} (@$_) ]}
+			[ map {( $$t[$_][$t[$_]] )} (0..(@$t-1)) ]} (@{($ord)||[[(0)x(@$t)]]}))), ( map {[ @$_[((-3)..(-1))]]} (@$t)) ] }
+		map {[ grep {(($prs) or ( defined $$_[0] ))} map { $$obj[$$_[0]][$$_[1]] ||= do {
+			my ($obj,$mas) = ( &LORENTZ_SUM((undef), ( my (@obj) = @vcts[@$_] )));
+			my (@t) = map { my ($t) = ( abs ($mas-$$_[0])); (((($$_[2]) or ( sub { 1 } )) -> (@obj)) ? (( defined $$_[1] ) ?
+			( map {(((defined) && ($_ <= 1)) ? ($_) : (undef))} ( &RATIO(($t,( abs $$_[1] ))[($$_[1]>=0)?(0,1):(1,0)]))) :
+			( sqrt (1+$t**2))) : (undef)) } (@$win); [ (($ord) ? (@t) : ( &MIN( grep {(defined)} (@t)))), @obj, $obj ] }} (@$_) ]}
 		map {( &SETS(2,$_))} ( &TUPLES(2*(($prs)||( int (@vcts/2))),[0..(@vcts-1)])) )))) }
+#THERE ... N_OBJECTS; multiples, sort, handling ...
 
 # Returns a list of pseudo-jets reconstructed from a list of [4-vector] momenta components or lhco objects by specified mode
 sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )} map {[ ( ref eq q(ARRAY)) ? (@$_) : ($_) ]} (shift)));
@@ -1488,18 +1496,18 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 			my (@i) = ( sort { our ($a,$b); (($s)->($$o[$a],$$o[$b])) } grep {( $$o[$_]{ep0} > 0 )} (0..( @{ $o = [ &LORENTZ_HASH(undef,@$o) ] } - 1 )));
 			[[ @$o[@i]], [ (wantarray) ? ( map {[ @$i[( sort { our ($a,$b); ( $a <=> $b ) } @{ ${$p||[]}[$_] || [] } )]]} (@i)) : () ], ($x||[]) ] } ( ${{
 	KTJ => [ undef, undef, sub { # A list of pseudo-jets reconstructed by the KT-Jet family ( +1 => KT , 0 => CA , -1 => ANTI-KT ) of clustering algorithms
-		my ($rsn,$cnt,$pow) = map {(((( int $$_[0] ) < 0 ) ? ( 1, ( abs int $$_[0] )) : ((( &MAX( 0, $$_[0] ))**(2)), 0 )), 0+(0,+1,-1)[$$_[1]] )} (shift);
+		my ($rsn,$cnt,$pow) = map {(((( int $$_[0] ) < 0 ) ? ( -1, ( abs int $$_[0] )) : ((( &MAX( 0, $$_[0] ))**(2)), 0 )), 0+(0,+1,-1)[$$_[1]] )} (shift);
 		my (@vcts,@idx,@jet,@pad) = ( &LORENTZ_HASH(undef,@{(shift)})); my ($obj) = ( &Local::TREE::NEW(
 			[[ 0, 2*PIE, 1 ], (undef) ], (( scalar &INT_LOG_TWO(0+ @vcts )) - 2 ), (undef),
-		#	( sub { my ($a,$b) = ( map {($$_{RAW}{ptm})} (shift,shift)); (( $pow <= 0 ) ? ( $b <= $a ) : ( $a <= $b )) } ), # slower than default undef
+		#	( sub { my ($a,$b) = ( map {($$_{RAW}{ptm})} (shift,shift)); (( $pow <= 0 ) ? ( $b <= $a ) : ( $a <= $b )) } ), # works correctly but slower than undef
 			( sub {[ @{(shift)}{( qw ( phi eta ))} ]} ), ( sub {( scalar &LORENTZ_HASH((undef), ( scalar &LORENTZ_SUM((undef), ( map {($$_{RAW})} (@_))))))} ), (undef),
-			( sub {( map {(( $rsn == 0 ) ? ( $$_{RSQ} ) : ((($$_{RAW}{ptm})**(2*$pow))*( &MIN( 1, ( $$_{RSQ} / $rsn )))))} (shift))[0] } )));
-		$obj->GRAFT(@vcts); while (((($obj)->LEAVES()) > $cnt ) && ( my ($slf,$nbr,$rsq,$rnk) = (($obj)->NEIGHBORHOOD()))) {
-			if (( $cnt == 0 ) && ( $rsq > $rsn )) { push @jet, $$slf{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$slf{LID} - 1 ); $slf->PRUNE(); }
-			else { $idx[ $$obj{GFT} ] = [ map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; $slf->MERGE($nbr); }}
+			( sub {( map {((( $rsn < 0 ) ? ($$_{RSQ}) : ( &MIN( 1, ( &RATIO( $$_{RSQ}, $rsn, 0, 1 ))))) * (($$_{RAW}{ptm})**(2*$pow)))} (shift))[0] } )));
+		(($obj)->GRAFT(@vcts)); while (((($obj)->LEAVES()) > $cnt ) && ( my ($slf,$nbr,$rsq,$rnk) = (($obj)->NEIGHBORHOOD()))) {
+			if (( $cnt == 0 ) && ( $rsq > $rsn )) { push @jet, $$slf{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$slf{LID} - 1 ); (($slf)->PRUNE()) }
+			else { $idx[ $$obj{GFT} ] = [ map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; (($slf)->MERGE($nbr)) }}
 		( [ map {( scalar &LORENTZ($_))} ( @jet, ( map {($$_{RAW})} (($obj)->LEAVES()))) ],
 			[ @pad, ( map {( $idx[$_] || [$_] )} map {( $$_{LID} - 1 )} (($obj)->LEAVES())) ], (undef)) } ],
-	SFT => [ undef, undef, sub { # A list of pseudo-jets reconstructed by the M-Jet/SIFT family ( >=1 => COUNT , 0 => ISOLATE , -1 => DROP ) of clustering algorithms
+	SFT => [ undef, undef, sub { # A list of pseudo-jets reconstructed by the M-Jet/SIFT family ( 0 => ISOLATE , +1 => DROP, NEG => COUNT ) of clustering algorithms
 		my ($cnt,$iso,$drp) = ( map {(@$_)} map { ( [0,1,!1], [0,1,1], [(abs),!1,!1] )[ $_ <=> 0 ] } ( int ${(shift)}[0] ));
 		my (@vcts,@idx,@jet,@pad,@aux) = ( &LORENTZ_HASH(undef,@{(shift)})); my ($obj) = ( &Local::TREE::NEW(
 			[[ (undef,undef), -1 ], (undef), [ 0, 2*PIE, +1 ]], (( scalar &INT_LOG_TWO(0+ @vcts )) - 2 ), (-1),
@@ -1509,12 +1517,12 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 				my ($cof) = ( &PRODUCT( map {(( &ISA( 1, $_, q(Local::TREE::LEAF))) ? ( map { my ($mas,$ptm) = @{$_}{( qw ( mas ptm ))};
 					( 1 / sqrt( 1 + (($mas/$ptm)**(2)))) } ( ${(($$_{PRM}) or ($_))}{RAW} )) : (( $del[2] <= 0 ) ? (0) : (1)))} ($a,$b)));
 					((( $del[1] - ( $cof * $del[2] )) * ( sqrt( $del[0] ))), $del[0], (0+ ( $$b[0] > $$a[0] ))) } ), (undef)));
-		$obj->GRAFT(@vcts); while (((($obj)->LEAVES()) > $cnt ) && ( my ($slf,$nbr,$rsq,$rnk,$eis,$idx) = (($obj)->NEIGHBORHOOD()))) {
+		(($obj)->GRAFT(@vcts)); while (((($obj)->LEAVES()) > $cnt ) && ( my ($slf,$nbr,$rsq,$rnk,$eis,$idx) = (($obj)->NEIGHBORHOOD()))) {
 			if (( not $iso ) or ( $rnk < $eis )) { push @aux, $rnk; $idx[ $$obj{GFT} ] = [
-				map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; $slf->MERGE($nbr) } # cluster
+				map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; (($slf)->MERGE($nbr)) } # cluster
 			elsif ( $rnk < 1 ) { my ($sft) = ($nbr,$slf)[$idx]; ($drp) or do { push @jet, $$sft{RAW};
-				push @pad, map {( $idx[$_] || [$_] )} ( $$sft{LID} - 1 ) }; $sft->PRUNE(); } # drop
-			else { for ($slf,$nbr) { push @jet, $$_{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$_{LID} - 1 ); $_->PRUNE(); }}} # isolate
+				push @pad, map {( $idx[$_] || [$_] )} ( $$sft{LID} - 1 ) }; (($sft)->PRUNE()) } # drop
+			else { for ($slf,$nbr) { push @jet, $$_{RAW}; push @pad, map {( $idx[$_] || [$_] )} ( $$_{LID} - 1 ); (($_)->PRUNE()) }}} # isolate
 		( [ map {( scalar &LORENTZ($_))} ( @jet, ( map {($$_{RAW})} (($obj)->LEAVES()))) ],
 			[ @pad, ( map {( $idx[$_] || [$_] )} map {( $$_{LID} - 1 )} (($obj)->LEAVES())) ], [ reverse @aux ] ) } ],
 
@@ -1523,40 +1531,38 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 			($$b[1] <=> $$a[1]) }, ( map {[ $_, &INVARIANT_MASS(@$_) ]} ( &TUPLES( 2, [ map { $$_[1] } (@vcts) ] ))))) or (return));
 		while (1) { for my $vctr (@vcts) { $$vctr[0] = ${( &CMP( sub ($$) { my ($a,$b) = @_; ($$a[1] <=> $$b[1]) },
 			( map {[$_,(($$axis[$_][0])*(( &INVARIANT_MASS($$vctr[1],$$axis[$_]))/($$vctr[1][0]+$$axis[$_][0]))**2 )]} (0,1))))}[0]; }
-			(@$axis) = grep { (defined) or (last) } map { my ($i) = $_; ( scalar &LORENTZ(( scalar &LORENTZ_SUM(undef,( map { $$_[1] }
-			grep {($$_[0] == $i)} @vcts ))), (!1,1,!1))) } (0,1); (last) if ( $axis{ join q(), ( map { $$_[0] } (@vcts)) }++ ) }; ( $axis, (undef,undef)) } ],
+			(@$axis) = grep { (defined) or (last) } map { my ($i) = $_; ( scalar &LORENTZ(( scalar &LORENTZ_SUM((undef), ( map {($$_[1])}
+			grep {($$_[0] == $i)} (@vcts)))), (!1,1,!1))) } (0,1); (last) if ( $axis{ join q(), ( map {($$_[0])} (@vcts)) }++ ) }; (($axis), (undef,undef)) } ],
 
 	MIM => [[!1,1,!1], [PRT,2,+1], sub { # A pair of massless pseudo-jets reconstructed by the minimal invariant mass-square sum
-		(shift); my (@vcts) = @{(shift)}; ( [ map { ( scalar &LORENTZ(( scalar &LORENTZ_SUM(undef,@$_)), (!1,1,!1))) } @{(( &CMP( sub ($$) { my ($a,$b) = @_;
+		(shift); my (@vcts) = @{(shift)}; ( [ map { ( scalar &LORENTZ(( scalar &LORENTZ_SUM((undef), @$_ )), (!1,1,!1))) } @{(( &CMP( sub ($$) { my ($a,$b) = @_;
 			(($$a[3] <=> $$b[3]) || ($$a[2] <=> $$b[2])) }, ( map {[ @$_, (( &INVARIANT_MASS(@{ $$_[0]}))**2 + ( &INVARIANT_MASS(@{ $$_[1]}))**2 ) ]}
-			grep {( $$_[2] < (0+@vcts))} map {[ @$_, ( abs ( @{ $$_[1]} - @{ $$_[0]} )) ]} ( &PARTITIONS(2,\@vcts))))) or (return))}[0,1]], (undef,undef)) } ],
+			grep {( $$_[2] < (0+@vcts))} map {[ @$_, ( abs ( @{ $$_[1]} - @{ $$_[0]} )) ]} ( &PARTITIONS( 2, \@vcts ))))) or (return))}[0,1]], (undef,undef)) } ],
 
 	MDH => [[1,!1,!1], [PRT,0,-1], sub { # A pair of transverse pseudo-jets reconstructed by the minimal scalar energy difference
-		(shift); my (@vcts) = @{(shift)}; ( [ map {( scalar &LORENTZ_SUM(undef,@$_))} @{(
+		(shift); my (@vcts) = @{(shift)}; ( [ map {( scalar &LORENTZ_SUM((undef), @$_ ))} @{(
 			( &CMP( sub ($$) { my ($a,$b) = @_; (($$a[3] <=> $$b[3]) || ($$a[2] <=> $$b[2])) },
 			( map {[ @$_, ( abs ( &MHT( 1, @{ $$_[1]}) - &MHT( 1, @{ $$_[0]}))) ]} grep {( $$_[2] < (0+@vcts))}
-			map {[ @$_, ( abs ( @{ $$_[1]} - @{ $$_[0]} )) ]} ( &PARTITIONS(2,\@vcts))))) or (return))}[0,1]], (undef,undef)) } ],
+			map {[ @$_, ( abs ( @{ $$_[1]} - @{ $$_[0]} )) ]} ( &PARTITIONS( 2, \@vcts ))))) or (return))}[0,1]], (undef,undef)) } ],
 
 	WIN => [ undef, PRT, sub { # A list of pseudo-jets reconstructed by optimization against sets of pair-wise invariant mass window specifications
-		( [ map {($$_[-1])} ( &DIOBJECTS((( &GROUPS([2,-1],(shift))),(undef))[1,0], @{(shift)} )) ], (undef,undef)) } ],
+		( [ map {($$_[-1])} ( &DIOBJECTS((( &GROUPS( [ 2,-1], (shift))), (undef))[1,0], @{(shift)} )) ], (undef,undef)) } ],
 
 	DIL => [ undef, PRT, sub { # A list of dileptons reconstructed by optimization against quartets of sign, flavor, and invariant mass window specifications
-		( [ map {($$_[-1])} ( &DIOBJECTS((( &GROUPS([4,-1],(shift),( sub { my ($t) = (shift);
-			[ (@$t[2,3]), ( &SELECT_DIL_CODE(@$t[0,1])) ] } ))),(undef))[1,0], @{(shift)} )) ], (undef,undef)) } ],
+		( [ map {($$_[-1])} ( &DIOBJECTS((( &GROUPS( [4,-1], (shift), ( sub { my ($t) = (shift);
+			[ (@$t[2,3]), ( &SELECT_DIL_CODE(@$t[0,1])) ] } ))), (undef))[1,0], @{(shift)} )) ], (undef,undef)) } ],
 
 	SUM => [ undef, undef, sub { # A pseudo-jet reconstructed by an optionally transverse, massless, inverse, or flush Lorentz sum
 		my ($tmif) = (shift); my (@vcts) = @{(shift)}; ( [ ( &LORENTZ_SUM($tmif,@vcts)) or (return) ], (undef,undef)) } ],
-
 	TMI => [ ($par), undef, sub { # A list of pseudo-jets modified for transverse, massless, inverse, or flush kinematics
 		((shift,shift)[1], (undef,undef)) } ],
-
 	}}{$mod} || [ undef, undef, sub {} ] )) } : do { my (%sort) = do { my ($i); ( map {( $_ => $i++ )} (@_)) };
 		( map {[[ sort { our ($a,$b); ( $sort{$a} <=> $sort{$b} ) } (@$_) ], (undef,undef) ]} ((( ${{
 ### TO BE DEPRECATED ...
 	WIN => sub { # A list of objects selected by optimization against sets of pair-wise invariant mass window specifications
-		[ map {(@$_[0,1])} ( &DIOBJECTS((( &GROUPS([2,-1],(shift))),(undef))[1,0], @{(shift)} )) ] },
+		[ map {(@$_[0,1])} ( &DIOBJECTS((( &GROUPS( [2,-1], (shift))), (undef))[1,0], @{(shift)} )) ] },
 	DIL => sub { # A list of leptons selected by optimization against quartets of sign, flavor, and invariant mass window specifications
-		[ map {(@$_[0,1])} ( &DIOBJECTS((( &GROUPS([4,-1],(shift),( sub { my ($t) = (shift);
+		[ map {(@$_[0,1])} ( &DIOBJECTS((( &GROUPS( [4,-1], (shift), ( sub { my ($t) = (shift);
 			[ (@$t[2,3]), ( &SELECT_DIL_CODE(@$t[0,1])) ] } ))),(undef))[1,0], @{(shift)} )) ] },
 ###
 	VBF => sub { # The inner pair of opposite hemisphere objects, or optionally the highest mass pair; Minimal pseudorapidity gap is leading parameter
@@ -2377,7 +2383,7 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 
 # COMPLETE PAD IMPLEMENTATION IN HEMISPHERES
 # INCLUDE JET CANONICALIZATION ROUTINES ?
+# RAPIDITY, KINEMATICS, CANONICAL DELTA-PHI, ETC.
 # GO TO PRM FOR ALL PARAMETERS ?
-# VALIDATION: KTJ/SFT vs Mathematica, OLD/ALL
 # THERE
 
