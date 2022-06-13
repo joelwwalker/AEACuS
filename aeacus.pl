@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 4.000 B_014 #
-# March 2011 - May 2022		#
+# aeacus.pl Version 4.000 B_015 #
+# March 2011 - June 2022	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -328,7 +328,7 @@ sub ANALYSIS_CODE { my ($crd,@k,@i,@g,@c,%i,%g) = (shift); do { my ($h,$t,@t) = 
 			(($r) ? ( grep {(($u) or (return))} (($$v{$q}[$j]) = (( ref $x eq q(CODE)) ? ( scalar $x->($o)) : ( map {(( ref $x eq q(HASH)) ? do { my ($k,$v) = (%$x);
 				(${$_||{}}{$k}[$v]) } : ( defined $x ) ? (${$_||[]}[$x]) : (${$_||{}}{$q}))} map {(( defined $n ) ? (${$_||[]}[$n]) : ($_))} ( $$o{$k}[$i] ))))) :
 				# Return empty if not tabulating, return (undef) if cut fails, or otherwise pass the result through
-			( map { ($b) ? (( not defined $g ) or ( &MATCH_VALUE( $$e{cut}, $_ )) or (return undef)) : (return); ($$_) }
+			( map { ($b) ? (( not defined $g ) or ( &MATCH_VALUE( $$e{cut}, $_ )) or ( return undef )) : (return); ($$_) }
 					# For primary mode call code on ( card, objects, values, index, pad ), and store the result in v
 				\( $$v{$k}[$i] = (($c)->($e,$o,$v,$i,$d))))); } ) ] } ((undef),@o) }
 			# Pass through valid indices for each listed variable, skipping non-zero indices with no card entry
@@ -482,7 +482,7 @@ sub IMPORT_HEADER { my ($FHI) = ( grep {((( ref eq q(GLOB)) or ( &ISA( 1, $_, q(
 	( grep { (($d) and ( $key{$_}++ ) and ( die ( 'Duplicative use of shelf '.($_)))); 1 } (( uc $k ).( q(_)).( sprintf q(%3.3i), $i )))[0] }}
 
 # Applies auxiliary channel filtering specification to an existing .cut event selection file
-sub AUXILIARY_CHANNEL { my (@err); my ($chn) = grep {(( ref eq q(HASH)) or (return undef))} (shift);
+sub AUXILIARY_CHANNEL { my (@err); my ($chn) = grep {(( ref eq q(HASH)) or ( return undef ))} (shift);
 	my ($fil) = grep {( ref eq q(ARRAY))} (shift); my ($cfl,$cid,$fki) = @$chn{( qw( cfl cid fki ))};
 	CHN: for my $fil ( sort SORT_LIST_ALPHA ( values %{{ map {((( &Local::FILE::DEVICE_INODE( $_ )) or
 		( die 'Invalid Device/Inode for file '.$$_[0].$$_[1] )) => ($_))} grep {( $$_[1] =~ /^[\w-]+\.cut$/ )}
@@ -530,8 +530,8 @@ sub SUMMARY_XSEC { my ($FHI,$xsc,$err) = ( &Local::FILE::HANDLE(
 
 # Returns the same-directory Pythia.LOG event production cross section associated with a standardized .lhco file (fragmentation corrected, old file format)
 sub PYTHIA6_XSEC { use Fcntl qw(:seek); my ($FHI) = grep {( seek ($_,-80,SEEK_END))} ( &Local::FILE::HANDLE(
-	grep {(( $$_[-1] =~ s/(?:^|\/)([\w-]+?)_(?:delphes|pgs)_events\.lhco(?:\.gz)?$/${1}_pythia.log/ ) or (return undef))}
-	map {[ ( ref eq q(ARRAY)) ? (@$_) ? (@$_) : (return undef) : (($_),((@_)?(shift):())) ]} (shift)) or (return undef));
+	grep {(( $$_[-1] =~ s/(?:^|\/)([\w-]+?)_(?:delphes|pgs)_events\.lhco(?:\.gz)?$/${1}_pythia.log/ ) or ( return undef ))}
+	map {[ ( ref eq q(ARRAY)) ? (@$_) ? (@$_) : ( return undef ) : (($_),((@_)?(shift):())) ]} (shift)) or ( return undef ));
 	local ($_); while (<$FHI>) {(( m/^\s*Cross\s+section\s+\(pb\)\s*:\s*(${\EXP})/i ) && ( return (0+ $1)))} (undef) }
 
 # Returns the <MGGenerationInfo> tag event cross section associated with an open, cued filehandle
@@ -614,18 +614,18 @@ sub CUT_METRIC { my ($e); my ($m) = (
 	((wantarray) or ( return $m )); ($e,$m) }
 
 # Attempts to generates an LHCO event file from a DELPHES event file in the fashion of the standard MadGraph script "run_delphes3"
-sub ROOT_2_LHCO { my ($fil,$r2l,%cfg,$xpb) = (( grep {(( ref eq q(ARRAY)) or (return undef))} (shift)), (shift));
+sub ROOT_2_LHCO { my ($fil,$r2l,%cfg,$xpb) = (( grep {(( ref eq q(ARRAY)) or ( return undef ))} (shift)), (shift));
 	do { my ($FHI) = (( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(me5_configuration.txt) ])) or
-		( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(amcatnlo_configuration.txt) ])) or (return undef));
+		( &Local::FILE::HANDLE([[ $$fil[0], q(../../Cards/) ], q(amcatnlo_configuration.txt) ])) or ( return undef ));
 		local ($_); while (<$FHI>) { ( $cfg{$1} = $2 ) if ( m/^\s*([\w-]+)\s*=\s*(\S*)\s*$/ ) }};
-	my ($dph) = (( &Local::FILE::PATH([ $cfg{mg5_path}, ( &DEFINED( $cfg{delphes_path}, q(./Delphes))) ])) or (return undef));
-	my ($pth,$run) = ( $$fil[0] =~ /^(.*\/)([^\/]+)\/$/ ) or (return undef);
-	my ($tag) = ( $$fil[1] =~ /^([^\/]+)_delphes_events.root$/ ) or (return undef);
+	my ($dph) = (( &Local::FILE::PATH([ $cfg{mg5_path}, ( &DEFINED( $cfg{delphes_path}, q(./Delphes))) ])) or ( return undef ));
+	my ($pth,$run) = ( $$fil[0] =~ /^(.*\/)([^\/]+)\/$/ ) or ( return undef );
+	my ($tag) = ( $$fil[1] =~ /^([^\/]+)_delphes_events.root$/ ) or ( return undef );
 	my ($wgt,$gen,$fat) = ( map {(($_) ? q(True) : q(False))} ( @$r2l{( qw( wgt gen fat ))} ));
-	my ($wid) = ( join q( ), ( q([), ( grep {(length)} ( join q(, ), (($$r2l{wgt}) ? ( map {(@$_)} grep {((@$_) or (return undef))}
+	my ($wid) = ( join q( ), ( q([), ( grep {(length)} ( join q(, ), (($$r2l{wgt}) ? ( map {(@$_)} grep {((@$_) or ( return undef ))}
 		map { my ($t) = $_; [ grep { $$t[$_] =~ m/^"Weight_MERGING=${\EXP}"$/ } (0..(@$t-1)) ]} grep { (( shift @$_ ), ( shift @$_ )); 1 }
 		map {[ (split) ]} map { my ($z) = (( m/\.gz$/ ) && q(z)); ( `${z}grep -m1 '^N' ${_}` ) } map {( join q(), @$_ )}
-		((( &Local::FILE::LIST( $$fil[0], ( qr(^${tag}_pythia8_events.hepmc(?:\.gz)?$)), 0 )), (undef))[0] || (return undef))) : ()))), q(])));
+		((( &Local::FILE::LIST( $$fil[0], ( qr(^${tag}_pythia8_events.hepmc(?:\.gz)?$)), 0 )), (undef))[0] || ( return undef ))) : ()))), q(])));
 	my ($aux) = ( join q( ), ( q([), ( grep {(length)} ( join q(, ), ( map {( qq('${_}'))} @{$$r2l{aux}||[]} ))), q(])));
 	local ($?); do { my ($pas); for my $pyt ( map {(($_) ? q(python3) : q(python))} ( @{ ([1,!1],[1],[!1])[ $$r2l{py3} ] } )) {
 		(( open my $FHO, q(|-), qq(${pyt} >/dev/null 2>&1)) or ( die 'Cannot open pipe to Python' )); print $FHO <<DONE;
@@ -743,7 +743,7 @@ sub LHE_2_LHCO { my ($fin,$out,$pre) = (@_);
 	my $evt = 0+@evt or die q(no valid event records extracted from file ${fin});
 	#print qq(\n   #  typ      eta      phi      pt    jmas   ntrk   btag  had/em   dum1   dum2\n\n);
 	print qq(\n# ${evt} EVENT SAMPLE).(($evt==1) ? q() : q(S)).qq( GENERATED IN TOTAL\n);
-	printf qq(\n# %+12.5E PB CROSS SECTION IMPLIES %+12.5E PER PB LUMINOSITY\n), (( &RATIO($xsc,$evt)), ( &RATIO($evt**2,$xsc)));
+	printf qq(\n# %+12.5E PB CROSS SECTION IMPLIES %+12.5E PER PB LUMINOSITY\n), (( &RATIO($xsc,$evt)), ( &RATIO($evt*$evt,$xsc)));
 	for my $i (1..(@evt)) { my ($wgt,$str) = @{$evt[$i-1]};
 		printf qq(\n%4i %13d %8d    %+12.5E\n), (0,$i,0,( &RATIO($wgt,$evt)));
 		print $str; }
@@ -772,40 +772,40 @@ DONE
 	(( close $FHO ) && (($? >> 8) == 0 )) }
 
 # Returns the sum of a list of values
-sub SUM { my ($sum); ($sum += $_) for ( grep { (defined) or (return undef) } (@_)); $sum }
+sub SUM { my ($sum); ($sum += $_) for ( grep {((defined) or ( return undef ))} (@_)); $sum }
 
 # Returns the product of a list of values
-sub PRODUCT { my ($prd) = ((0+@_) ? (1) : (undef)); ($prd *= $_) for ( grep { (defined) or (return undef) } (@_)); $prd }
+sub PRODUCT { my ($prd) = ((0+@_) ? (1) : (undef)); ($prd *= $_) for ( grep {((defined) or ( return undef ))} (@_)); $prd }
 
 # Returns the difference of a pair of values
-sub DIFFERENCE { my ($a,$b) = ( grep { (defined) or (return undef) } (shift,shift)); ( $a - $b ) }
+sub DIFFERENCE { my ($a,$b) = ( grep {((defined) or ( return undef ))} (shift,shift)); ( $a - $b ) }
 
 # Returns the safely divided ratio of two values, with optional epsilon and divergence substitutions
-sub RATIO { my ($n,$d) = grep { (defined) or (return undef) } (shift,shift); (( abs $d ) <= (shift)) ? (( abs $n ) <= ( abs $d )) ? (0) : (shift) : ($n/$d) }
+sub RATIO { my ($n,$d) = grep {((defined) or ( return undef ))} (shift,shift); (( abs $d ) <= (shift)) ? (( abs $n ) <= ( abs $d )) ? (0) : (shift) : ($n/$d) }
 
 # Returns the arithmetic mean of a list of values
 sub ARITHMETIC { ( &RATIO(( &SUM(@_)),(0+@_))) }
 
 # Returns the geometric mean of a list of values
-sub GEOMETRIC { ( exp +( grep { (defined) or (return undef) } ( &ARITHMETIC(
-	map {(log)} grep { ($_ > 0) or (return 0) } grep { ((defined) and ($_ >= 0)) or (return undef) } (@_))))[0] ) }
+sub GEOMETRIC { ( exp +( grep {((defined) or ( return undef ))} ( &ARITHMETIC(
+	map {(log)} grep { ($_ > 0) or (return 0) } grep {(((defined) and ($_ >= 0)) or ( return undef ))} (@_))))[0] ) }
 
 # Returns the harmonic mean of a list of values
-sub HARMONIC { ( 1 / +( grep { (defined) or (return undef) } ( &ARITHMETIC(
-	map {(1/$_)} grep { ($_ > 0) or (return 0) } grep { ((defined) and ($_ >= 0)) or (return undef) } (@_))))[0] ) }
+sub HARMONIC { ( 1 / +( grep {((defined) or ( return undef ))} ( &ARITHMETIC(
+	map {(1/$_)} grep { ($_ > 0) or (return 0) } grep {(((defined) and ($_ >= 0)) or ( return undef ))} (@_))))[0] ) }
 
 # Returns the variance of a list of values
-sub VARIANCE { my ($avg); (( grep { (wantarray) or (return $_) } map {( &MAX( 0, ( $$_[0] - $$_[1]*$$_[1] )))} [ grep { (defined) or (return undef) }
-	(( &ARITHMETIC( map {($_*$_)} grep { (defined) or (return undef) } (@_))), (($avg) = ( &ARITHMETIC ))) ] ), $avg ) }
+sub VARIANCE { my ($avg); (( grep { (wantarray) or (return $_) } map {( &MAX( 0, ( $$_[0] - $$_[1]*$$_[1] )))} [ grep {((defined) or ( return undef ))}
+	(( &ARITHMETIC( map {($_*$_)} grep {((defined) or ( return undef ))} (@_))), (($avg) = ( &ARITHMETIC ))) ] ), $avg ) }
 
 # Returns the cartesian norm of a list of input values
-sub NORM { ( return ((defined) ? (sqrt) : (undef))) for ( &SUM( map {($_*$_)} grep { (defined) or (return undef) } (@_))) }
+sub NORM { ( return ((defined) ? (sqrt) : (undef))) for ( &SUM( map {($_*$_)} grep {((defined) or ( return undef ))} (@_))) }
 
 # Returns the root-mean-square of a list of input values
-sub RMS { ( return ((defined) ? (sqrt) : (undef))) for ( &ARITHMETIC( map {($_*$_)} grep { (defined) or (return undef) } (@_))) }
+sub RMS { ( return ((defined) ? (sqrt) : (undef))) for ( &ARITHMETIC( map {($_*$_)} grep {((defined) or ( return undef ))} (@_))) }
 
 # Returns the error of the mean assuming sample independence for list of input values; RMS may be more suitable for fully correlated errors
-sub ERROR_OF_MEAN { ( return ((defined) ? ( sqrt ( $_ / @_ )) : (undef))) for ( &ARITHMETIC( map {($_*$_)} grep { (defined) or (return undef) } (@_))) }
+sub ERROR_OF_MEAN { ( return ((defined) ? ( sqrt ( $_ / @_ )) : (undef))) for ( &ARITHMETIC( map {($_*$_)} grep {((defined) or ( return undef ))} (@_))) }
 
 # Returns the minimum of a list of values
 sub MIN { ( return ((defined) ? (0+ $_) : (undef))) for ( &CMP( sub ($$) { my ($a,$b) = @_; ($a <=> $b) }, (@_))) }
@@ -814,14 +814,14 @@ sub MIN { ( return ((defined) ? (0+ $_) : (undef))) for ( &CMP( sub ($$) { my ($
 sub MAX { ( return ((defined) ? (0+ $_) : (undef))) for ( &CMP( sub ($$) { my ($a,$b) = @_; ($b <=> $a) }, (@_))) }
 
 # Returns the leading extremal member of a list of values as compared by a user provided subroutine reference
-sub CMP { my ($sub,$cmp) = (( grep { ( ref eq q(CODE)) or (return undef) } (shift)),( grep { (defined) or (return undef) } ((shift),(@_))));
-	(($cmp) = ( sort $sub ($cmp,$_))) for (@_); $cmp }
+sub CMP { my ($sub,$cmp) = (( grep {(( ref eq q(CODE)) or ( return undef ))} (shift)), ( grep {((defined) or ( return undef ))} ((shift),(@_))));
+	(($cmp) = ( sort $sub ( $cmp, $_ ))) for (@_); ($cmp) }
 
 # Returns the input or zero if this value is absolutely smaller than a specified threshold
-sub FLUSH { ( grep { !(((abs) <= (shift)) && (return 0)) } grep { (defined) or (return undef) } (shift))[0] }
+sub FLUSH { ( grep { !(((abs) <= (shift)) && ( return 0 )) } grep {((defined) or ( return undef ))} (shift))[0] }
 
 # Returns the first element of a list having a defined value
-sub DEFINED { ( undef, ( grep { (defined) && (return $_) } (@_)))[0] }
+sub DEFINED { ( undef, ( grep {((defined) && ( return $_ ))} (@_)))[0] }
 
 # Returns the stringwise/defined unique elements of a list of objects
 sub UNIQUE { my (%t,$t); map { (wantarray) ? (@$_) : (return $_) } [ grep { !((defined) ? ( $t{$_}++ ) : ( $t++ )) } (@_) ] }
@@ -871,7 +871,7 @@ sub MAX_O_MIN { my ($q) = map { ( &Local::POLY::OBJECT($_)) || (return) } (shift
 	((@$_==2) ? ($$q[2]<0) ? (0,+1) : (+1,-1) : (0+@$_) ? ($$q[1]<0) ? (-1,0) : (0,-1) : (return)) ]]} [( &QUAD_REAL_ROOTS($q,(shift)))] }
 
 # Returns the integer, ceiling, or floor truncation of a floating point number
-sub INT_CEILING_FLOOR { my ($val,$int,$icf) = (( map { (0+($_),(int)) } grep { (defined) or (return undef) } (shift)),
+sub INT_CEILING_FLOOR { my ($val,$int,$icf) = (( map { (0+($_),(int)) } grep {((defined) or ( return undef ))} (shift)),
 	((shift) <=> 0 )); $int + $icf*(( $val <=> $int ) == ($icf)) }
 
 # Returns the integer quotient and floating point remainder of a pair of numbers
@@ -901,7 +901,7 @@ sub QUARTIC_DISCRIMINANT { ( pop @_ ) while ((@_) && ($_[-1] == 0)); (@_ > 5) ? 
 	(@_ == 4) ? ( $_[1]**2*$_[2]**2 - 4*$_[0]*$_[2]**3 - 4*$_[1]**3*$_[3] + 18*$_[0]*$_[1]*$_[2]*$_[3] - 27*$_[0]**2*$_[3]**2 ) :
 	(@_ == 3) ? ( $_[1]**2 - 4*$_[0]*$_[2] ) : (@_ == 2) ? (1) : (@_ == 1) ? ( &RATIO(1,$_[0]**2)) : (0) }
 
-# (siz,min,max,asc,adj,unq); Returns (ascending) indexed [lists] of length siz with (adjacent) (unique) values from min to max
+# Returns (ascending) indexed [lists] of length siz with (adjacent) (unique) values from min to max
 sub PERMUTE { my ($siz,$min,$max,$asc,$adj,$unq,$sub,$prm,@prm) = @_[0..7]; $siz = (int $siz); $min = (int $min); $max = ((defined $max) ? (int $max) : ($min+$siz-1));
 	do { @prm = (( ref $unq eq q(ARRAY)) ? (@$unq[0..($max-$min)]) : ((int $unq)x(1+$max-$min))); (--$prm[$_-$min]) for ((@{$prm||[]}),($min..$max)); } if ($unq);
 	map { (@$_ > $siz) ? () : (@$_ == $siz) ? (( ref $sub ne q(CODE)) or ( $sub->($_))) ? ($_) : () : ( &PERMUTE(@_[0..6],$_)) } map {[ @{$prm||[]}, $_ ]}
@@ -922,17 +922,17 @@ sub SETS { my ($set,@lst) = (( &MAX(0,( int shift ))), ( map {(( ref eq q(ARRAY)
 	map { my ($prm) = $_; [ map { my ($i) = $_; [ @lst[ grep {($$prm[$_] == $i)} (0..(@$prm-1)) ]]} (0..((@lst/$set)-1)) ]}
 		( &PERMUTE((0+@lst),0,((@lst/$set)-1),!1,1,$set)) } ( &TUPLES($set*( int &RATIO((0+@lst),$set)),\@lst)) }
 
-# Returns the ordered (optionally transformed) grouping into sets of N items derivable from a single input [list], optionally with ungrouped entries trailing
-sub GROUPS { my ($grp,$alt,$lst,$sub) = (( map {(( &MAX(0,( int shift @$_ ))),( int shift @$_ ))} map {(( ref eq q(ARRAY)) ? ($_) : [$_,0] )} (shift)),
-	[ map {(( ref eq q(ARRAY)) ? (@$_) : ())} (shift) ], ( map {(( ref eq q(CODE)) ? ($_) : ( sub {(shift)} ))} (shift)));
-	(( grep {((wantarray) or (return $_))} map { my ($lst) = []; ( push @$lst, ( scalar $sub->([ splice @$_, 0, $grp ]))) while (@$_); $lst }
-		[ splice (@$lst,0,$grp*( int (((@$lst < $grp) and (($alt < 0) or (@$lst == $alt))) or ( &RATIO((0+@$lst),$grp))))) ] ), @$lst ) }
+# Returns the ordered (optionally transformed) grouping into sets of N items derivable from a single input [list]; ungrouped entries trail in list context
+sub GROUPS { my ($lst,$grp,$one,$sub) = ( [ map {(( ref eq q(ARRAY)) ? (@$_) : ())} (shift) ], ( map {(( &MAX(0,( int shift @$_ ))), !!( shift @$_ ))}
+	map {[ ( ref eq q(ARRAY)) ? (@$_) : ($_) ]} (shift)), ( map {(( ref eq q(CODE)) ? ($_) : ( sub {(shift)} ))} (shift)));
+	(( grep {((wantarray) or ( return $_ ))} map { my ($lst) = []; ( push @$lst, ( scalar $sub->([ splice @$_, 0, $grp ]))) while (@$_); $lst }
+		[ splice ( @$lst, 0, ( $grp * ( int ((( @$lst < $grp ) and ($one)) or ( &RATIO((0+ @$lst ), $grp )))))) ] ), @$lst ) }
 
-# Returns the skip-counted (optionally transformed) dealing into N sets of items derivable from a single input [list], optionally with unspanned entries trailing
+# Returns the skip-counted (optionally transformed) dealing into N sets of items derivable from a single input [list]; unspanned entries trail in list context
 sub SPANS { my ($spn,$res,$lst,$sub) = (( map {(( &MAX(0,( int shift @$_ ))),(( shift @$_ ) <=> 0 ))} map {(( ref eq q(ARRAY)) ? ($_) : [$_,0] )} (shift)),
 	[ map {(( ref eq q(ARRAY)) ? (@$_) : ())} (shift) ], ( map {(( ref eq q(CODE)) ? ($_) : ( sub {(shift)} ))} (shift))); my (@i) =
-	( &RANGE(0,(@$lst-$spn),$spn,0+($res >= 0))); (( grep {((wantarray) or (return $_))} [ map { my ($i) = $_; ( scalar $sub->(
-		[ @$lst[( grep {(( $res == 1 ) or ( $_ < @$lst ))} map {($_+$i)} (@i))]])) } (0..($spn-1)) ] ), @$lst[($i[-1]+$spn)..(@$lst-1)] ) }
+	( &RANGE( 0, ( @$lst - $spn ), $spn, (0+ ( $res >= 0 )))); (( grep {((wantarray) or ( return $_ ))} [ map { my ($i) = $_; ( scalar $sub->(
+		[ @$lst[( grep {(( $res == 1 ) or ( $_ < @$lst ))} map {( $_ + $i )} (@i))]])) } (0..($spn-1)) ] ), @$lst[($i[-1]+$spn)..(@$lst-1)] ) }
 
 # Returns the collection of zipped N-item ordered [lists] (optionally transformed) derivable from a [list] of N input [lists]
 sub ZIPS { my ($zip,$clp,$sub) = (( grep {(( ref eq q(ARRAY)) or (return))} (shift)), ((shift) <=> 0 ),
@@ -992,19 +992,22 @@ sub MATCH_VALUE { my ($min,$max,$mod,$val) = (( map { ( ref eq q(ARRAY)) ? (@$_[
 	map {[ $_, (((defined $min) && (defined $max) && ($max < $min)) ? ($$_[0] || $$_[1]) : ($$_[0] && $$_[1])) ]}
 		[ (!(defined $min) || ($val >= $min)), (!(defined $max) || ($val <= $max)), 1 ])[0] }
 
-# Sorts a pair of [lists] by deep asciibetical comparison of the stored value sequence
-sub SORT_LIST_ALPHA ($$) { my ($a,$b) = (shift,shift); for (0..(( &MIN(0+@$a,0+@$b))-1)) { (($_) && (return $_)) for ($$a[$_] cmp $$b[$_]) }; 0 }
+# Sorts a pair of [lists] by deep asciibetical (optionally numerical) comparison; tie goes to the longer list; non-lists sort last
+sub SORT_LIST_ALPHA ($$) { my ($a,$b,$num) = (shift,shift,shift);
+	(( &ISA( 0, $a, q(ARRAY))) ? (( &ISA( 0, $b, q(ARRAY))) or ( return -1 )) : ( return (( &ISA( 0, $b, q(ARRAY))) ? (+1) : (0))));
+	for (0..(( &MIN(0+@$a,0+@$b))-1)) { (($_) and ( return $_ )) for (($num) ? ( $$a[$_] <=> $$b[$_] ) : ( $$a[$_] cmp $$b[$_] )) };
+	( @$b <=> @$a ) }
 
 # Sorts a pair of [lists] by deep numerical comparison of the stored value sequence
-sub SORT_LIST_NUM ($$) { my ($a,$b) = (shift,shift); for (0..(( &MIN(0+@$a,0+@$b))-1)) { (($_) && (return $_)) for ($$a[$_] <=> $$b[$_]) }; 0 }
+sub SORT_LIST_NUM ($$) { ( &SORT_LIST_ALPHA((shift,shift), 1 )) }
 
 # Returns code to sort lhco objects according to descending transverse momentum and then ascending pseudorapidity magnitude; Leading input optionally reverses ordering
 sub SORT_OBJECT_LORENTZ_CODE { my ($sort) = (0,+1,-1)[(shift)] || -1; sub ($$) { my ($a,$b) = (shift,shift); ($sort) *
-	(($$a{ptm} <=> $$b{ptm}) || ((abs $$b{eta}) <=> (abs $$a{eta})) || ($$a{mas} <=> $$b{mas}) || ($$b{eta} <=> $$a{eta}) || ($$a{phi} <=> $$b{phi})) }}
+	(( $$a{ptm} <=> $$b{ptm} ) || (( abs $$b{eta} ) <=> ( abs $$a{eta} )) || ( $$a{mas} <=> $$b{mas} ) || ( $$b{eta} <=> $$a{eta} ) || ( $$a{phi} <=> $$b{phi} )) }}
 
 # Sort inserts an input value into a presorted input list reference, optionally according to an input sort code reference
 sub SORT_INSERT { my ($lst,$flr,$clg,$val,$srt,$try,$mod) = (
-	( map {( $_, 0, (0+@$_))} grep {(( &ISA( 0, ($_), q(ARRAY))) or (return))} (shift)), (shift),
+	( map {( $_, 0, (0+@$_))} grep {(( &ISA( 0, $_, q(ARRAY))) or (return))} (shift)), (shift),
 	( map {(( ref eq q(CODE)) ? ($_) : ( sub ($$) { my ($a,$b) = @_; ( $a <=> $b ) } ))} (shift)));
 	while ($clg > $flr) {( ${ (\$clg,\$flr)[$mod] } = (( $try = ( int (($flr+$clg)/2))) +
 		( $mod = 0+(1,1,0)[(($srt) -> ( our ($a,$b) = ($val,$$lst[$try])))] )))}
@@ -1066,7 +1069,7 @@ sub CLIP_PAD_OBJECTS { my ($min,$max,$clp) = map { ( ref eq q(ARRAY)) ? @$_[0..2
 sub PRINCIPAL_RAD { ( &INT_QUOTIENT((shift),((shift) ? PIE : 2*PIE),-1))[1] }
 
 # Returns the absolute azimuthal angular separation (in the range 0 to Pi) between two input angles in the range -Pi to 2*Pi
-sub DELTA_RAD_ABS { ( map { ($_ <= PIE) ? $_ : ( abs (2*PIE-$_)) } map {( abs ($$_[1]-$$_[0]))} [ grep { (defined) or (return undef) } (shift,shift) ])[0] }
+sub DELTA_RAD_ABS { ( map { ($_ <= PIE) ? $_ : ( abs (2*PIE-$_)) } map {( abs ($$_[1]-$$_[0]))} [ grep {((defined) or ( return undef ))} (shift,shift) ])[0] }
 
 # Returns a {hash} lhco object with unified 4-vector and collider kinematics extracted from an input 4-vector [list]
 sub LORENTZ_HASH { my ($tvrs,$msls,$ivrt,$flsh) = map { ( ref eq q(ARRAY)) ? (@$_) : () } (shift);
@@ -1077,21 +1080,21 @@ sub LORENTZ_HASH { my ($tvrs,$msls,$ivrt,$flsh) = map { ( ref eq q(ARRAY)) ? (@$
 sub EP0_EP1_EP2_EP3 { [ map {(0+$_)} map { ( &ISA( 0, $_, q(HASH))) ? @$_{( qw( ep0 ep1 ep2 ep3 ))} : ( &ISA( 0, $_, q(ARRAY))) ? do {
 	my ($eta,$phi,$ptm,$mas) = @$_; ( map {(( sqrt (($mas*$mas) + ($$_[0]*$$_[0]) + ($$_[1]*$$_[1]) + ($$_[2]*$$_[2]))), @$_ )}
 	[ map {($ptm*$_)} (( cos $phi ), ( sin $phi ), ( map {( &RATIO(( cos $_ ), ( sin $_ )))}
-		2*( atan2 (( exp ( -1 * $eta )), 1 )))[0] ) ] ) } : (return undef) } (shift) ] }
+		2*( atan2 (( exp ( -1 * $eta )), 1 )))[0] ) ] ) } : ( return undef ) } (shift) ] }
 
 # Returns a [eta,phi,ptm,mas] list reference corresponding to a [ep0,ep1,ep2,ep3] or lhco object
 sub ETA_PHI_PTM_MAS { [ map {(0+$_)} map { ( &ISA( 0, $_, q(HASH))) ? @$_{( qw( eta phi ptm mas ))} : ( &ISA( 0, $_, q(ARRAY))) ? do {
 	my ($ep0,$ep1,$ep2,$ep3) = @$_; my ($ptm) = ( sqrt (($ep1*$ep1) + ($ep2*$ep2))); my ($psq) = (($ptm*$ptm) + ($ep3*$ep3));
 	my ($ptr) = ( &RATIO((( sqrt ( $psq )) - $ep3 ), $ptm )); ((( $ptm && $ptr ) ? ( -1*( log ( $ptr )), ( &PRINCIPAL_RAD( atan2 ($ep2,$ep1)))) :
-		(undef,undef)), ($ptm), ( sqrt ( &MAX( 0, (($ep0*$ep0) - $psq ))))) } : (return undef) } (shift) ] }
+		(undef,undef)), ($ptm), ( sqrt ( &MAX( 0, (($ep0*$ep0) - $psq ))))) } : ( return undef ) } (shift) ] }
 
 # Returns the pseudorapidity - azimuth separation in radians between two [4-vector] references or lhco objects; longitudinal only is trailing parameter
-sub DELTA_RPA { my ($obja,$objb) = grep { ($$_[2] > 0) or (return) } map { ( &ETA_PHI_PTM_MAS($_)) || (return undef) } (shift,shift);
+sub DELTA_RPA { my ($obja,$objb) = grep { ($$_[2] > 0) or (return) } map { ( &ETA_PHI_PTM_MAS($_)) || ( return undef ) } (shift,shift);
 	( sqrt (($$objb[0]-$$obja[0])**2 + ((shift) ? (0) : ( &DELTA_RAD_ABS($$objb[1],$$obja[1]))**2 ))) }
 
 # Returns the spherical angular separation (in the range 0 to Pi) between two [4-vector] references or lhco objects; Transverse only is trailing parameter
-sub DELTA_RSA { ( return ( atan2 ( sqrt ( &MAX(0,(1 - $_**2))), $_ ))) for map { ( 1 - ( &RATIO(( &LORENTZ_PRODUCT(@$_[0,1],-1,1)), $$_[0][0]*$$_[1][0] ))) }
-	[ grep {(( $$_[0] > NIL ) or (return undef))} map { ( &LORENTZ($_,!(!$_[0]),1,!1)) or (return undef) } (shift,shift) ] }
+sub DELTA_RSA { ( return ( atan2 ( sqrt ( &MAX( 0, ( 1 - $_*$_ ))), $_ ))) for map { ( 1 - ( &RATIO(( &LORENTZ_PRODUCT(@$_[0,1],-1,1)), $$_[0][0]*$$_[1][0] ))) }
+	[ grep {(( $$_[0] > NIL ) or ( return undef ))} map { ( &LORENTZ($_,!(!$_[0]),1,!1)) or ( return undef ) } (shift,shift) ] }
 
 # Returns the azimuthal angular separation (in the range 0 to Pi) between two [4-vector] references or lhco objects
 sub DELTA_PHI { &DELTA_RSA(shift,shift,1) }
@@ -1189,7 +1192,7 @@ sub LORENTZ_SUM { my ($tvrs,$msls,$ivrt,$flsh) = map { ( ref eq q(ARRAY)) ? (@$_
 sub LORENTZ_DIFFERENCE { ( &LORENTZ(( scalar &LORENTZ_SUM((undef), (shift), ( scalar &LORENTZ(shift,!1,!1,1)))), (!1,1,!1))) }
 
 # Returns the inner product of a pair of [4-vector] array references or lhco objects; Optional parameters allow Euclidean metric & pos-semi-def filter
-sub LORENTZ_PRODUCT { my ($vcta,$vctb,$mtrc,$psdf) = (( map { ( &LORENTZ($_,!1,!1,!1,-1)) or (return undef) } (shift,shift)),
+sub LORENTZ_PRODUCT { my ($vcta,$vctb,$mtrc,$psdf) = (( map { ( &LORENTZ($_,!1,!1,!1,-1)) or ( return undef ) } (shift,shift)),
 	(((shift) <=> (0)) || (-1)), !(!(shift))); (return $_) for map { ($psdf) ? ( &MAX(0,$_)) : ($_) }
 		( $$vcta[0]*$$vctb[0] + ($mtrc)*( $$vcta[1]*$$vctb[1] + $$vcta[2]*$$vctb[2] + $$vcta[3]*$$vctb[3] )) }
 
@@ -1227,10 +1230,10 @@ sub LORENTZ_OBJECT_SORT { my ($sort) = \( &SORT_OBJECT_LORENTZ_CODE(shift)); map
 sub MET { ( scalar &LORENTZ(( scalar &LORENTZ_SUM(undef,@_)), (1,1,1))) }
 
 # Returns the scalar sum of transverse momenta (Default) or energies for a list of transverse [4-vector] or lhco objects
-sub MHT { ${ ( &LORENTZ_SUM([1,!( map { ( ref eq q(ARRAY)) ? ($$_[0]) : ($_) } (shift))[0],!1],@_)) || (return undef) }[0] }
+sub MHT { ${ ( &LORENTZ_SUM([1,!( map { ( ref eq q(ARRAY)) ? ($$_[0]) : ($_) } (shift))[0],!1],@_)) || ( return undef ) }[0] }
 
 # Returns the transverse energy computed for a list of massless [4-vector] momenta components or lhco objects
-sub TRANSVERSE_ENERGY { ${ ( &LORENTZ(( scalar &LORENTZ_SUM(undef,@_)), (1,!1,!1))) || (return undef) }[0] }
+sub TRANSVERSE_ENERGY { ${ ( &LORENTZ(( scalar &LORENTZ_SUM(undef,@_)), (1,!1,!1))) || ( return undef ) }[0] }
 
 # Returns the invariant mass computed from the vector sum over a list of [4-vector] momenta components or lhco objects
 sub INVARIANT_MASS { ((undef), ( &LORENTZ_SUM(undef,@_)))[-1] }
@@ -1239,10 +1242,10 @@ sub INVARIANT_MASS { ((undef), ( &LORENTZ_SUM(undef,@_)))[-1] }
 sub TRANSVERSE_MASS { ((undef), ( &LORENTZ_SUM([1,!1,!1],(shift,shift))))[-1] }
 
 # Returns the s-transverse mass (MT2) computed for a pair of massless transverse [4-vector] momenta components or lhco objects
-sub S_TRANSVERSE_MASS { ( sqrt ((2)*( &LORENTZ_PRODUCT(( map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (shift,shift)), +1, 1 )))) }
+sub S_TRANSVERSE_MASS { ( sqrt ((2)*( &LORENTZ_PRODUCT(( map { ( &LORENTZ($_,1,1,!1)) or ( return undef ) } (shift,shift)), +1, 1 )))) }
 
 # Returns the asymmetric s-transverse mass (AMT2) computed for a pair of [4-vector] momenta components and masses; Independent met or undef is leading parameter
-sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ($_,1,1,!1)) : ( &MET( grep {(defined)} @_[0,1,4,5] ))) or (return undef) } (shift)),(@_));
+sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ($_,1,1,!1)) : ( &MET( grep {(defined)} @_[0,1,4,5] ))) or ( return undef ) } (shift)),(@_));
 
 	do { my ($min,$try,$max,$stp,$rts,$scl,$dsc,$qrt) = my ($min_0,undef,$max_0,$stp_0,$rts_0,undef,undef,undef) = (@$_); LOOP: {; do {
 		${ (\$min,\$max)[ ((defined $dsc) && !(defined $stp)) ? do { ($rts) = ( $dsc->($try)); (defined $rts_0) ? 0+($rts < $rts_0) :
@@ -1256,7 +1259,7 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 	map { my (@leg) = @$_; my ($min,$scl) = ($leg[0][2][0],2*$leg[0][0][10]*$leg[1][0][10]); (($min), my ($max,$dsc)) =
 		do { my ($max) = ( &MIN( grep {(defined)} ($leg[0][2][1],$leg[1][2][1]))); map { my ($max,$dsc) = (@$_);
 			(( map {( &FLUSH(( &MAX(0,$_)), NIL ))} ( &ORDERED([($min),(($dsc) ? (defined $max) ? ( &MIN($max,BIG)) : (BIG) : ($max))],-1))),($dsc)) }
-			grep { (( &ORDERED( [$min,$max], NIL )) && ($min <= BIG)) or (return undef); 1 }
+			grep { (( &ORDERED( [$min,$max], NIL )) && ($min <= BIG)) or ( return undef ); 1 }
 		0+( map { my ($trg,$prj) = @leg[$_,(1-$_)]; ($$trg[0][0][5]) ? ( grep {((( &MAX(0,$_)) - ($$trg[1][1])) <= NIL )} # Type III unbalanced
 			map {(( sqrt ($$trg[0][2]**2+$$_[1]**2+$$_[2]**2)) - ($$trg[0][3][1]*$$_[1]+$$trg[0][3][2]*$$_[2]))}
 			( scalar $$prj[5]->($$trg[2][0],1))) : () } (0,1)) ? [$min,!1] :
@@ -1270,7 +1273,7 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 			my ($dsc) = -1*(($t[0][2]*$t[1][0]-$t[1][2]*$t[0][0])**2 + ($t[0][2]*$t[1][1]-$t[1][2]*$t[0][1])*($t[0][0]*$t[1][1]-$t[1][0]*$t[0][1]));
 			map { ($min,$max) = ( &MIN_Y_MAX(!1,[$min,$max],$_)); (($$prj[4]) || ((defined $$_[0]) &&
 				((( 2*($t[0][2]*$t[1][0]+$t[0][0]*$t[1][2]) - $t[0][1]*$t[1][1] )->EVALUATE($$_[0])) <= NIL ))) ? [$min,!1] : [$max,$dsc] }
-			map { ( &MAX_O_MIN( $_, NIL )) or (return undef) } grep { (pop) if (( abs $$_[2]) <= NIL ); 1 } map {[ @$_[0..2]]}
+			map { ( &MAX_O_MIN( $_, NIL )) or ( return undef ) } grep { (pop) if (( abs $$_[2]) <= NIL ); 1 } map {[ @$_[0..2]]}
 				(($$prj[4]) ? ($dsc) : ($t[1][1]**2-4*$t[1][0]*$t[1][2])) } : () } (0,1)))[-1] || [$max,1] };
 		[ ($min,$max)[0,0,1], (undef,undef,$scl), ( map { my (@u) = map {( &Local::POLY::OBJECT($_, NIL ))} (@$_);
 			(($dsc) ? ($leg[0][0][0][5] || $leg[1][0][0][5]) ? sub {(0)} : do { my ($sub) = # Closure "dsc": degenerate root count
@@ -1293,7 +1296,7 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 			-1*($$del[1]*$$obj[3][1]), -1*($$del[1]*$$obj[3][2]), -1*($$del[1]**2-$$obj[2]**2) ] : (undef);
 		my ($dsc) = (($$obj[0][5]) ? (($$obj[0][2]) ? (undef) : ($$obj[6]**2)) : # Conic discriminant
 			($$obj[0][0]) ? ($$del[3]*$$del[5]) : (($$obj[0][1]) ? (undef) : ($$obj[5]**2)));
-		my ($dot) = grep { (defined $$_[0]) or (return undef) } [ # Scale bounds "dot": [(M_Y^{dot+/-})^2/(2*E_V*E_V')]
+		my ($dot) = grep { (defined $$_[0]) or ( return undef ) } [ # Scale bounds "dot": [(M_Y^{dot+/-})^2/(2*E_V*E_V')]
 			map { (defined) ? $$obj[7]*(( &MAX(0,$_)) - ( $$del[0]->EVALUATE(0))) : (undef) } (
 			($$obj[0][5]) ? ($$del[1])[0,0] : ($$obj[0][2] && $$obj[0][4]) ? (0,undef) : !($$obj[0][0]) ? ($$obj[2]*$$obj[5],undef) :
 			(( &QUAD_REAL_ROOTS([ -1*($$del[5]*$$obj[2]**2+($$del[1]*$$obj[5])**2), 2*$$del[1]*$$del[6], -1*$$obj[6]**2 ], -1 )), undef, undef )[0,1] ) ];
@@ -1312,12 +1315,12 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 					($$_[0]*$t**2-2*$$_[3]*$$_[6]*$t+$$_[5]*$$_[6]**2), 2*(($$_[0]*$$_[7]-$$_[1]*$$_[6])*$t-$$_[3]*$$_[7]*$$_[6]+$$_[4]*$$_[6]**2),
 					((ref $s) ? ($$_[0]*$$_[7]**2-2*$$_[1]*$$_[6]*$$_[7]+$$_[2]*$$_[6]**2) : ($$del[5])) ] }
 				( [@{$s||$shp}[0..5],@{$$del[2]}[1,2],$$obj[9][2]], [@$shp[2,1,0,4,3,5],@{$$del[2]}[2,1],$$obj[9][1]] ) ] )[0] }};
-		my ($org) = sub { my ($s,$p) = (( grep { (defined) or (return undef) } (shift)),(shift)); # Closure "org": conic coordinate center
+		my ($org) = sub { my ($s,$p) = (( grep {((defined) or ( return undef ))} (shift)),(shift)); # Closure "org": conic coordinate center
 			( return ((wantarray) ? ($$_[2]) : ($_))) for (($bar) ? ( scalar $bar->($s,$p)) : [ (undef), ((defined $dsc) ?
 			( map {( &RATIO($_,$dsc))} map { ($$_[1]*$$_[4]-$$_[2]*$$_[3]), ($$_[1]*$$_[3]-$$_[0]*$$_[4]) } ( $ell->($s,$p))) : do { my ($t) =
 				( &RATIO(( map {(($$obj[2]**2-$_**2), 2*($_))} (($$obj[0][0]) ? ($$del[1]) : ( $$del[0]->EVALUATE($s)))),NIL,HUG)); map { my ($i) = $_;
 				grep { ($p) && (($_) = ($$obj[7]*($$obj[9][$i]-$_))) ; 1 } ($t)*(($$obj[0][0]) ? ($$obj[3][$i]) : ($$obj[1][$i])) } (1,2) } ), (undef) ] ) };
-		my ($dsh) = sub { my ($s,$p) = (( grep { (defined) or (return undef) } (shift)),(shift)); # Closure "dsh": conic coordinate bounds
+		my ($dsh) = sub { my ($s,$p) = (( grep {((defined) or ( return undef ))} (shift)),(shift)); # Closure "dsh": conic coordinate bounds
 			($bar) ? [( $bar->($s,$p))[0,1]] : ( map { ((defined $dsc) or 0+( &FLUSH( $$_[1], NIL ))) ? ( scalar &MAX_O_MIN($_,-1)) : do { my ($i) =
 				0+(($p) xor ((($$obj[0][0]) ? ($$obj[3][2]) : ($$obj[1][2])) < 0 )); [ (( $org->($s,$p)), (undef))[$i,(1-$i)]] }}
 				map {[ ($$_[3]**2-$$_[0]*$$_[5]), 2*($$_[1]*$$_[3]-$$_[0]*$$_[4]), -1*($dsc) ]} ( $ell->($s,$p)))[0] };
@@ -1330,11 +1333,11 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 			[ (1-$$obj[3][1]**2), -1*($$obj[3][1]*$$obj[3][2]), (1-$$obj[3][2]**2) ] : [ ($$del[2][1]**2+$$del[3]*(1-$$obj[1][1]**2)),
 			($$del[2][1]*$$del[2][2]-$$del[3]*$$obj[1][1]*$$obj[1][2]), ($$del[2][2]**2+$$del[3]*(1-$$obj[1][2]**2)) ] } (@$_) ];
 		do { for (@$_) { my ($obj,$del) = @$_; for (@$obj[1,9],(($$obj[0][0])?($$obj[3],$$del[2]):())) {
-			($_) = ( scalar &LORENTZ( ${ ( &Local::MATRIX::INNER_PRODUCT([$_],$t)) || (return undef) }[0] )) }}} if (defined $t); 1 }
+			($_) = ( scalar &LORENTZ( ${ ( &Local::MATRIX::INNER_PRODUCT([$_],$t)) || ( return undef ) }[0] )) }}} if (defined $t); 1 }
 
 	map {[ grep { my ($obj) = (@$_); push @$_, (($$obj[0][0]) ? do { my ($t) = grep { push @{$$obj[0]}, ( map {( $$_[0] <= EPS**2 )} (@$_)); 1 } [ # Factors "del"
 			( map {[ $$_[3]**2, $_ ]} ( scalar &LORENTZ_DIFFERENCE($$obj[1],$$obj[3]))),
-			( map {[ ( $_ >= -1*NIL ) ? ( &MAX(0,$_)) : (return undef) ]} ($$obj[4]**2-($$obj[2]+$$obj[8]*$$obj[6])**2)/(2*$$obj[8])),
+			( map {[ ( $_ >= -1*NIL ) ? ( &MAX(0,$_)) : ( return undef ) ]} ($$obj[4]**2-($$obj[2]+$$obj[8]*$$obj[6])**2)/(2*$$obj[8])),
 			( map {[ ( &MAX(0,($_-$$obj[5]*$$obj[6]))), ($_+$$obj[5]*$$obj[6]), $_ ]} ( &LORENTZ_PRODUCT($$obj[1],$$obj[3],-1,1))) ];
 		[ ( &Local::POLY::OBJECT([ -1*(($$obj[4]**2+$$obj[5]**2)/2+$$obj[8]*$$t[2][2]), +1/$$obj[7]])),
 			($$t[1][0]+$$obj[2]*$$obj[6]), $$t[0][1], $$t[0][0], +1, $$t[2][0]*$$t[2][1], $$t[2][2]] } : do {
@@ -1348,13 +1351,13 @@ sub A_TRANSVERSE_MASS { my ($met,@obj) = (( map { ((defined) ? ( scalar &LORENTZ
 		grep { ( $$_[1] = ( scalar &LORENTZ($$_[1],1,!1,!1))) && ($$_[1][0] > 0) && do { ($$_[10]) = ($$_[7]) = ( my $t = $$_[1][0] );
 			(($$_[1],$$_[5]) = ( &LORENTZ([ 1, ( map {($_/$t)} (@{$$_[1]}[1,2])), 0 ],!1,!1,!1,EPS))) && do { ( $$_[0][1] = ($$_[5] == 0)); 1 }}}
 		grep { !( $$_[0][0] = ((defined $$_[3]) || (undef $$_[4]))) or ( $$_[3] = ( scalar &LORENTZ_BOOST($$_[3],[0,0,($$_[1][3]/$$_[1][0])]))) && ($$_[3][0] > 0) }
-		grep { ( $$_[1] = ( scalar &LORENTZ($$_[1]))) && ($$_[1][0] > 0) } ($_))[0] or (return undef) ]} (@$_) ]}
+		grep { ( $$_[1] = ( scalar &LORENTZ($$_[1]))) && ($$_[1][0] > 0) } ($_))[0] or ( return undef ) ]} (@$_) ]}
 		# 0:[2-Step,M_V~0,M_S~0,S_z~0,H~S,V~S], 1:[P_V]/E_V, 2:M_H/E_V, 3:[P_S]/E_S, 4:M_X/E_V, 5:M_V/E_V, 6:M_S/E_S, 7:E_V/E_V', 8:E_S/E_V, 9:[MET]/E_V, 10:E_V
 
 	[[[], @obj[0,2,4,6]], [[], @obj[1,3,5,7]]]; } # Input kinematics
 
 # Returns the tri-jet invariant mass computed for a list of massless [4-vector] momenta components or lhco objects
-sub TRI_JET_MASS { my ($mlim,@vcts) = ((shift),( grep {($$_[0] > 0)} map { ( &LORENTZ($_,!1,1,!1)) or (return undef) } (@_)));
+sub TRI_JET_MASS { my ($mlim,@vcts) = ((shift),( grep {($$_[0] > 0)} map { ( &LORENTZ($_,!1,1,!1)) or ( return undef ) } (@_)));
 	(( map { &INVARIANT_MASS(@$_[0,1]) } map { my ($dvct) = ( scalar &LORENTZ_SUM(undef,@{ $$_[0]})); ( sort { our ($a,$b); ($$a[2] <=> $$b[2]) }
 		grep { (defined $$_[2]) } map {[ $dvct, $_, &DELTA_RPA($dvct,$_) ]} ( &EXCLUDE_OBJECTS($$_[0],@vcts)))[0] }
 		( sort { our ($a,$b); ($$a[2] <=> $$b[2]) } grep { ( &MATCH_VALUE($mlim,$$_[1])) && (defined $$_[2]) }
@@ -1362,14 +1365,14 @@ sub TRI_JET_MASS { my ($mlim,@vcts) = ((shift),( grep {($$_[0] > 0)} map { ( &LO
 
 # Returns the tau-tau invariant mass computed for jet plus lepton pair [4-vector] momenta components or lhco objects
 sub TAU_TAU_MASS { my ($llm); my ($a,$b,$j) = map {( scalar &Local::VECTOR::OBJECT($_))}
-	grep { (( shift @{$_||[]} ) > 0 ) or (return undef) } map {( scalar &LORENTZ($_,1,1,!1))}
-	(( map { ($llm) = grep { (defined) or (return undef) } ( &INVARIANT_MASS(@$_)); (@$_) }
+	grep { (( shift @{$_||[]} ) > 0 ) or ( return undef ) } map {( scalar &LORENTZ($_,1,1,!1))}
+	(( map { ($llm) = grep {((defined) or ( return undef ))} ( &INVARIANT_MASS(@$_)); (@$_) }
 	[ @{(shift)||[]}[0,1]] ), ( scalar &LORENTZ_SUM(undef,@{(shift)||[]})));
-	($llm)*( map { ( $_ <=> 0 )*( sqrt abs ) } grep { (defined) or (return undef) }
+	($llm)*( map { ( $_ <=> 0 )*( sqrt abs ) } grep {((defined) or ( return undef ))}
 	( &RATIO( -1*(($a^$j).($b^$j)), ( map {($_.$_)} ( scalar $a^$b ))[0] )))[0] }
 
 # Returns the jet Z-balance statistic of an ordered pair of [lists] of [4-vector] momenta components or lhco objects
-sub JET_Z_BALANCE { ( map { ($$_[1] - $$_[0]) } [ map { ${ ( &MET(@{$_||[]})) or (return undef) }[0] } (shift,shift) ])[0] }
+sub JET_Z_BALANCE { ( map { ($$_[1] - $$_[0]) } [ map { ${ ( &MET(@{$_||[]})) or ( return undef ) }[0] } (shift,shift) ])[0] }
 
 # Returns the alpha_R razor statistic(s) for a pair of massless [4-vector] momenta components or lhco objects; Independent met or undef is leading parameter
 sub ALPHA_R { my ($metv,$obja,$objb) = map {(@$_)} grep { (defined $$_[0]) or ( $$_[0] = &MET(@$_[1,2])); 1 } [(shift,shift,shift)]; map {(@$_)}
@@ -1378,26 +1381,26 @@ sub ALPHA_R { my ($metv,$obja,$objb) = map {(@$_)} grep { (defined $$_[0]) or ( 
 			[ ( &TRANSVERSE_MASS($metv,$obja)), ( &TRANSVERSE_MASS($metv,$objb))] ), ( &TRANSVERSE_ENERGY($obja,$objb)) ] }
 
 # Returns the alpha_T statistic for a pair of transverse [4-vector] momenta components or lhco objects; Independent (met,mht) or undef are leading parameters
-sub ALPHA_T { my ($metv,$mhtv) = map {( ${ ((defined $$_[0]) ? ( scalar &LORENTZ($$_[0],1,1,!1)) : ( &MET(@_[0,1]))) || (return undef) }[0],
-	((defined $$_[1]) ? ( &MAX(0,$$_[1])) : ( grep { (defined) or (return undef) } ( &MHT( 1, @_[0,1])))))} [(shift,shift)]; ( map { &RATIO(@$_) }
+sub ALPHA_T { my ($metv,$mhtv) = map {( ${ ((defined $$_[0]) ? ( scalar &LORENTZ($$_[0],1,1,!1)) : ( &MET(@_[0,1]))) || ( return undef ) }[0],
+	((defined $$_[1]) ? ( &MAX(0,$$_[1])) : ( grep {((defined) or ( return undef ))} ( &MHT( 1, @_[0,1])))))} [(shift,shift)]; ( map { &RATIO(@$_) }
 		map {[ ( &MAX( 0, (($mhtv) - ( abs ( $$_[1] - $$_[0] ))))), 2*( sqrt ( &MAX( 0, (($mhtv)**2 - ($metv)**2)))) ]}
-			[ grep { (defined) or (return undef) } ( &MHT( 1, (shift)), &MHT( 1, (shift))) ] )[0] }
+			[ grep {((defined) or ( return undef ))} ( &MHT( 1, (shift)), &MHT( 1, (shift))) ] )[0] }
 
 # Returns the delta phi statistic for a list of [4-vector] momenta components or lhco objects; Independent met [4-vector] or undef is leading parameter
-sub MET_DELTA_PHI { my ($metv) = map { ((defined) ? ( scalar &LORENTZ($_,1,1,!1)) : ( &MET(@_))) or (return undef) } (shift);
-	( &MIN( map { &DELTA_PHI($metv,$_) } map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (@_))) }
+sub MET_DELTA_PHI { my ($metv) = map { ((defined) ? ( scalar &LORENTZ($_,1,1,!1)) : ( &MET(@_))) or ( return undef ) } (shift);
+	( &MIN( map { &DELTA_PHI($metv,$_) } map { ( &LORENTZ($_,1,1,!1)) or ( return undef ) } (@_))) }
 
 # Returns the biased delta phi statistic for a list of [4-vector] momenta components or lhco objects; Independent met [4-vector] or undef is leading parameter
-sub BIASED_DELTA_PHI { my ($metv) = map { ((defined) ? ( scalar &LORENTZ($_,1,1,!1)) : ( &MET(@_))) or (return undef) } (shift);
-	( &MIN( map { ( &DELTA_PHI(( scalar &LORENTZ_SUM([1,1,!1],$metv,$_)), $_ )) } map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (@_))) }
+sub BIASED_DELTA_PHI { my ($metv) = map { ((defined) ? ( scalar &LORENTZ($_,1,1,!1)) : ( &MET(@_))) or ( return undef ) } (shift);
+	( &MIN( map { ( &DELTA_PHI(( scalar &LORENTZ_SUM([1,1,!1],$metv,$_)), $_ )) } map { ( &LORENTZ($_,1,1,!1)) or ( return undef ) } (@_))) }
 
 # Returns the cosine of the theta-star angle for a pair of [4-vector] momentum components or lhco objects
 sub COSINE_THETA_STAR { (( map {( &RATIO(($$_[0]-$$_[1]),($$_[0]+$$_[1])))} map {[ ( exp(+$_)), ( exp(-$_)) ]} grep {(defined)}
-	( &DELTA_ETA( map {(( scalar &LORENTZ($_,!1,1,!1)) or (return undef))} ((shift),(shift))) / 2 )), (undef))[0] }
+	( &DELTA_ETA( map {(( scalar &LORENTZ($_,!1,1,!1)) or ( return undef ))} ((shift),(shift))) / 2 )), (undef))[0] }
 
 # Returns the lepton W-projection statistic for a massless [4-vector] momentum component set or lhco object and independent met
 sub LEP_W_PROJECTION { ( return &RATIO((($$_[0][0]*$$_[1][0]) - ( &LORENTZ_PRODUCT(@$_[0,1],-1,1))), $$_[0][0]**2, NIL )) for
-	[ map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (( scalar &LORENTZ_SUM([!1,!1,!1,-1],@_[0,1])), $_[1] ) ]; }
+	[ map { ( &LORENTZ($_,1,1,!1)) or ( return undef ) } (( scalar &LORENTZ_SUM([!1,!1,!1,-1],@_[0,1])), $_[1] ) ]; }
 
 # Returns the transverse thrust shape statistics for a list of [4-vector] momenta components or lhco objects; Independent mht or undef is leading parameter
 sub THRUST_SHAPE { my ($mhtv,@vcts) = (( map { (defined) ? ( &MAX(0,$_)) : ( grep { (defined) or (return (undef,undef)) } ( &MHT( !1, @_))) } (shift)),
@@ -1410,22 +1413,22 @@ sub THRUST_SHAPE { my ($mhtv,@vcts) = (( map { (defined) ? ( &MAX(0,$_)) : ( gre
 			grep { push @$_, $$_[0]+PIE; 1 } [ ( sort { our ($a,$b); ($a <=> $b) } map {( &PRINCIPAL_RAD(($$_[1]+PIE/2),1))} (@vcts)) ])[0] }
 
 # Returns the transverse spherocity shape statistic for a list of [4-vector] momenta components or lhco objects; Independent mht or undef is leading parameter
-sub SPHEROCITY_SHAPE { my ($mhtv,@vcts) = (( map { (defined) ? ( &MAX(0,$_)) : ( grep { (defined) or (return undef) }
-	( &MHT( !1, @_))) } (shift)), ( grep {($$_[2] > 0)} map { ( &ETA_PHI_PTM_MAS($_)) || (return undef) } (@_)));
+sub SPHEROCITY_SHAPE { my ($mhtv,@vcts) = (( map { (defined) ? ( &MAX(0,$_)) : ( grep {((defined) or ( return undef ))}
+	( &MHT( !1, @_))) } (shift)), ( grep {($$_[2] > 0)} map { ( &ETA_PHI_PTM_MAS($_)) || ( return undef ) } (@_)));
 	( return ((defined) ? ((PIE/2)*$_)**2 : (undef))) for map {( &RATIO($_,$mhtv))} (( sort { our ($a,$b); ($a <=> $b) } map {
 		my ($p) = $$_[1]; ( &SUM( map {( $$_[2]*( abs ( sin ($$_[1]-$p))))} (@vcts))) } (@vcts)), undef )[0] }
 
 # Returns the transverse sphericity shape statistic for a list of [4-vector] momenta components or lhco objects
 sub SPHERICITY_SHAPE { ( return ((defined) ? ( 1 - ( sqrt ( &MAX(0,(1-$_))))) : (undef))) for
 	map { ( &RATIO( 4*( &Local::MATRIX::DETERMINANT($_)), ( &Local::MATRIX::TRACE($_))**2 )) }
-	map { ( scalar ( &Local::MATRIX::INNER_PRODUCT(( scalar &Local::MATRIX::TRANSPOSE($_)), $_ ))) or (return undef) } [ map {
-		($$_[0] > 0) ? [ @$_[1,2]] : () } map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (@_) ] }
+	map { ( scalar ( &Local::MATRIX::INNER_PRODUCT(( scalar &Local::MATRIX::TRANSPOSE($_)), $_ ))) or ( return undef ) } [ map {
+		($$_[0] > 0) ? [ @$_[1,2]] : () } map { ( &LORENTZ($_,1,1,!1)) or ( return undef ) } (@_) ] }
 # TEST this calculation ...
 
 # Returns the transverse event shape F-statistic for a list of [4-vector] momenta components or lhco objects
 sub F_MATRIX_SHAPE { ( return &RATIO( sort { our ($a,$b); ($a <=> $b) } ( &QUAD_REAL_ROOTS([ ( &Local::MATRIX::DETERMINANT($_)), -1*( &Local::MATRIX::TRACE($_)), +1 ])))) for
-	map { ( scalar &Local::MATRIX::INNER_PRODUCT(( scalar &Local::MATRIX::TRANSPOSE($_)), $_ )) or (return undef) } [ map { my ($s) = ( sqrt ( &MAX(0,$$_[0])));
-		($s > 0) ? [ map {( $_ / $s )} (@$_[1,2]) ] : () } map { ( &LORENTZ($_,1,1,!1)) or (return undef) } (@_) ] }
+	map { ( scalar &Local::MATRIX::INNER_PRODUCT(( scalar &Local::MATRIX::TRANSPOSE($_)), $_ )) or ( return undef ) } [ map { my ($s) = ( sqrt ( &MAX(0,$$_[0])));
+		($s > 0) ? [ map {( $_ / $s )} (@$_[1,2]) ] : () } map { ( &LORENTZ($_,1,1,!1)) or ( return undef ) } (@_) ] }
 
 # Returns the girth statistic computed for an input list of [4-vector] momenta components or lhco objects
 sub GIRTH { my ($axis) = (( &LORENTZ_SUM((undef), ( my (@vcts) = ( grep {( $$_{ptm} > 0 )}
@@ -1470,22 +1473,34 @@ sub N_SUBJETTINESS { my ($rad,$pow,$alp,$bet,$pad,$pts) = (
 sub R_SUBJETTINESS { my (@nsj) = ( @{(( &N_SUBJETTINESS( map { (($$_[1]) = ( 1 + ( &MAX( 0, ( int $$_[1] ))))); (@$_) } [ @_[0..2]] )) || (return))} );
 	( grep {((wantarray) or ( return $_ ))} [ map { my ($i) = $_; ( &RATIO( @nsj[(($i),($i-1))] )) } ((1)..(@nsj-1)) ] ) }
 
-# Master diobject reconstruction engine for optimization against invariant mass window specification serving lepton and jet subroutines
-sub DIOBJECTS { my ($win,$ord,$prs,$obj) = do { my ($t) = ( int shift ); my (@t) = map {((@$_) ? (@$_) : [ 0, (undef) ] )} [
-	map {[ 0+(shift @$_), ( map {((defined) ? (0+ $_ ) : (undef))} (shift @$_)), ( grep {( ref eq q(CODE))} (shift @$_)) ]}
-	grep {(( ref eq q(ARRAY)) or (return))} map {(( ref eq q(ARRAY)) ? (@$_) : ())} (shift) ]; ((\@t),
-		(($t > 0) ? ((undef), $t ) : ($t) ? ((undef),(undef)) : ([ ( &ORDERINGS([0..(@t-1)])) ],0+@t))) };
-	my (@vcts) = grep {(( &LORENTZ($_)) || (return))} (@_); ( map { (shift @$_); (@$_) } grep {(defined)}
-		( &CMP( sub ($$) { my ($a,$b) = @_; (( @$b <=> @$a ) or ( $$a[0] <=> $$b[0] )) }, ( grep {( defined $$_[0] )}
-		map { my ($t) = $_; [ ( &MIN( grep {(defined)} map {( &NORM(@$_))} map { my (@t) = @$_;
-			[ map {( $$t[$_][$t[$_]] )} (0..(@$t-1)) ]} (@{($ord)||[[(0)x(@$t)]]}))), ( map {[ @$_[((-3)..(-1))]]} (@$t)) ] }
-		map {[ grep {(($prs) or ( defined $$_[0] ))} map { $$obj[$$_[0]][$$_[1]] ||= do {
-			my ($obj,$mas) = ( &LORENTZ_SUM((undef), ( my (@obj) = @vcts[@$_] )));
-			my (@t) = map { my ($t) = ( abs ($mas-$$_[0])); (((($$_[2]) or ( sub { 1 } )) -> (@obj)) ? (( defined $$_[1] ) ?
-			( map {(((defined) && ($_ <= 1)) ? ($_) : (undef))} ( &RATIO(($t,( abs $$_[1] ))[($$_[1]>=0)?(0,1):(1,0)]))) :
-			( sqrt (1+$t**2))) : (undef)) } (@$win); [ (($ord) ? (@t) : ( &MIN( grep {(defined)} (@t)))), @obj, $obj ] }} (@$_) ]}
-		map {( &SETS(2,$_))} ( &TUPLES(2*(($prs)||( int (@vcts/2))),[0..(@vcts-1)])) )))) }
-#THERE ... N_OBJECTS; multiples, sort, handling ...
+# Master n-object reconstruction engine for optimization against invariant mass window specifications serving lepton and jet subroutines
+sub N_OBJECTS { my (@vct) = ( grep {(( &LORENTZ($_)) or (return))} map {(( ref eq q(ARRAY)) ? (@$_) : (return))} (shift)); my ($win,$set,$num,$ord) =
+	do { my ($win,$set,$num) = ( [ map {((@$_) ? (@$_) : [ undef, undef ] )} [ map {(( ref eq q(ARRAY)) ? [ ( &MAX( 0, $$_[0] )),
+		( &MAX( $$_[1] )), ( grep {( ref eq q(CODE))} ( $$_[2] )) ] : (return))} map {(( ref eq q(ARRAY)) ? (@$_) : ())} (shift) ]],
+		( map {((( int shift @$_ ) or (2)), ( int shift @$_ ))} map {[ ( ref eq q(ARRAY)) ? (@$_) : ($_) ]} (shift)));
+		( $win, $set, (( $num == 0 ) ? ((0+ @$win ), [ &ORDERINGS( [0..(@$win-1)] ) ] ) : ( &MAX( 0, $num )))) }; my (%obj);
+	( map { ( shift @$_ ); ((wantarray) ? (@$_) : ( return ( shift @$_ ))) } (( &CMP(
+		( sub ($$) { my ($a,$b) = @_; ( &SORT_LIST_NUM( $$a[0], $$b[0] )) } ),
+		( map { my ($obj) = $_; map { my (@obj) = ( @$obj[@$_] ); my ($sum) = ( scalar &Local::TENSOR::SUM(
+			my (@ord) = ( map { my ($i) = $_; map {(($ord) ? ($$_[$i]) : ($_))} ($obj[$i][0]) } (0..(@obj-1)))));
+			(($sum) ? [ ($sum), [ map {( $$_[1] )} (@obj) ], [ map {( $$_[2] )} (@obj) ], [ map {( sqrt $$_[1] )} (@ord) ]] : ()) }
+			( @{ ($ord) or [[ sort { our ($a,$b); ( &SORT_LIST_NUM( $$obj[$a][0], $$obj[$b][0] )) } (0..(@$obj-1)) ]] } ) }
+		( map { [ grep {(($ord) or ($num) or ($$_[0]))} map { $obj{ join q(), @$_ } ||= do { my (@idx) = (@$_);
+			my ($obj,$mas) = ( &LORENTZ_SUM((undef), ( my (@obj) = @vct[@idx] ))); my (@win) = ( map { (($obj) ? ( do {
+				my ($trg,$wdt,$sub) = (@$_); my ($dms) = (( $mas - ( &DEFINED( $trg, 0 ))) ** 2 );
+				( scalar &Local::VECTOR::OBJECT(((($sub) or ( sub { 1 } )) -> (@obj)) ? (( defined $trg ) ?  (( defined $wdt ) ?
+					( map {(((defined) && ( $_ <= 1 )) ? [ -1, $_, 0, 0, -1, ((-$wdt) * ( abs $wdt )), 0, 0 ] : (undef))}
+					( &RATIO(( $dms, ( $wdt * $wdt ))[ ( $wdt >= 0 ) ? (0,1) : (1,0) ]))) : [ -1, 0, -1, $dms, 0, 0, 0, 0 ] ) :
+					[ -1, 1, 0, 0, 0, 0, -1, (-$dms) ] ) : (undef))) } ) : (undef)) } (@$win));
+			[ (($ord) ? \@win : ( &CMP(( \&SORT_LIST_NUM ), ( grep {(defined)} (@win))))), $obj, \@idx ] }} (@$_) ] } (( $set < 0 ) ?
+		( map {( &TUPLES((($num) or (0+ @vct )), $_ ))} ( &PARTITIONS((($num) ? ( 1 + $num ) : (0+ @vct )), [0..(@vct-1)] ))) :
+		( map {( &SETS( $set, $_ ))} ( &TUPLES( $set * (($num) || ( int ( @vct / $set ))), [0..(@vct-1)] )))))))) or (return))) }
+# vct: [list] of [4-vector] or lhco objects; win: [[ target, width, sub ], ... ]; set: set or [ set, num ]
+# Defaults to single unfiltered search with undefined (max) mass and (inf) width; negative widths exclude
+# Zero num defaults to one match per each win; negative num seeks maximal count of matched sets
+# Zero set size defaults to 2 (diobjects); negative set size scans all object partitions
+# Sort is by minimal sum-square relative mass deviation; ties reference width and absolute deviation
+# Object subsets and normed deviations are returned in list context; Sort is by window order or fit
 
 # Returns a list of pseudo-jets reconstructed from a list of [4-vector] momenta components or lhco objects by specified mode
 sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )} map {[ ( ref eq q(ARRAY)) ? (@$_) : ($_) ]} (shift)));
@@ -1526,6 +1541,12 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 		( [ map {( scalar &LORENTZ($_))} ( @jet, ( map {($$_{RAW})} (($obj)->LEAVES()))) ],
 			[ @pad, ( map {( $idx[$_] || [$_] )} map {( $$_{LID} - 1 )} (($obj)->LEAVES())) ], [ reverse @aux ] ) } ],
 
+	WIN => [ undef, PRT, sub { # A list of pseudo-jets reconstructed by optimization against sets of pair-wise invariant mass window specifications
+		my ($win,$set) = ( &GROUPS((shift), [ 2, 1 ] )); ( &N_OBJECTS((shift), $win, $set )) } ],
+
+	DIL => [ undef, PRT, sub { # A list of dileptons reconstructed by optimization against quartets of sign, flavor, and invariant mass window specifications
+		my ($win) = ( &GROUPS((shift), [ 4, 1 ], ( sub { my ($t) = (shift); [ ( @$t[2,3] ), ( &SELECT_DIL_CODE( @$t[0,1] )) ] } ))); ( &N_OBJECTS((shift), $win )) } ],
+
 	LND => [[!1,1,!1], [TUP,2,+1], sub { # A pair of massless pseudo-jets reconstructed by the Lund hemisphere algorithm
 		(shift); my (@vcts) = map {[0,$_]} @{(shift)}; my ($axis,%axis) = map {(shift @$_)} (( &CMP( sub ($$) { my ($a,$b) = @_;
 			($$b[1] <=> $$a[1]) }, ( map {[ $_, &INVARIANT_MASS(@$_) ]} ( &TUPLES( 2, [ map { $$_[1] } (@vcts) ] ))))) or (return));
@@ -1545,26 +1566,14 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 			( map {[ @$_, ( abs ( &MHT( 1, @{ $$_[1]}) - &MHT( 1, @{ $$_[0]}))) ]} grep {( $$_[2] < (0+@vcts))}
 			map {[ @$_, ( abs ( @{ $$_[1]} - @{ $$_[0]} )) ]} ( &PARTITIONS( 2, \@vcts ))))) or (return))}[0,1]], (undef,undef)) } ],
 
-	WIN => [ undef, PRT, sub { # A list of pseudo-jets reconstructed by optimization against sets of pair-wise invariant mass window specifications
-		( [ map {($$_[-1])} ( &DIOBJECTS((( &GROUPS( [ 2,-1], (shift))), (undef))[1,0], @{(shift)} )) ], (undef,undef)) } ],
-
-	DIL => [ undef, PRT, sub { # A list of dileptons reconstructed by optimization against quartets of sign, flavor, and invariant mass window specifications
-		( [ map {($$_[-1])} ( &DIOBJECTS((( &GROUPS( [4,-1], (shift), ( sub { my ($t) = (shift);
-			[ (@$t[2,3]), ( &SELECT_DIL_CODE(@$t[0,1])) ] } ))), (undef))[1,0], @{(shift)} )) ], (undef,undef)) } ],
-
 	SUM => [ undef, undef, sub { # A pseudo-jet reconstructed by an optionally transverse, massless, inverse, or flush Lorentz sum
 		my ($tmif) = (shift); my (@vcts) = @{(shift)}; ( [ ( &LORENTZ_SUM($tmif,@vcts)) or (return) ], (undef,undef)) } ],
+
 	TMI => [ ($par), undef, sub { # A list of pseudo-jets modified for transverse, massless, inverse, or flush kinematics
 		((shift,shift)[1], (undef,undef)) } ],
+
 	}}{$mod} || [ undef, undef, sub {} ] )) } : do { my (%sort) = do { my ($i); ( map {( $_ => $i++ )} (@_)) };
 		( map {[[ sort { our ($a,$b); ( $sort{$a} <=> $sort{$b} ) } (@$_) ], (undef,undef) ]} ((( ${{
-### TO BE DEPRECATED ...
-	WIN => sub { # A list of objects selected by optimization against sets of pair-wise invariant mass window specifications
-		[ map {(@$_[0,1])} ( &DIOBJECTS((( &GROUPS( [2,-1], (shift))), (undef))[1,0], @{(shift)} )) ] },
-	DIL => sub { # A list of leptons selected by optimization against quartets of sign, flavor, and invariant mass window specifications
-		[ map {(@$_[0,1])} ( &DIOBJECTS((( &GROUPS( [4,-1], (shift), ( sub { my ($t) = (shift);
-			[ (@$t[2,3]), ( &SELECT_DIL_CODE(@$t[0,1])) ] } ))),(undef))[1,0], @{(shift)} )) ] },
-###
 	VBF => sub { # The inner pair of opposite hemisphere objects, or optionally the highest mass pair; Minimal pseudorapidity gap is leading parameter
 		my ($deta,$minv) = map {($_,0+(0,+1)[$$_[2]])} (shift); my (@vcts) = grep { 0+(@$_) or (return) } map {( [ grep {($$_[1] < 0)} (@$_) ],
 			[ grep {($$_[1] >= 0)} (@$_) ] )} [ sort { our ($a,$b); ($$a[1] <=> $$b[1]) } map {[ $_, ${ ( &ETA_PHI_PTM_MAS($_)) || (return) }[0]]} @{(shift)} ];
@@ -1574,9 +1583,9 @@ sub HEMISPHERES { my ($hsp,$mod,$par) = ((! (shift)), ( map {((shift @$_), $_ )}
 		my ($len,$end,$sub,@key) = map { (( map { ((abs), ($_ <=> 0)) } (( int ( shift @$_ )) || 1 )),
 			( map {(( shift @$_ ), ( map {( lc (( ref eq q(HASH)) ? (keys %$_)[0] : qq($_)))} (@$_)))} map {[
 				( ref eq q(ARRAY)) ? (@$_) : (defined) ? ( sub {(shift)} , $_ ) : () ]} ( shift @$_ ))) } (shift);
-		[ splice ( @{(($sub) ? [ map {( shift @$_ )} sort { our ($a,$b); $end*( $$b[1] <=> $$a[1] ) }
+		[ splice ( @{(($sub) ? [ map {( shift @$_ )} sort { our ($a,$b); ( $end * ( $$b[1] <=> $$a[1] )) }
 			map {[ $_, (($sub)->( @{ ( &LORENTZ_HASH(undef,$_)) || +{}}{ @key } )) ]} @{(shift)} ] :
-			($end < 0) ? [ reverse @{(shift)} ] : (shift))}, 0, $len ) ] },
+			( $end < 0 ) ? [ reverse @{(shift)} ] : (shift))}, 0, $len ) ] },
 	}}{$mod} || sub {} ) -> ( $par, [ &LORENTZ_CLIP(PRT,@_) ] )) || (return))) } : [[ @_ ], (undef,undef) ] )) }
 # THERE ... complete integration of subjets / multiple pads + aux variables
 
@@ -1644,7 +1653,7 @@ sub RAW_STRING { 'r"'.(( map {( join '" "\n" r"', map {( join '" "\"" r"', ( spl
 	};
 
 # Returns the transformation of a user specified string with escape codes replaced by their corresponding values
-sub UNESCAPE_STRING { my ($str) = map { ((defined) and !(ref)) ? qq($_) : (return undef) } (shift);
+sub UNESCAPE_STRING { my ($str) = map { ((defined) and !(ref)) ? qq($_) : ( return undef ) } (shift);
 	$str =~ s/<((?i:[A-Z][A-Z\d]{2}))>/$$map{uc $1}/g; ($str) }
 
 # Returns a Python-styled raw string with LaTeX formatting of key-index pairs
@@ -1662,12 +1671,12 @@ sub REX_LIST { my ($mod) = 0+(0..2)[(shift)]; my ($ref,$str) = map {(\($_),( qq(
 		()) } for ( map { ( ref eq q(ARRAY)) ? ($_) : [$_] } (@_)); () }
 
 # Returns a closure encapsulating evaluation of an input function at an indexed point in the domain
-sub INDEXED_FUNCTIONAL { my ($sub,@vls) = (( map { ( ref eq q(CODE)) ? ($_) : (defined) ? (return undef) : sub {(shift)}} (shift)),(@_));
-	sub { ( scalar (($sub) -> ( @{ ( grep { ( ref eq q(ARRAY)) or (return undef) } (shift))[0] }[ @vls ] ))) }}
+sub INDEXED_FUNCTIONAL { my ($sub,@vls) = (( map { ( ref eq q(CODE)) ? ($_) : (defined) ? ( return undef ) : sub {(shift)}} (shift)),(@_));
+	sub { ( scalar (($sub) -> ( @{ ( grep { ( ref eq q(ARRAY)) or ( return undef ) } (shift))[0] }[ @vls ] ))) }}
 
 # Returns a closure encapsulating evaluation of an input function at a hashed point in the domain
-sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or (return undef) } (shift)), ( grep { ( ref eq q(CODE)) or !(defined) or (return undef) } (shift)));
-	( &INDEXED_FUNCTIONAL( $sub, ( grep { (defined) or (return undef) } map { ( ref eq q(HASH)) ? ( $$idx{( sprintf q(%3.3s_%3.3i), %$_ )} ) : (undef) } (@_)))) }
+sub HASHED_FUNCTIONAL { my ($idx,$sub) = (( grep { ( ref eq q(HASH)) or ( return undef ) } (shift)), ( grep { ( ref eq q(CODE)) or !(defined) or ( return undef ) } (shift)));
+	( &INDEXED_FUNCTIONAL( $sub, ( grep {((defined) or ( return undef ))} map { ( ref eq q(HASH)) ? ( $$idx{( sprintf q(%3.3s_%3.3i), %$_ )} ) : (undef) } (@_)))) }
 
 # Returns the compound evaluation or closure encapsulation of an input operation string
 {; my ($rex); sub STRING_FUNCTIONAL { my ($str,$vls,@map) = (
@@ -1873,11 +1882,11 @@ sub LIST { my ($ino,$pth,$nam,$lvl,$flt,$fil) =
 # Reentry into self-referential directory trees is prohibited 
 
 # Returns the normalized path string corresponding to an input path object, optionally creating path or enforcing writeability
-sub PATH { my ($i); my ($pth,$mod,$msk,$str) = ( [ map {(($_).q(/))} map { (/^(?:|\.|(\.\.)|([\w-]+)|(~))$/) or (return undef);
-	(($i++) ? (($3) ? (return undef) : (($2) or ($1)) ? ($_) : ()) : ((($2) ? ( q(.)) : ()), ($_))) }
+sub PATH { my ($i); my ($pth,$mod,$msk,$str) = ( [ map {(($_).q(/))} map { (/^(?:|\.|(\.\.)|([\w-]+)|(~))$/) or ( return undef );
+	(($i++) ? (($3) ? ( return undef ) : (($2) or ($1)) ? ($_) : ()) : ((($2) ? ( q(.)) : ()), ($_))) }
 		(( map {( split /\//, $_, -1 )} map { ( ref eq q(ARRAY)) ? (@$_) : ($_) } (shift)), ( q(.))) ],
 	0+(0,1,2)[(shift)], (( grep {(($_ >= 0) && ($_ <= 04777))} map { (/^0/) ? (oct) : (defined) ? 0+($_) : () } (shift)), 00777 )[0] );
-	while (@$pth) { $str .= ( shift @$pth ); (return undef) unless (( -d $str ) ? ((@$pth) || (($mod) ? ( -w $str ) : ( -r $str ))) :
+	while (@$pth) { $str .= ( shift @$pth ); ( return undef ) unless (( -d $str ) ? ((@$pth) || (($mod) ? ( -w $str ) : ( -r $str ))) :
 		(($mod > 1) && !( -e $str ) && ( mkdir $str, $msk ) && ( -w $str ))) } ($str) }
 # Acceptable path elements are '', '.', '..', '~', corresponding to root, current, parent, and home, and also word characters with dashes
 # '~' may be leading only; '' and '.' are omitted if not leading; '.' is prefixed if word characters are leading
@@ -1950,13 +1959,13 @@ sub DESTROY { do { (($_) eq (select)) && ( select STDOUT ); ( return ( close $_ 
 sub NEW { my ($obj) = ( bless +{} ); @$obj{( qw( HDIM BINC LEFT SPEC TNSR ))} = ( map {((@$_), ( scalar &Local::TENSOR::OBJECT((undef), 0, @{$$_[1]} )))}
 	(( &::ISA( 1, $_[0], __PACKAGE__ )) ? [ map {( &::CLONE($_))} @{$_[0]}{( qw( HDIM BINC LEFT SPEC ))} ] : [
 	map { my ($t) = $_; ( 0+(@$t), ( map { my ($i) = $_; [ map {($$t[$_][$i])} (0..(@$t-1)) ] } (0..2)))} [ map { my ($i);
-	my ($bnc,$lft,$rgt,$spn,$bns,@spc) = ((2), ( grep { (@$_) ? (( @$_ == 1 ) or (( $i ||= @$_ ) == @$_ ) or (return undef)) :
-	( push @$_, (undef)) } map { ( ref eq q(ARRAY)) ? ($_) : [$_] } (@$_[0..3]))); (((( my $l ) = (@$lft)) == 1 ) or (return undef));
+	my ($bnc,$lft,$rgt,$spn,$bns,@spc) = ((2), ( grep { (@$_) ? (( @$_ == 1 ) or (( $i ||= @$_ ) == @$_ ) or ( return undef )) :
+	( push @$_, (undef)) } map { ( ref eq q(ARRAY)) ? ($_) : [$_] } (@$_[0..3]))); (((( my $l ) = (@$lft)) == 1 ) or ( return undef ));
 	for my $j (0..(($i)&&($i-1))) { my ($r,$s,$b) = map {( $$_[(@$_-1)&&($j)] )} ($rgt,$spn,$bns);
 	($s,$b) = map {( &::MAX(0,$_))} ((0+ $s ),( int $b )); (defined $r) && ($r > $l) &&
 	(($s) ? ( $b = ( int &::RATIO(($r-$l),$s))) : ( $s = (0+ &::RATIO(($r-$l),$b)))); ($s) && ($b) or (next);
 	push @spc, [ $s, $b, 0+($l), ($l += $s*$b), 0+($bnc), ($bnc += $b) ] } $bnc++; [ 0+$bnc, 0+( shift @$lft ), \@spc ] }
-	( grep {(( ref eq q(ARRAY)) or (return undef))} (( ref $_[0] ) ? (@_) : ( map {($_[1])} (1..( int $_[0] ))))) ]] )); ($obj) }
+	( grep {(( ref eq q(ARRAY)) or ( return undef ))} (( ref $_[0] ) ? (@_) : ( map {($_[1])} (1..( int $_[0] ))))) ]] )); ($obj) }
 
 # Method for the population of object bins by an input list of values
 sub BIN { my ($obj) = (shift); my ($dim,$bnc,$lft,$spc,$tns) = @$obj{( qw( HDIM BINC LEFT SPEC TNSR ))};
@@ -1992,7 +2001,7 @@ sub CENTERS { my ($obj) = (shift); grep {((wantarray) or (return $_))} map { my 
 sub OBJECT { ( &Local::TENSOR::OBJECT( __PACKAGE__, (shift), ( map {((defined) ? ((int) or (return)) : (undef))} (shift)), 0 )) }
 
 # Returns the cartesian scalar product of two input VECTOR objects
-sub INNER_PRODUCT { ( my ($a,$e) = ( &OBJECT(shift))) or (return undef); my ($b) = ( &OBJECT((shift),$e) || (return undef));
+sub INNER_PRODUCT { ( my ($a,$e) = ( &OBJECT(shift))) or ( return undef ); my ($b) = ( &OBJECT((shift),$e) || ( return undef ));
 	( &::SUM( map { $$a[$_]*$$b[$_] } (0..($e-1)))) }
 
 # Returns the row vector times matrix inner product of input vector and MATRIX objects; includes dimension in list context
@@ -2052,7 +2061,7 @@ sub INVERSE { ( my ($m,$e) = ( &OBJECT((shift),(undef),-1))) or (return); ( &SOL
 sub DETERMINANT { ( scalar &SOLVE(shift)) }
 
 # Returns the trace of an input square MATRIX object
-sub TRACE { ( my ($m,$e) = ( &OBJECT((shift),(undef),-1))) or (return undef); ( &::SUM( map { $$m[$_][$_] } (0..($e-1)))) }
+sub TRACE { ( my ($m,$e) = ( &OBJECT((shift),(undef),-1))) or ( return undef ); ( &::SUM( map { $$m[$_][$_] } (0..($e-1)))) }
 
 # Returns coordinate inversions of input square coefficient matrix and augmenting solution MATRIX objects; includes dimension in list context
 sub SOLVE { (( my ($m,$r,$c) = ( &TRANSPOSE([ @{(( &TRANSPOSE(( &::CLONE(shift)),(undef),-1)) or (return))}, ( map {
@@ -2182,17 +2191,17 @@ sub STRING { ( my ($o,$d) = ( map {( &OBJECT(( blessed $_ ), ($_)))} (shift))) o
 
 # Returns an array reference format copy of polynomial object normalized for numerical entries and nonzero leading coefficent
 sub OBJECT { ( return ( bless $_ )) for grep { my ($t) = 0+(shift); ( pop @$_ ) while ((@$_) && (( abs $$_[-1] ) <= ($t))); 1 }
-	map {[ ( &::ISA( 0, $_, q(ARRAY))) ? ( map {(0+$_)} (@$_)) : (defined) ? (0+$_) : (return undef) ]} (shift); }
+	map {[ ( &::ISA( 0, $_, q(ARRAY))) ? ( map {(0+$_)} (@$_)) : (defined) ? (0+$_) : ( return undef ) ]} (shift); }
 
 # Returns the derivative of a polynomial object
-sub DERIVATIVE { (return $_) for ( grep { my ($i); (shift @$_); ($_ *= ++$i) for (@$_); 1 } (( &OBJECT(shift,shift)) or (return undef))) }
+sub DERIVATIVE { (return $_) for ( grep { my ($i); (shift @$_); ($_ *= ++$i) for (@$_); 1 } (( &OBJECT(shift,shift)) or ( return undef ))) }
 
 # Returns the sum of a list of polynomial objects
-sub SUM { my (@p) = map { ( &OBJECT($_)) or (return undef) } (@_); &OBJECT([ map { my ($i) = $_;
+sub SUM { my (@p) = map { ( &OBJECT($_)) or ( return undef ) } (@_); &OBJECT([ map { my ($i) = $_;
 	&::SUM( map { 0+$$_[$i] } (@p)) } (0..( &::MAX( map {(@$_-1)} (@p)))) ]) }
 
 # Returns the product of a pair of polynomial objects
-sub PRODUCT { my ($a,$b) = map { ( &OBJECT($_)) or (return undef) } (shift,shift);
+sub PRODUCT { my ($a,$b) = map { ( &OBJECT($_)) or ( return undef ) } (shift,shift);
 	&SUM( map { my ($t) = $_; ([ map { $_*$t } (@$a) ],( unshift @$a, 0 ))[0] } (@$b)) }
 
 # Returns the difference of a pair of polynomial objects
@@ -2205,14 +2214,14 @@ sub QUOTIENT { my ($n,$d,@q) = map { ( &OBJECT($_)) or ( return (undef,undef)) }
 	map { (wantarray) ? ($_,$n) : (return $_) } ( &SUM(@q)) }
 
 # Returns the numerical evaluation of a polynomial object at a specified coordinate
-sub EVALUATE { my ($y,$x) = ((( &OBJECT(shift)) or (return undef)),( map { (defined) or (return undef); (0+$_) } (shift)));
+sub EVALUATE { my ($y,$x) = ((( &OBJECT(shift)) or ( return undef )),( map { (defined) or ( return undef ); (0+$_) } (shift)));
 	0+( &Local::VECTOR::INNER_PRODUCT(( scalar &Local::VECTOR::POWERS($x,0+@$y)), $y )) }
 
 # Returns the count of distinct (optionally all) real polynomial object roots within specified (default infinite) inclusive bounds by the Sturm sequence method
-sub REAL_ROOTS { my ($p,$b,@s) = (( map { ( &OBJECT($_)) or (return undef) } (shift)),(shift)); do { push @s,
+sub REAL_ROOTS { my ($p,$b,@s) = (( map { ( &OBJECT($_)) or ( return undef ) } (shift)),(shift)); do { push @s,
 	grep { while ((0+@{$$_[-1]||[]}) > 1) { push @$_, ( grep { (0+@$_) or (last) } ( &PRODUCT(( &QUOTIENT( @$_[-2,-1]))[1],[-1]))) }; 1 }
 	map {[ grep {(0+@$_)} ( $_, ( &DERIVATIVE($_))) ]} ($p) } while ((0+@{$p=$s[-1][-1]||[]}) > 1); do { ( return ((defined $b) ? ( $_->($b)) : ($_))) } for
-	( &::Y_COMBINATOR( sub { my ($sub) = (shift); sub { my ($b) = ( grep { ( ref eq q(ARRAY)) or (return undef) } (shift));
+	( &::Y_COMBINATOR( sub { my ($sub) = (shift); sub { my ($b) = ( grep { ( ref eq q(ARRAY)) or ( return undef ) } (shift));
 		(defined $$b[0]) && (defined $$b[1]) && ($$b[0] > $$b[1]) && ( return &::SUM( map {( $sub->([(@$b[0..2],undef)[@$_]]))} ([-1,1,2],[0,-1,2])));
 		( &::MAX( 0, ( &::SUM( map { my (@r); map { my ($p) = $_; map { my ($j) = $_; ((+1,-1)[$j]) * ((0+$r[$j]) != 0) * ((0+$r[$j]) != ( $r[$j] =
 		(( 0+((defined $$b[$j]) ? do { my ($p,$i,$e) = ($p,0); while ((( $e = ( &EVALUATE($p,$$b[$j]))) == 0) && ((0+@$p) > 1)) { $p =
@@ -2383,7 +2392,8 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 
 # COMPLETE PAD IMPLEMENTATION IN HEMISPHERES
 # INCLUDE JET CANONICALIZATION ROUTINES ?
-# RAPIDITY, KINEMATICS, CANONICAL DELTA-PHI, ETC.
+# RAPIDITY, KINEMATICS, CANONICAL DELTA-PHI, ETC. ? ... TEST BASE OPERATION
 # GO TO PRM FOR ALL PARAMETERS ?
+# REMOVE MOST SQUARES? TEST!
 # THERE
 
