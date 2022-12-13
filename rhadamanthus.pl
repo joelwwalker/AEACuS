@@ -35,7 +35,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 	my ($hst) = (( $$crd{$hky}[$i] ) || (next HST)); do {(( exists $$hst{$_} ) or ( $$hst{$_} = $$def{$_} ))} for ( keys %{$def} );
 	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$hst{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
-	my ($obj,$eql,$wdt,$edg,$cnt) = map {( $_, ( map {( [ map {( &EQUAL(@$_))} (@$_) ], $_ )} [ ($_) -> WIDTHS() ] ),[ ($_) -> EDGES() ], [ ($_) -> CENTERS() ] )}
+	my ($obj,$eql,$wdt,$edg,$cnt) = map {( $_, ( map {( [ map {( &EQUAL_NUM(@$_))} (@$_) ], $_ )} [ ($_) -> WIDTHS() ] ),[ ($_) -> EDGES() ], [ ($_) -> CENTERS() ] )}
 		grep { (( grep {($_ > 3)} (( &Local::TENSOR::OBJECT((undef), $_ )), (undef,undef))[1..$dim] ) == $dim ) or
 			do { print STDERR 'INVALID BINNING SPECIFICATION IN HISTOGRAM '.$i."\n"; (next HST) }}
 		do { my (@t) = map {((@{$_||[]} == 1) ? do { my ($t) = @$_; [ map {[$t]} (1..$dim) ] } : ( &SPANS($dim,$_)))} @$hst{( qw( lft rgt spn bns ))};
@@ -96,27 +96,26 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 							map {( scalar &Local::FILE::SPLIT( $_, $dir ))} grep {(length)} (@{$fil||[]}) }} )) {
 
 						( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
-							do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
+							( do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) } );
 						my (undef,$nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
-						my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1));
-						my ($x) = ( ${${$nnn||[]}[0]||{}}{abs} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
+						my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1)); ($s > 0) or do { (next FIL) };
+						my ($z,$x) = ( @{${$nnn||[]}[0]||{}}{( qw( ezw abs ))} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
 						(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 						(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-						($s > 0) or do { print STDERR 'NO SURVIVING EVENTS WITH NON-ZERO WEIGHT IN FILE '.$$fil[0].$$fil[1]."\n"; (next FIL) };
 						(%{$idx||{}}) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-						my ($key) = [ map {(( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? (@$_) : ((undef),$_)))) or (
+						my ($key) = [ map {(( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ )))) or (
 							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ))} @{$key||[]}[0..($dim-1)]];
-						my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? (@$_) : ((undef),$_))} ($$_[2][0]))))) or (
+						my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ ))} ($$_[2][0]))))) or (
 								do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR HISTOGRAM '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
 							grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
 								do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN HISTOGRAM '.$i."\n"; +{}}}{( qw( key cut ))} ) ]}
 							map {((defined) ? ( int ) : ())} (@{$esc||[]});
-						my ($wgt) = map {((defined) ? (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? (@$_) :
-								((undef),((ref eq 'HASH') ? ($_) : +{ wgt => (0+ $_) } ))))) or
+						my ($wgt) = map {((defined) ? (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? ( @$_ ) :
+								((undef), ((ref eq 'HASH') ? ( $_ ) : +{ wgt => (0+ $_) } ))))) or
 							do { print STDERR 'INVALID CHANNEL WEIGHT SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ) :
 							(( &HASHED_FUNCTIONAL( $idx, (undef), +{ wgt => 0 } )) or ( sub {($w)} )))} (${$wgt||[]}[0]);
 						my ($nmx) = (( do { my ($f); ((($fix) && ( &MATCH_VALUE( [0,1], (($f) = (($w)*($ipb-$ipb{$tag})))))) ?
-							(( &ROUND(($e)*($f))), ( $ipb{$tag} = $ipb )) : (($e), ( $ipb{$tag} += $l )))[0] } ) or (next));
+							(( &ROUND(( $e + $z ) * ( $f ))), ( $ipb{$tag} = $ipb )) : (( $e + $z ), ( $ipb{$tag} += $l )))[0] } ) or (next));
 
 						push @{ $bin{$tag} ||= [] }, [ $l, ( my ($bin) = (($obj) -> NEW())) ]; local ($_); while (<$FHI>) {
 							((/^\s*$/) and (next)); ((/^\s*(\d+)/) && ($1 <= $nmx)) or (last);
@@ -126,8 +125,8 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 							[ map { (/^UNDEF$/) ? (undef) : (0+ $_) } ( split ) ]; }}
 
 					( scalar (($obj) -> SUM( map { my ($tag) = $_; my ($scl) = ( &RATIO(( &DEFINED($ipb,1)), $ipb{$tag} ));
-						if ((defined $ipb) && (($scl < 0) or ($scl > 1))) { print STDERR 'RESCALING BY '.( sprintf '%+10.3E', ($scl)) .
-							' TO TARGET LUMINOSITY OF '.( sprintf '%+10.3E', ($ipb)).' PER PB IN CHANNEL '.($tag)."\n"; }
+						if ((defined $ipb) && (($scl < 0) or ($scl > 1))) { print STDERR 'RESCALING BY '.( uc sprintf '%+10.3e', ($scl)) .
+							' TO TARGET LUMINOSITY OF '.( uc sprintf '%+10.3e', ($ipb)).' PER PB IN CHANNEL '.($tag)."\n"; }
  						map {(($scl)*($$_[0])*($$_[1]))} (@{ $bin{$tag}}) } (keys %bin)))) }
 
 				map { ( int ( &MAX(0,$_))) or do { print STDERR 'INVALID DATA SET SPECIFICATION'.$_."\n"; (last CHN) }} grep {(defined)} (@{$dat||[]}) ] }}
@@ -152,7 +151,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 				0+(0..10)[$_] } ($$hst{loc}[0]))[0],
 		CLR	=> (( @{ $$hst{clr}||[]} < 2 ) ? ((0..8)[ $$hst{clr}[0]] || (1)) :
 				('('.( join ', ', map { m/^(?:([a-z]{2,})|([0-9a-f]{6})|(\d+\.\d*|\.\d+)|(r|g|b|w|c|m|y|k))$/i ?
-				(($1)?q({):q()).q(").(($2)?q(#):q()).(($3) ? ( sprintf "%.2f", 0+( &BOUNDED([0,1],$_))) : ( lc $_ )).q(").(($1)?q(:1}):q()) :
+				(($1)?q({):q()).q(").(($2)?q(#):q()).(($3) ? ( uc sprintf "%.2f", 0+( &BOUNDED([0,1],$_))) : ( lc $_ )).q(").(($1)?q(:1}):q()) :
 				q("") } (@{ $$hst{clr}||[]})).')')),
 		HCH	=> (( @{ $$hst{hch}||[]} < 2 ) ? ((0..3)[ $$hst{hch}[0]] || (1)) : ('('.( join ', ', map { m/^[\\\/|xoO.*+-]{1,3}$/ ? q(").(
 				do { ( my $t = $_ ) =~ s/\\/\\\\/g; $t } ).q(") : q("") } (@{ $$hst{hch}||[]})).')')),
@@ -164,7 +163,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 		LGD	=> (( grep {(defined)} (@$lgd)) ? '['.( join ',', map {( q()).( &RAW_STRING($_))} (@$lgd[0..(@vls-1)])).']' : q(False)),
 		OUT	=> do { my ($d,$f,$e) = ((( &Local::FILE::PATH(( $out = q().( &DEFINED(( map {((length) ? qq($_) : ())}
 				(${$out||[]}[0])), q(./Plots/)))), 2 )) or ( die 'Cannot write to directory '.$out )),
-				( map { (/^[\w:~-]+$/) ? ($_) : ( sprintf "HST_%3.3i", $i ) } qq($$nam[0])),
+				( map { (/^[\w:~-]+$/) ? ($_) : ( uc sprintf "HST_%3.3u", $i ) } qq($$nam[0])),
 				( map { s/^\.//; ( ${{ map {( $_ => 1 )} ( qw( pdf eps svg png jpg )) }}{$_} ) ? ( q(.).($_)) : ( q(.pdf)) } ( lc $$fmt[0] )));
 				(((undef),$fpo) = map {( join q(), (@$_))} ((($$fmt[1] > 0) or (( not &CAN_MATPLOTLIB($py3)) &&
 					do { print STDERR 'CANNOT VERIFY PYTHON 2.7/3.X WITH MATPLOTLIB 1.3.0+ (DELIVERING SCRIPT LITERAL)'."\n"; 1 } )) ?
@@ -172,7 +171,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 	);
 
 	do { use Fcntl qw(:seek); local ($.,$?); my ($t,$FHO) = ( tell DATA ); ( defined $fpo ) ?
-		do { ( $FHO = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo)) } :
+		do { (($FHO) = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo)) } :
 		do { ( open $FHO, q(|-), ($pyt).q( 2>&1)) or ( die 'Cannot open pipe to Python' ) };
 		local ($_); while (<DATA>) { s/<\[(\w+)]>/$dat{$1}/g; ( print $FHO $_ ) }
 		( close $FHO ) && (($? >> 8) == 0 ) && ( defined $fpo ) && ( chmod 0755, $fpo ); ( seek DATA, $t, SEEK_SET ) }}}
@@ -192,10 +191,7 @@ if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) 
 
 import warnings as wrn; wrn.filterwarnings("ignore")
 
-import matplotlib.font_manager as mfm
-font = mfm.FontProperties( fname=( list( filter( lambda x: "/times new roman.ttf" in x.lower(), mfm.findSystemFonts(fontext="ttf")))
-	or [ mfm.findfont( mfm.FontProperties(family="serif")) ] )[0], size=12 )
-mpl.rcParams['mathtext.fontset'] = 'stix'; mpl.rcParams['font.family'] = 'STIXGeneral'
+mpl.rcParams['mathtext.fontset'] = 'cm'; mpl.rcParams['font.family'] = 'STIXGeneral'
 
 import matplotlib.pyplot as plt
 dim = <[DIM]>
@@ -291,12 +287,12 @@ if dim == 1:
 			( mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor="#DDDDDD", linewidth=1.4 ) if bold[i%b] else ()),
 			mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle=("solid","dashed")[bold[i%b]], edgecolor=color[i%c], linewidth=1.4 ))
 			for i in range(n) ]
-		lgd = ax.legend( patches, lgnd, loc=<[LOC]>, prop=font )
-		# lgd = ax.legend( patches, lgnd, loc="center right", bbox_to_anchor=(1.22, 0.5), prop=font )
+		lgd = ax.legend( patches, lgnd, loc=<[LOC]>, fontsize=12 )
+		# lgd = ax.legend( patches, lgnd, loc="center right", bbox_to_anchor=(1.22, 0.5), fontsize=12 )
 		lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1.0 ); lgd.set(zorder=n+1)
 
 	for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
-	for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontproperties(font)
+	for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontsize( 12 )
 	ax.tick_params( axis="both", which="major", zorder=0 ); ax.minorticks_on()
 
 	if ( len(widths) <= 12 and sum( x!=1.0 for x in widths ) == 0 ):
@@ -307,9 +303,9 @@ if dim == 1:
 
 	ax.set_xlim([bins[0],bins[-1]]); ax.set_ylim([ymin,ymax])
 
-	ax.set_xlabel( <[XLB]>, fontproperties=font, size=14 )
-	ax.set_ylabel( <[YLB]>, fontproperties=font, size=14 )
-	ax.set_title( ttl[0], fontproperties=font, size=17, verticalalignment="bottom" )
+	ax.set_xlabel( <[XLB]>, size=14 )
+	ax.set_ylabel( <[YLB]>, size=14 )
+	ax.set_title( ttl[0], size=17, verticalalignment="bottom" )
 
 	fig.savefig( "<[OUT]>", facecolor="white" )
 	# fig.savefig( "<[OUT]>", facecolor="white", bbox_extra_artists=(lgd,), bbox_inches="tight")
@@ -329,11 +325,11 @@ elif dim == 2:
 	cbar.ax.set_ylabel( ttl[1], rotation=270, size=16 )
 
 	for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
-	for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontproperties(font)
+	for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontsize( 12 )
 	ax.tick_params( axis="both", which="major", zorder=0 ); ax.minorticks_on()
 
 	for i in (cbar.ax.get_yticklabels()):
-		i.set_fontproperties(font)
+		i.set_fontsize( 12 )
 		i.set_horizontalalignment("right")
 		i.set_x(2.5)
 
@@ -341,9 +337,9 @@ elif dim == 2:
 	y0,y1 = ax.get_ylim()
 	ax.set_aspect((x1-x0)/(y1-y0))
 
-	ax.set_xlabel( <[XLB]>, fontproperties=font, size=16 )
-	ax.set_ylabel( <[YLB]>, fontproperties=font, size=16 )
-	ax.set_title( ttl[0], fontproperties=font, size=19, verticalalignment="bottom" )
+	ax.set_xlabel( <[XLB]>, size=16 )
+	ax.set_ylabel( <[YLB]>, size=16 )
+	ax.set_title( ttl[0], size=19, verticalalignment="bottom" )
 
 	fig.savefig( "<[OUT]>", facecolor="white" )
 
