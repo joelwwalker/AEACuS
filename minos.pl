@@ -35,7 +35,7 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$trn{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
 #	my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$trn{( qw( sum nrm per avg ))} );
-	my ($out,$inc,$exc,$ftr,$tex) = ( @$trn{( qw( out inc exc ftr tex ))} ); push @{$exc||=[]}, { wgt => (undef) };
+	my ($out,$inc,$exc,$ftr,$tex) = ( @$trn{( qw( out inc exc ftr tex ))} );
 	my ($py3) = (1,1,!1)[( ${$$trn{py3}||[]}[0] <=> 0 )]; my ($key_str,$tex_str,%tex);
 	for (0..(( int ( @{$tex||[]} / 2 )) - 1 )) { my ($k,$t) = ( $$tex[2*$_], $$tex[1+2*$_] );
 		(( ref $k eq q(HASH)) or (next)); my ($k,$v) = ( @{(( &PAIR_KEY_IDX( $k ))||[])} ); $tex{( uc $k )}[$v] = ( &RAW_STRING( $t )) }
@@ -69,10 +69,15 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 					(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 					(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 					(%{$idx||{}}) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
+					# HERE ... convert to +/- system using new PAIR_KEY_IDX and also using the existing REGEX tests of keys ...
+					# Blank index => ALL (vs. old goes to "1" to encode sign vs new auto abs int in PKI ... ) Also ... FTR needs PKI ???
+					# PKI DOES encode undef ... def is 0 or add mode to do this? check old "set to 1" for LED is gone ...
 					my (@key) = do { my ($j,@key,%idx,%inc);
 						for ( keys %$idx ) { (( m/^([a-z][a-z\d]{2})_(\d{3})$/ ) or (next)); push @{$idx{( qq($1))}||=[]}, (0+ $2); }
-						for (@{$inc||=[]}) { my ($k,$v) = (%$_); push @{$inc{$k}||=[]}, (( defined $v ) ? ($v) : (@{$idx{$k}||[]})); } ((@$inc) or ((%inc) = (%idx)));
-						for (@$exc) { my ($k,$v) = (%$_); if ( defined $v ) { $inc{$k} = [ grep {( $_ != $v )} @{$inc{$k}||[]} ] } else { delete $inc{$k}}}
+						for (@{$inc||=[]}) { for ( &PAIR_KEY_IDX( $_ )) { my ($k,$v) = (@$_);
+							push @{$inc{$k}||=[]}, (( defined $v ) ? ($v) : (@{$idx{$k}||[]})); }} ((@$inc) or ((%inc) = (%idx)));
+						for (@{$exc||=[]}) { for ( &PAIR_KEY_IDX( $_ )) { my ($k,$v) = (@$_);
+							if ( defined $v ) { $inc{$k} = [ grep {( $_ != $v )} @{$inc{$k}||[]} ] } else { delete $inc{$k}}}} ( delete $inc{wgt} );
 						do { my ($k) = ( join q(, ), ( map {($$_[0])} (@$_))); if ( not defined $key_str ) { ($key_str,$tex_str) = ( $k, ( join q(, ), ( map {($$_[1])} (@$_)))); }
 							else { ( $key_str eq $k ) or do { print STDERR 'INCONSISTENT STATISTIC INDEXES IN TRAINING CYCLE '.$i."\n"; (last CHN) }}} for [
 							map { my ($k,$v) = ((ref eq 'ARRAY') ? (( q(FTR)), (++$j)) : (( uc ((%$_)[0] )), (0+ ((%$_)[1] ))));
