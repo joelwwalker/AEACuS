@@ -1,0 +1,230 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LaTeX2e package "Cardfile" for including and formatting card files
+% Version 1.2.0 by Joel W. Walker (jwalker@shsu.edu), December 2021
+% Distributed under the GNU General Public License, Version 3
+% Current version is maintained with the AEACuS collider physics tools:
+% https://github.com/joelwwalker/AEACuS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Version requirement
+\NeedsTeXFormat{LaTeX2e}[1994/06/01]
+
+% Cardfile package definition and versioning
+\ProvidesPackage{cardfile}[2021/12/12 1.2.0 Include and Format Card Files]
+
+% Call required packages
+% http://mirror.hmc.edu/ctan/macros/latex/contrib/l3packages/xparse.pdf
+% https://ctan.math.ca/tex-archive/macros/latex/contrib/xkeyval/xkeyval.pdf
+% https://muug.ca/mirror/ctan/macros/latex/contrib/newfloat/newfloat.pdf 
+% https://mirror.csclub.uwaterloo.ca/CTAN/macros/latex/contrib/fancybox/fancybox-doc.pdf 
+% http://ctan.math.utah.edu/ctan/tex-archive/macros/latex/contrib/fancyvrb/fancyvrb.pdf
+% https://mirror.hmc.edu/ctan/macros/latex/contrib/listings/listings.pdf
+\RequirePackage{xparse}			% extended command creation syntax
+\RequirePackage{xkeyval}		% key-value package options
+\RequirePackage{newfloat}		% create custom float environments
+\RequirePackage{fancybox}		% enhanced text box environment
+\RequirePackage{fancyvrb}		% enhanced verbatim text environment
+\RequirePackage{listings}		% code syntax highlighting
+\RequirePackage[T1]{fontenc}		% 8-bit font encoding
+\RequirePackage[lighttt]{lmodern}	% Latin Modern Roman font w/ light TT
+\RequirePackage{xcolor}			% grayscale text shading 
+
+% To use the package place cardfile.sty with the .tex source and call it from the document header:
+% \usepackage[ ... options ... ]{cardfile}
+% Options are comma-delimited key=value pairs
+% Available keys and default values are described in examples following
+% The square brackets may be omitted if there are no options to be specfied
+
+% To optionally specify line numbering style (0:None, +1:Left, -1:Right):
+% \usepackage[numbers=1]{cardfile}
+\newcommand{\cardfile@numbers}{left}
+\DeclareOptionX{numbers}[1]{%
+ \ifnum#1<0 \renewcommand{\cardfile@numbers}{right} \else%
+ \ifnum#1=0 \renewcommand{\cardfile@numbers}{none} \fi \fi }
+
+% To optionally specify caption position relative to cards (0:below, +1:above):
+% \usepackage[captionposition=0]{cardfile}
+\newcommand{\cardfile@captionposition}{0}
+\DeclareOptionX{captionposition}[0]{%
+ \ifnum#1>0 \renewcommand{\cardfile@captionposition}{1} \fi }
+
+% To optionally specify caption index style (0:Alph, +1:arabic, -1:Roman):
+% \usepackage[captionnumeral=0]{cardfile}
+\DeclareOptionX{captionnumeral}[0]{%
+ \ifnum#1>0 \@namedef{thecard}{\arabic{card}} \else%
+ \ifnum#1<0 \@namedef{thecard}{\Roman{card}} \fi \fi }
+
+% To optionally specify weight of caption descriptor and index (0:plain, +1:bold):
+% \usepackage[captionweight=1]{cardfile}
+\newcommand{\cardfile@captionweight}{\bfseries}
+\DeclareOptionX{captionweight}[1]{%
+ \ifnum#1=0 \renewcommand{\cardfile@captionweight}{} \fi }
+
+% To optionally specify caption style (0:colon, +1:parens, +2:period, +3:emdash, +4:quad, -1:plain):
+% \usepackage[captionstyle=0]{cardfile}
+\newcommand{\cardfile@captionpre}{} \newcommand{\cardfile@captionpost}{:}
+\DeclareOptionX{captionstyle}[0]{%
+ \ifnum#1>3 \renewcommand{\cardfile@captionpre}{} \renewcommand{\cardfile@captionpost}{\nobreakspace\quad} \else%
+ \ifnum#1>2 \renewcommand{\cardfile@captionpre}{} \renewcommand{\cardfile@captionpost}{\nobreakspace\textemdash} \else%
+ \ifnum#1>1 \renewcommand{\cardfile@captionpre}{} \renewcommand{\cardfile@captionpost}{.} \else%
+ \ifnum#1>0 \renewcommand{\cardfile@captionpre}{(} \renewcommand{\cardfile@captionpost}{)} \else%
+ \ifnum#1<0 \renewcommand{\cardfile@captionpre}{} \renewcommand{\cardfile@captionpost}{} \fi \fi \fi \fi \fi }
+
+% To optionally specify font size of caption (0:normalsize, +1:large, -1:small, etc.):
+% \usepackage[captionfontsize=-1]{cardfile}
+\newcommand{\cardfile@captionfontsize}{\small}
+\DeclareOptionX{captionfontsize}[-1]{%
+ \renewcommand{\cardfile@captionfontsize}{\cardfile@fontsize{#1}}}
+
+% To optionally specify font size of card (0:normalsize, +1:large, -1:small, etc.):
+% The line number font size is simultaneously set two sizes smaller, if possible 
+% \usepackage[cardfontsize=-2]{cardfile}
+\newcommand{\cardfile@cardfontsize}{\footnotesize} \newcommand{\cardfile@numberfontsize}{\tiny}
+\DeclareOptionX{cardfontsize}[-2]{%
+ \renewcommand{\cardfile@cardfontsize}{\cardfile@fontsize{#1}}%
+ \renewcommand{\cardfile@numberfontsize}{\cardfile@fontsize{ \numexpr #1-2 \relax }}}
+
+% To optionally specify name of cards in captions 
+% \usepackage[cardname=Card]{cardfile}
+\DeclareOptionX{cardname}[Card]{%
+ \SetupFloatingEnvironment{card}{name=#1}}
+
+% To optionally specify name of figures in captions 
+% \usepackage[figurename=Figure]{cardfile}
+\renewcommand{\figurename}{Figure}
+\DeclareOptionX{figurename}[Figure]{%
+ \renewcommand{\figurename}{#1}}
+
+% To optionally specify name of tables in captions 
+% \usepackage[tablename=Table]{cardfile}
+\renewcommand{\tablename}{Table}
+\DeclareOptionX{tablename}[Table]{%
+ \renewcommand{\tablename}{#1}}
+
+% To optionally specify factor for proportional rescaling of line spacing:
+% \usepackage[stretch=1.0]{cardfile}
+\newcommand{\cardfile@stretch}{1.0}
+\DeclareOptionX{stretch}[1.0]{%
+ \renewcommand{\cardfile@stretch}{#1}}
+
+% To wrap a block of inline card text:
+% \begin{cardtext}[FirstIndex][CardWidth]{Caption\label{card:xxx}} ... verbatim text ... \end{cardtext}
+% Inputs with square brackets [] are optional and may be omitted (including the brackets)
+% Line labels embedded in comments are referenced \ref{line:xxx}: # Comment ... ~label`line:xxx'
+\NewDocumentEnvironment{cardtext}{ O{1} O{0.86\linewidth} m }%
+ {\VerbatimEnvironment\begin{card}%
+  \ifnum\cardfile@captionposition=1 \caption{#3} \fi%
+  \ifnum#1>0 \setcounter{FancyVerbLine}{#1} \addtocounter{FancyVerbLine}{-1} \fi%
+  \begin{Sbox}\begin{minipage}{#2}\begin{Verbatim}[%
+  commandchars=~`',xleftmargin=0pt,fontsize=\cardfile@cardfontsize,baselinestretch=\cardfile@stretch,%
+  numbers=\cardfile@numbers,numbersep=10pt,firstnumber=last,numberblanklines=false]}%
+ {\end{Verbatim}\end{minipage}\end{Sbox}%
+  \cornersize*{12pt}\setlength{\fboxsep}{6pt}%
+  \centering\ovalbox{\TheSbox}%
+  \ifnum\cardfile@captionposition=0 \caption{#3} \fi%
+  \end{card}}
+
+% \begin{cardtext*} ... \end{cardtext*} generates a card which spans a two-column environment
+\NewDocumentEnvironment{cardtext*}{ O{1} O{0.86\linewidth} m }%
+ {\VerbatimEnvironment\begin{card*}%
+  \ifnum\cardfile@captionposition=1 \caption{#3} \fi%
+  \ifnum#1>0 \setcounter{FancyVerbLine}{#1} \addtocounter{FancyVerbLine}{-1} \fi%
+  \begin{Sbox}\begin{minipage}{#2}%
+  \begin{Verbatim}[commandchars=~`',xleftmargin=0pt,fontsize=\cardfile@cardfontsize,%
+  numbers=\cardfile@numbers,numbersep=10pt,firstnumber=last,numberblanklines=false]}%
+ {\end{Verbatim}\end{minipage}\end{Sbox}%
+  \cornersize*{12pt}\setlength{\fboxsep}{6pt}%
+  \centering\ovalbox{\TheSbox}%
+  \ifnum\cardfile@captionposition=0 \caption{#3} \fi%
+  \end{card*}}
+
+% To import card text from an external file:
+% \cardfile[LineSpan][LineSkip][FirstIndex][CardWidth]{FileName}{Caption\label{card:xxx}}
+% Inputs with square brackets [] are optional and may be omitted (including the brackets)
+% Line labels embedded in comments are referenced \ref{line:xxx}: # Comment ... ~label`line:xxx'
+% \cardfile* generates a card which spans a two-column environment
+\NewDocumentCommand{\cardfile}{ s O{0} O{0} O{1} O{0.86\linewidth} m m }{%
+ \ifnum#2>0 \setcounter{CardInputLineFirst}{\value{CardInputLineLast}} \addtocounter{CardInputLineLast}{#2}%
+  \ifnum#3>0 \addtocounter{CardInputLineLast}{#3} \fi%
+ \else \cardcounterreset \fi%
+ \stepcounter{CardInputLineFirst} \ifnum#3>0 \addtocounter{CardInputLineFirst}{#3} \fi%
+ \ifnum#4>0 \setcounter{FancyVerbLine}{#4} \addtocounter{FancyVerbLine}{-1} \fi%
+ \IfBooleanTF{#1}{\begin{card*}}{\begin{card}}%
+ \ifnum\cardfile@captionposition=1 \caption{#7} \fi%
+ \cornersize*{12pt}\setlength{\fboxsep}{6pt}%
+ \centering\ovalbox{%
+ \begin{minipage}{#5}%
+ \VerbatimInput[%
+  commandchars=~`',xleftmargin=0pt,fontsize=\cardfile@cardfontsize,%
+  baselinestretch=\cardfile@stretch,numbers=\cardfile@numbers,numbersep=10pt,%
+  firstnumber=last,numberblanklines=false,%
+  firstline=\theCardInputLineFirst,lastline=\theCardInputLineLast]{#6}%
+ \end{minipage}}%
+ \ifnum\cardfile@captionposition=0 \caption{#7} \fi%
+ \IfBooleanTF{#1}{\end{card*}}{\end{card}}}
+
+% To manually reset the line counters: \cardcounterreset
+\NewDocumentCommand{\cardcounterreset}{}{ \setcounter{CardInputLineFirst}{0} \setcounter{CardInputLineLast}{0}}
+
+% Define and restyle new card float environment
+\DeclareFloatingEnvironment[name=Card,placement=htb]{card}
+
+% Index cards alphabetically
+\@namedef{thecard}{\Alph{card}}
+
+% Define line counters
+\newcounter{CardInputLineFirst}\newcounter{CardInputLineLast}
+
+% Define card syntax features 
+\lstdefinelanguage{card}{
+ morekeywords={},
+ sensitive=false,
+ morecomment=[l]{\#},
+ morestring=[b]",
+ alsoletter={}}
+
+% Set listing parameters
+\lstset{fancyvrb=true,language=card,basewidth=0.5em,morefvcmdparams=\label 1,
+ showspaces=false,showstringspaces=false,breaklines=false,breakatwhitespace=false,
+ basicstyle={\color{black}\ttfamily},stringstyle={\color{gray}\ttfamily},
+ keywordstyle={\color{black}\bfseries\ttfamily},commentstyle={\color{gray}\slshape\ttfamily}}
+
+% Hack the line number font size in FancyVrb
+\def\theFancyVerbLine{\rmfamily\cardfile@numberfontsize\arabic{FancyVerbLine}}
+
+% Internal function for setting a font size from an integer
+\newcommand{\cardfile@fontsize}[1]{%
+       \ifnum#1<-3 \tiny%
+ \else \ifnum#1=-3 \scriptsize%
+ \else \ifnum#1=-2 \footnotesize%
+ \else \ifnum#1=-1 \small%
+ \else \ifnum#1=0  \normalsize%
+ \else \ifnum#1=+1 \large%
+ \else \ifnum#1=+2 \Large%
+ \else \ifnum#1=+3 \LARGE%
+ \else \ifnum#1=+4 \huge%
+ \else             \Huge%
+ \fi \fi \fi \fi \fi \fi \fi \fi \fi }
+
+% Process package option declarations
+\ProcessOptionsX\relax
+
+% Restyle card, figure, and table environments
+\renewcommand{\fnum@card}{{\cardfile@captionweight\cardname\nobreakspace\cardfile@captionpre\thecard\cardfile@captionpost\nobreakspace}}
+\renewcommand{\fnum@figure}{{\cardfile@captionweight\figurename\nobreakspace\cardfile@captionpre\thefigure\cardfile@captionpost\nobreakspace}}
+\renewcommand{\fnum@table}{{\cardfile@captionweight\tablename\nobreakspace\cardfile@captionpre\thetable\cardfile@captionpost\nobreakspace}}
+
+% Restyle caption environment
+% Adapted from Float https://ctan.org/pkg/float?lang=en
+% and RevTex 4.2e https://journals.aps.org/revtex
+\renewcommand\@makecaption[2]{%
+ \par\vskip\ifnum\cardfile@captionposition=1\belowcaptionskip\else\abovecaptionskip\fi%
+ \begingroup\cardfile@captionfontsize\rmfamily\noindent
+ \setbox\@tempboxa\hbox{#1#2}%
+ \ifdim\wd\@tempboxa>\hsize {\let\\\@normalcr\leftskip\z@skip\rightskip\z@skip\@rightskip\z@skip\parfillskip\@flushglue#1#2\par}%
+ \else \hbox to \hsize{\hfil\box\@tempboxa\hfil} \fi \endgroup%
+ \vskip\ifnum\cardfile@captionposition=1\abovecaptionskip\else\belowcaptionskip\fi }%
+
+\endinput
+
