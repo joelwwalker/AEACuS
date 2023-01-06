@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 4.000 B_017 #
-# March 2011 - December 2022	#
+# aeacus.pl Version 4.000 B_018 #
+# March 2011 - January 2023	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -1310,7 +1310,7 @@ sub EXCLUDE_OBJECTS { my (%excl) = map {( $_ => 1 )} @{((shift) || [] )}; grep {
 sub INCLUDE_OBJECTS { my ($inc,$exc) = ( map { my ($key,$idx,$obj) = (shift,shift,shift); (
 	map {[ map {( @{ ${${$obj||+{}}{$$_[0]}||[]}[$$_[1]] || [] } )} ( @$_ ) ]}
 	map {( [ grep {( not ( $$_[2] ))} ( @$_ ) ], [ grep {( $$_[2] )} ( @$_ ) ] )} [
-		grep {( $$_[1] < $idx )} map {(( ref eq q(HASH)) ? ( &PAIR_KEY_IDX( $_, 1 )) :
+		grep {(( $idx < 0 ) or ( $$_[1] < $idx ))} map {(( ref eq q(HASH)) ? ( &PAIR_KEY_IDX( $_, 1 )) :
 			( not length ref ) ? [ $key, ( abs int ), (( int ) < 0 ) ] : ())} ( @$_ ) ] ) }
 	map {(( @$_ ) ? ( $_ ) : [ 0 ] )} [ grep {(defined)} @{(shift)||[]} ] ); ( &EXCLUDE_OBJECTS( $exc, @$inc )) }
 
@@ -1337,7 +1337,10 @@ sub IJET {( &INDEXED_OBJECTS( $_[0]{jet}, $_[1]{jet} ))};
 sub IEXO {( &INDEXED_OBJECTS( $_[0]{exo}, $_[1]{exo} ))};
 
 # Helper routine for common invocation of particle indexed objects
-sub IOBJ {(( &IPHO ),( &ILEP ),( &IJET ),( &IEXO ))}
+sub IOBJ { my (@src) = ( grep {(defined)} ( @{ $_[0]{src} || [] } ));
+	( sort ${ \( &SORT_OBJECT_LORENTZ_CODE( -1 )) } (( @src ) ?
+		( &INCLUDE_OBJECTS( \@src, (undef), -1, $_[1] )) :
+		(( &IPHO ),( &ILEP ),( &IJET ),( &IEXO )))) }
 
 # Helper routine for common invocation of met indexed value
 sub IMET {( scalar ( &INDEXED_VALUES( $_[0]{met}, $_[1]{met} )))};
