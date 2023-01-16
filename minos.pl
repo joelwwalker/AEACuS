@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# minos.pl Version 0.5 ALPHA	#
-# August '20 - December '22	#
+# minos.pl Version 0.6 ALPHA	#
+# August '20 - January '23	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -26,106 +26,101 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 		( "\t".'* Duplicative use of shelf '.$_ ))} (@$err)), q()))) if (@$err); ($crd) } ( &$OPT( q(crd))));
 
 # Perform machine learning training
-{; my ($def) = ( ${$$crd{trn}||[]}[0] || {} ); my ($cdf) = ( ${$$crd{chn}||[]}[0] || {} );
+{; my ($def) = ( ${$$crd{bdt}||$$crd{trn}||[]}[0] || {} ); my ($cdf) = ( ${$$crd{chn}||[]}[0] || {} );
 
-	TRN: for my $i (1..(@{$$crd{trn}||[]}-1)) {
+	BDT: for my $i (1..(@{$$crd{bdt}||$$crd{trn}||[]}-1)) {
 
-	my ($trn) = (( $$crd{trn}[$i] ) || (next TRN)); do {(( exists $$trn{$_} ) or ( $$trn{$_} = $$def{$_} ))} for ( keys %{$def} );
+	my ($bdt) = (( ${$$crd{bdt}||$$crd{trn}}[$i] ) || (next BDT)); do {(( exists $$bdt{$_} ) or ( $$bdt{$_} = $$def{$_} ))} for ( keys %{$def} );
 
-	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$trn{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
+	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$bdt{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
-#	my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$trn{( qw( sum nrm per avg ))} );
-	my ($out,$inc,$exc,$ftr,$tex) = ( @$trn{( qw( out inc exc ftr tex ))} );
-	my ($py3) = (1,1,!1)[( ${$$trn{py3}||[]}[0] <=> 0 )]; my ($key_str,$tex_str,%tex);
+	# my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$bdt{( qw( sum nrm per avg ))} );
+	my ($key,$inc,$exc,$tex,$out) = ( @$bdt{( qw( key inc exc tex out ))} );
+	my ($py3) = (1,1,!1)[( ${$$bdt{py3}||[]}[0] <=> 0 )]; my ($key_str,$tex_str,%tex);
 	for (0..(( int ( @{$tex||[]} / 2 )) - 1 )) { my ($k,$t) = ( $$tex[2*$_], $$tex[1+2*$_] );
 		(( ref $k eq q(HASH)) or (next)); my ($k,$v) = ( @{(( &PAIR_KEY_IDX( $k ))||[])} ); $tex{( uc $k )}[$v] = ( &RAW_STRING( $t )) }
 
 	$out = (( &Local::FILE::PATH( [ ( $out = q().( &DEFINED(( map {((length) ? qq($_) : ())} ($$out[0])), q(./Models/)))),
-		( uc sprintf "TRN_%3.3u", $i ) ], 2 )) or ( die 'Cannot write to directory '.$out ));
+		( uc sprintf "BDT_%3.3u", $i ) ], 2 )) or ( die 'Cannot write to directory '.$out ));
 
-	my (@vls) = do { my ($chn) = []; map { my ($cid,@set) = $_; CHN: {; (@set) =
+	# Read and bin data files into channels, combining like samples by luminosity and discrete samples by cross section
+	CHN: for my $cdx (0..(@{$$bdt{chn}||[]}-1)) { my ($chn) = (
+		map {(( $$crd{chn}[$_] ) or do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) } )}
+		map { ( int ( &MAX(0,$_))) or do { print STDERR 'INVALID CHANNEL SPECIFICATION'.$_."\n"; (last CHN) }}
+		grep {(((defined) && !(ref)) or (next CHN))} ( ${$$bdt{chn}||[]}[$cdx] ));
+		do {(( exists $$chn{$_} ) or ( $$chn{$_} = $$cdf{$_} ))} for ( keys %{$cdf} );
+		my ($dat,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat esc wgt lbl ))};
+		$lbl = (( q(X)) . ( sprintf  q(%02.2u), ( &BOUNDED( [0,99], ( int ( &DEFINED( ${$lbl||[]}[0], $cdx )))))));
 
-		# Read and bin data files into channels, combining like samples by luminosity and discrete samples by cross section
-		map { $$chn[$_] ||= do {
+		DAT: for (@{$dat||[]}) { my ($dir,$fil,%ipb,%FHT) = (
+			map {( @{ $$crd{dat}[$_] or do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))} )}
+			((defined) ? (( int ( &MAX(0,$_))) or do { print STDERR 'INVALID DATA SET SPECIFICATION'.$_."\n"; (last CHN) } ) : (next DAT)));
+			($dir) = ( &DEFINED(( map {((length) ? qq($_) : ())} (${$dir||[]}[0])), q(./Cuts/)));
 
-			my ($chn) = (( $$crd{chn}[$_] ) or do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) } );
-			do {(( exists $$chn{$_} ) or ( $$chn{$_} = $$cdf{$_} ))} for ( keys %{$cdf} );
-			my ($dat,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat esc wgt lbl ))}; [
-			map { my (%ipb,%FHT); my ($dir,$fil) = @{ $$crd{dat}[$_] or
-				do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))};
-				($dir) = ( &DEFINED(( map {((length) ? qq($_) : ())} (${$dir||[]}[0])), q(./Cuts/)));
-				FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{ map {((( &Local::FILE::DEVICE_INODE( $_ )) or
-						( die 'Invalid Device/Inode for file '.$$_[0].$$_[1] )) => ($_))}
-					grep {( $$_[1] =~ /^[\w-]+\.cut$/ )} map {( &Local::FILE::LIST( @$_[0,1], 0 ))}
-					grep {(( length $$_[1] ) or ( die 'Invalid file name specification in card file' ))}
-					map {( scalar &Local::FILE::SPLIT( $_, $dir ))} grep {(length)} (@{$fil||[]}) }} )) {
+			FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{ map {((( &Local::FILE::DEVICE_INODE( $_ )) or
+					( die 'Invalid Device/Inode for file '.$$_[0].$$_[1] )) => ($_))}
+				grep {( $$_[1] =~ /^[\w-]+\.cut$/ )} map {( &Local::FILE::LIST( @$_[0,1], 0 ))}
+				grep {(( length $$_[1] ) or ( die 'Invalid file name specification in card file' ))}
+				map {( scalar &Local::FILE::SPLIT( $_, $dir ))} grep {(length)} (@{$fil||[]}) }} )) {
 
-					( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
-						( do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) } );
+				( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
+					( do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) } );
+				my (undef,$nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
+				my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1)); ($s > 0) or do { (next FIL) };
+				my ($z,$x) = ( @{${$nnn||[]}[0]||{}}{( qw( ezw abs ))} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
+				(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
+				(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
+				(%{$idx||{}}) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 
-					my (undef,$nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
-					my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1)); ($s > 0) or do { (next FIL) };
-					my ($z,$x) = ( @{${$nnn||[]}[0]||{}}{( qw( ezw abs ))} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
-					(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-					(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-					(%{$idx||{}}) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-					# HERE ... convert to +/- system using new PAIR_KEY_IDX and also using the existing REGEX tests of keys ...
-					# Blank index => ALL (vs. old goes to "1" to encode sign vs new auto abs int in PKI ... ) Also ... FTR needs PKI ???
-					# PKI DOES encode undef ... def is 0 or add mode to do this? check old "set to 1" for LED is gone ...
-					my (@key) = do { my ($j,@key,%idx,%inc);
-						for ( keys %$idx ) { (( m/^([a-z][a-z\d]{2})_(\d{3})$/ ) or (next)); push @{$idx{( qq($1))}||=[]}, (0+ $2); }
-						for (@{$inc||=[]}) { for ( &PAIR_KEY_IDX( $_ )) { my ($k,$v) = (@$_);
-							push @{$inc{$k}||=[]}, (( defined $v ) ? ($v) : (@{$idx{$k}||[]})); }} ((@$inc) or ((%inc) = (%idx)));
-						for (@{$exc||=[]}) { for ( &PAIR_KEY_IDX( $_ )) { my ($k,$v) = (@$_);
-							if ( defined $v ) { $inc{$k} = [ grep {( $_ != $v )} @{$inc{$k}||[]} ] } else { delete $inc{$k}}}} ( delete $inc{wgt} );
-						do { my ($k) = ( join q(, ), ( map {($$_[0])} (@$_))); if ( not defined $key_str ) { ($key_str,$tex_str) = ( $k, ( join q(, ), ( map {($$_[1])} (@$_)))); }
-							else { ( $key_str eq $k ) or do { print STDERR 'INCONSISTENT STATISTIC INDEXES IN TRAINING CYCLE '.$i."\n"; (last CHN) }}} for [
-							map { my ($k,$v) = ((ref eq 'ARRAY') ? (( q(FTR)), (++$j)) : (( uc ((%$_)[0] )), (0+ ((%$_)[1] ))));
-								[ ( uc sprintf q("%3.3s_%3.3u"), ($k,$v)), (( defined $key_str ) ? () : ( &DEFINED(( ${$tex{$k}||[]}[$v] ), ( &LATEX_KEY_IDX($k,$v))))) ] }
-							grep { ( push @key, (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ )))) or (
-								do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN TRAINING CYCLE '.$i."\n"; (last CHN) } ))) } ((
-							map { my ($k) = $_; map { +{ $k => (0+ $_) }} sort { our ($a,$b); ( $a <=> $b ) } ( &UNIQUE( @{$inc{$k}||[]} )) }
-							sort { our ($a,$b); ( $a cmp $b ) } ( keys %inc )), (@{$ftr||[]})) ];
-						((@key) or do { print STDERR 'EMPTY FEATURE KEY LIST IN TRAINING CYCLE '.$i."\n"; (last CHN) } ); (@key) };
-						# move some of this up ...? dont have to protect if read once ... #HERE
-					my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ ))} ($$_[2][0]))))) or (
-							do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR TRAINING CYCLE '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
-						grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
-							do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN TRAINING CYCLE '.$i."\n"; +{}}}{( qw( key cut ))} ) ]}
-						map {((defined) ? ( int ) : ())} ( @{$esc||[]} );
-					my ($wgt) = map {((defined) ? (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? ( @$_ ) :
-							((undef),((ref eq 'HASH') ? ( $_ ) : +{ wgt => (0+ $_) } ))))) or
-						do { print STDERR 'INVALID CHANNEL WEIGHT SPECIFICATION IN TRAINING CYCLE '.$i."\n"; (last CHN) } ) :
-						(( &HASHED_FUNCTIONAL( $idx, (undef), +{ wgt => 0 } )) or ( sub {( $w )} )))} (${$wgt||[]}[0]);
-					my ($nmx) = (( do { my ($f); ((($fix) && ( &MATCH_VALUE( [0,1], (($f) = (($w)*($ipb-$ipb{$tag})))))) ?
-						(( &ROUND(( $e + $z ) * ( $f ))), ( $ipb{$tag} = $ipb )) : (( $e + $z ), ( $ipb{$tag} += $l )))[0] } ) or (next));
+				my (@key) = do { my ($j,@key,%idx,%inc);
+					for ( keys %$idx ) { (( m/^([a-z][a-z\d]{2})_(\d{3})$/ ) or (next)); push @{$idx{( qq($1))}||=[]}, (0+ $2); }
+					for ( grep {(( not $key ) or ( not $$_[2] ))} map {( &PAIR_KEY_IDX( $_, !!( $key ), 1 ))} ( @{$key||$inc||[]} )) { my ($k,$v) = ( @$_ );
+						push @{$inc{$k}||=[]}, (( defined $v ) ? ($v) : ( @{$idx{$k}||[]} )) } ((%inc) or ((%inc) = (%idx)));
+					for ( grep {(( not $key ) or ( $$_[2] ))} map {( &PAIR_KEY_IDX( $_, !!( $key ), 1 ))} ( @{$key||$exc||[]} )) { my ($k,$v) = ( @$_ );
+						if ( defined $v ) { $inc{$k} = [ grep {( $_ != $v )} ( @{$inc{$k}||[]} ) ] } else { delete $inc{$k}}} ( delete $inc{wgt} );
+					do { my ($k) = ( join q(, ), ( map {($$_[0])} (@$_))); if ( not defined $key_str ) { ($key_str,$tex_str) = ( $k, ( join q(, ), ( map {($$_[1])} (@$_)))); }
+					else { ( $key_str eq $k ) or do { print STDERR 'INCONSISTENT STATISTIC INDEXES IN TRAINING CYCLE '.$i."\n"; (last CHN) }}} for [
+						map { my ($k,$v) = ((ref eq q(ARRAY)) ? (( q(KEY)), (++$j)) : (( uc ((%$_)[0] )), (0+ ((%$_)[1] ))));
+							[ ( uc sprintf q("%3.3s_%3.3u"), ($k,$v)), (( defined $key_str ) ? () : ( &DEFINED(( ${$tex{$k}||[]}[$v] ), ( &LATEX_KEY_IDX($k,$v))))) ] }
+						grep { ( push @key, (( &HASHED_FUNCTIONAL( $idx, (( ref eq q(ARRAY)) ? ( @$_ ) : ((undef), $_ )))) or (
+							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN TRAINING CYCLE '.$i."\n"; (last CHN) } ))) } ((
+						map { my ($k) = $_; map { +{ $k => (0+ $_) }} sort { our ($a,$b); ( $a <=> $b ) } ( &UNIQUE( @{$inc{$k}||[]} )) }
+						sort { our ($a,$b); ( $a cmp $b ) } ( keys %inc )), ( grep {( ref eq q(ARRAY))} ( @{$key||[]} ))) ];
+					((@key) or do { print STDERR 'EMPTY FEATURE KEY LIST IN TRAINING CYCLE '.$i."\n"; (last CHN) } ); (@key) };
+					# move some of this up ...? dont have to protect if read once ... #HERE
 
-					push @{ $FHT{$tag} ||= [] }, [ $l, (( &Local::FILE::HANDLE()) or ( die 'Cannot open temporary file for read/write' )) ];
-						local ($_); while (<$FHI>) { ((/^\s*$/) and (next)); ((/^\s*(\d+)/) && ($1 <= $nmx)) or (last);
-							do { my ($val) = $_; print (( join q(,), ( map {((defined) ? ($_) : ( q(NAN)))}
-								((($wgt) -> ($val)), ( map {(($_) -> ($val))} (@key))))),( qq(\n))); } for
-							grep { my ($val,$mch) = ($_,1); for (@cut) { my ($inv,$eid,$key,$cut) = (@$_);
-								(( $mch = (($inv) xor ( &MATCH_VALUE( $cut, (($key) -> ($val)))))) or (last)) }; ($mch) }
-							[ map { (/^UNDEF$/) ? (undef) : (0+ $_) } ( split ) ]; }}
+				my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ ))} ($$_[2][0]))))) or (
+						do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR TRAINING CYCLE '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
+					grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
+						do { print STDERR 'INVALID EVENT SELECTION CUT SPECIFICATION IN TRAINING CYCLE '.$i."\n"; +{}}}{( qw( key cut ))} ) ]}
+					map {((defined) ? ( int ) : ())} ( @{$esc||[]} );
+				my ($wgt) = map {((defined) ? (( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? ( @$_ ) :
+						((undef),((ref eq 'HASH') ? ( $_ ) : +{ wgt => (0+ $_) } ))))) or
+					do { print STDERR 'INVALID CHANNEL WEIGHT SPECIFICATION IN TRAINING CYCLE '.$i."\n"; (last CHN) } ) :
+					(( &HASHED_FUNCTIONAL( $idx, (undef), +{ wgt => 0 } )) or ( sub {( $w )} )))} (${$wgt||[]}[0]);
+				my ($nmx) = (( do { my ($f); ((($fix) && ( &MATCH_VALUE( [0,1], (($f) = (($w)*($ipb-$ipb{$tag})))))) ?
+					(( &ROUND(( $e + $z ) * ( $f ))), ( $ipb{$tag} = $ipb )) : (( $e + $z ), ( $ipb{$tag} += $l )))[0] } ) or (next));
 
-				my ($FHO); do { my ($tag) = $_; if ((defined $ipb) && ((( $ipb * $ipb{$tag} ) <= 0 ) or ( $ipb > $ipb{$tag} ))) {
-					print STDERR 'RESCALING BY '.( uc sprintf '%+10.3e', ( &RATIO( $ipb, $ipb{$tag} ))) .
-						' TO TARGET LUMINOSITY OF '.( uc sprintf '%+10.3e', ($ipb)).' PER PB IN CHANNEL '.($tag)."\n"; }
-					do { my ($l,$FHT) = @$_; (( seek $FHT, 0, SEEK_SET ) or ( die 'Cannot rewind temporary file' )); local ($_); while (<$FHT>) {
-						my ($wgt,$lin) = split (( q(,)), $_, 2 ); (( $wgt *= ( &RATIO( $l, $ipb{$tag} ))) or (next));
-						$FHO ||= ( grep {((@$_) or ( die 'Cannot open file in directory '.$out.' for write' ))}
-							[ ( &Local::FILE::NEXT([[ $out, q(CSV) ], [ (($$lbl[0]) ? q(POS) : q(NEG)), 0, q(csv) ]])) ] )[0];
-						print +( $wgt, ( q(,)), $lin ); }} for (@{ $FHT{$tag}}) } for ( sort { our ($a,$b); ( $a cmp $b ) } keys %FHT );
+				push @{ $FHT{$tag} ||= [] }, [ $l, (( &Local::FILE::HANDLE()) or ( die 'Cannot open temporary file for read/write' )) ];
+					local ($_); while (<$FHI>) { ((/^\s*$/) and (next)); ((/^\s*(\d+)/) && ($1 <= $nmx)) or (last);
+						do { my ($val) = $_; print (( join q(,), ( map {((defined) ? ($_) : ( q(NAN)))}
+							((($wgt) -> ($val)), ( map {(($_) -> ($val))} (@key))))),( qq(\n))); } for
+						grep { my ($val,$mch) = ($_,1); for (@cut) { my ($inv,$eid,$key,$cut) = (@$_);
+							(( $mch = (($inv) xor ( &MATCH_VALUE( $cut, (($key) -> ($val)))))) or (last)) }; ($mch) }
+						[ map { (/^UNDEF$/) ? (undef) : (0+ $_) } ( split ) ]; }}
 
-				() }
-
-			map { ( int ( &MAX(0,$_))) or do { print STDERR 'INVALID DATA SET SPECIFICATION'.$_."\n"; (last CHN) }} grep {(defined)} (@{$dat||[]}) ] }}
-
-		map { ( int ( &MAX(0,$_))) or do { print STDERR 'INVALID CHANNEL SPECIFICATION'.$_."\n"; (last CHN) }} grep {((defined) && !(ref))} ($cid) } (@set) } (@{$$trn{chn}||[]}) };
+			my ($FHO); do { my ($tag) = $_; if ((defined $ipb) && ((( $ipb * $ipb{$tag} ) <= 0 ) or ( $ipb > $ipb{$tag} ))) {
+				print STDERR 'RESCALING BY '.( uc sprintf '%+10.3e', ( &RATIO( $ipb, $ipb{$tag} ))) .
+					' TO TARGET LUMINOSITY OF '.( uc sprintf '%+10.3e', ($ipb)).' PER PB IN CHANNEL '.($tag)."\n"; }
+				do { my ($l,$FHT) = @$_; (( seek $FHT, 0, SEEK_SET ) or ( die 'Cannot rewind temporary file' )); local ($_); while (<$FHT>) {
+					my ($wgt,$lin) = split (( q(,)), $_, 2 ); (( $wgt *= ( &RATIO( $l, $ipb{$tag} ))) or (next));
+					$FHO ||= ( grep {((@$_) or ( die 'Cannot open file in directory '.$out.' for write' ))}
+						[ ( &Local::FILE::NEXT([[ $out, q(CSV) ], [ $lbl, 0, q(csv) ]])) ] )[0];
+					print +( $wgt, ( q(,)), $lin ); }} for (@{ $FHT{$tag}}) } for ( sort { our ($a,$b); ( $a cmp $b ) } keys %FHT ) }}
 
 	if (1) {
-# ??? how to include/exclude? +/- or sep inputs? do target luminosity &  allow rescale/ absolute? how to file/merge ... memory? group by DAT or by CHN?
-	do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR TRAINING CYCLE '.$i."\n"; (next TRN) } unless (@vls);
+	# ??? how to include/exclude? +/- or sep inputs? do target luminosity &  allow rescale/ absolute? how to file/merge ... memory? group by DAT or by CHN?
+	# do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR TRAINING CYCLE '.$i."\n"; (next BDT) } unless (1);
 	my ($fpo) = $out . q(minos.py); my (%dat) = (
 		PYT	=> (($py3) ? q(python3) : q(python)),
 		KEY	=> ($key_str),
@@ -162,15 +157,18 @@ import matplotlib.pyplot as plt
 
 import xgboost as xgb
 
-mpl.rcParams["mathtext.fontset"] = "cm"; mpl.rcParams["font.family"] = "STIXGeneral"
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
+mpl.rcParams['mathtext.fontset'] = 'cm';
+mpl.rcParams['font.family'] = 'STIXGeneral'
 
 def main () :
     # do merged training
     cls_all = tuple(( lambda x : x if len( x ) else sys.exit( "Insufficient Events Available for Training" ))(
         tuple( { "chn":chn, "csv":csv } for chn, csv in ((( lambda y : int( y.group( 1 )) if y else 0 )(
-            re.search( "\/(?:POS|NEG)_(\d{3})\.csv$", fil )), CSV( fil, prt=3 ))
+            re.search( "\/(?:X01|X00)_(\d{3})\.csv$", fil )), CSV( fil, prt=3 ))
             for fil in sorted( glob.glob( cls ))) if ( chn > 0 ) and len( csv )))
-        for cls in ( "./CSV/NEG_*.csv", "./CSV/POS_*.csv" ))
+        for cls in ( "./CSV/X00_*.csv", "./CSV/X01_*.csv" ))
     dmx_all = next( DMX( tuple( { "chn":None, "csv":mergeCSV( *( x["csv"]
         for x in cls )) } for cls in cls_all ), fld=False ))
     bdt_all = BDT( dmx_all )
@@ -617,7 +615,7 @@ param = {
     "max_delta_step":0.,
     "tree_method":"auto",
     "scale_pos_weight":1.,
-    "subsample":0.5,
+    "subsample":1.,
     "colsample_bytree":1.,
     "colsample_bylevel":1.,
     "colsample_bynode":1.,

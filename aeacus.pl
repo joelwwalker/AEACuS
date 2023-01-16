@@ -507,11 +507,11 @@ sub IMPORT_HEADER { my ($FHI) = ( grep {((( ref eq q(GLOB)) or ( &ISA( 1, $_, q(
 	( m/^(?:#|$)/i ) ? ( push @pre, $_ ) : (next))) } while ((@pre) && ( $pre[-1] =~ m/^$/ )) {( pop @pre )}
 	(( join q(), (@pre)), \@nnn, \%act, $stc, \%idx ) }
 
-# Returns key-value pair(s) from input hash, optionally enforcing singularity (via scalar context) and appending inversion flag (or enforcing positivity)
+# Returns key-value pair(s) from input hash, optionally allowing range (via list context), inversion (flag appended), and omission of index
 sub PAIR_KEY_IDX { my ($key,$val) = ( map {((( ref eq q(HASH)) and (( keys %$_ ) == 1 )) ? ( %$_ ) : (return))} (shift));
-	my ($sgn,$idx,$rng,$inv) = ( !!(shift), (( ref $val eq q(ARRAY)) ? ( @$val ) : (( abs int $val ), (undef), (( int $val ) < 0 ))));
-	( grep {((wantarray) or ( return $_ ))} map {[ $key, $_, (($sgn) ? ($inv) : (($inv) ? (return) : ())) ]} (( abs int $idx ) ..
-	( abs int ((wantarray) ? ((( abs int $rng ) > ( abs int $idx )) ? ($rng) : ($idx)) : (( defined $rng ) ? (return) : ($idx)))))) }
+	my ($sgn,$omt,$idx,$rng,$inv) = ( !!(shift), !!(shift), (( ref $val eq q(ARRAY)) ? ( @$val ) : (( abs int $val ), (undef), (( int $val ) < 0 ))));
+	( grep {((wantarray) or ( return $_ ))} map {[ $key, $_, (( $sgn ) ? ( $inv ) : (( $inv ) ? (return) : ())) ]} (( not defined $idx ) ? (( $omt ) ? (undef) : (return)) :
+		(( abs int $idx ) .. ( abs int ((wantarray) ? ((( abs int $rng ) > ( abs int $idx )) ? ( $rng ) : ( $idx )) : (( defined $rng ) ? (return) : ( $idx ))))))) }
 
 # Returns a formatted string with uppercase leading-alpha alphanumeric 3-key and numeric 3-index with filtering for validity and (optionally not) for duplication
 {; my (%key); sub FORMAT_KEY_IDX { my ($key,$idx) = ( map {(( ref eq q(ARRAY)) ? ( @$_ ) :
@@ -1918,7 +1918,7 @@ sub HEMISPHERES { my ($hsp,$mod,$opt,$src,$cmp) = ((! (shift)), ( map {(( shift 
 	LED => sub { # A list with specified number of objects selected by ranking on a kinematic key or function thereof, ascending or descending
 		my ($inv,$sub,$key,$clp) = ( map {(( map {(( shift @$_ ), ( shift @$_ ), [ map {( lc (( ref eq q(HASH)) ?
 			( keys %$_ )[0] : ( $_ )))} ( @$_ ) ] )} map {[ ( ref eq q(ARRAY)) ? ( !1, ( @$_ )) : ( ref eq q(HASH)) ?
-			( do { my ($k,$v,$i) = ( @{(( &PAIR_KEY_IDX( $_, 1 ))||[])} );  (( $i ), ( sub {(shift)} ), ( $k )) } ) :
+			( do { my ($k,$v,$i) = ( @{(( &PAIR_KEY_IDX( $_, 1, 1 ))||[])} );  (( $i ), ( sub {(shift)} ), ( $k )) } ) :
 			( /^${\KEY}$/ ) ? ( !1, ( sub {(shift)} ), ( $_ )) : ( $_ < 0 ) ]} ( shift @$_ )), ( int ( shift @$_ )))} (shift));
 		[ map {(( $clp > 0 ) ? ( splice @$_, 0, $clp ) : ( splice @$_, (0- ( &MIN((0+ @$_ ), ( abs $clp ))))))}
 			map {(( $inv ) ? [ reverse ( @$_ ) ] : ( $_ ))} (( $sub ) ? [ map {( shift @$_ )}
@@ -2828,4 +2828,5 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 # reconcile usage of amx, validate consistently ...
 # global handling of print/no print with cut
 # global handling of mass in pt like variables
+# able to cut on same values as out?
 

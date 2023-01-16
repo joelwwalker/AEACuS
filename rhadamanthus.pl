@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# rhadamanthus.pl Version 1.013	#
-# September '14 - April '22	#
+# rhadamanthus.pl Version 1.014	#
+# September '14 - December '22	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -191,7 +191,10 @@ if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) 
 
 import warnings as wrn; wrn.filterwarnings("ignore")
 
-mpl.rcParams['mathtext.fontset'] = 'cm'; mpl.rcParams['font.family'] = 'STIXGeneral'
+mpl.rcParams['text.usetex'] = True
+mpl.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
+mpl.rcParams['mathtext.fontset'] = 'cm';
+mpl.rcParams['font.family'] = 'STIXGeneral'
 
 import matplotlib.pyplot as plt
 dim = <[DIM]>
