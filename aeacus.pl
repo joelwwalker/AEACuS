@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 #*******************************#
-# aeacus.pl Version 4.000 B_018 #
+# aeacus.pl Version 4.000 B_019 #
 # March 2011 - January 2023	#
 # Joel W. Walker		#
 # Sam Houston State University	#
@@ -1850,20 +1850,29 @@ sub HEMISPHERES { my ($hsp,$mod,$opt,$src,$cmp) = ((! (shift)), ( map {(( shift 
 			else { $idx[ $$obj{GFT} ] = [ map { @{ $idx[$_] || [$_] }} map {( $$_{LID} - 1 )} ($slf,$nbr) ]; (( $slf ) -> MERGE($nbr)) }} # cluster
 		push @iso, (( $obj ) -> LEAVES()); ( [ map {( scalar &LORENTZ( $_ ))} map {($$_{RAW})} ( @iso ) ],
 			[ map {( $idx[$_] || [$_] )} map {( $$_{LID} - 1 )} ( @iso ) ], [ reverse @aux ] ) } ],
-	NRM => [ 1, undef, undef, sub { # A list of pseudo-jets normalized for scale, centrality, rotation, reflection
-		my ($scl,$ctr,$rot,$ref) = ( map {(( map {(( $_ < 0 ) ? ( !1 ) : ((0+ $_) or ( 1 )))} ( shift @$_ )), ( map{((1,1,!1)[ $_ <=> 0 ] )} ( @$_[0..2] )))} (shift));
-		my ($axl,@aux) = ( scalar &LORENTZ_HASH((undef), (( &LORENTZ_SUM((undef), ( my (@vct) = ( &LORENTZ_HASH((undef), @{(shift)} ))))) or (return)))); (@vct) = ( do {
-			my ($ptm) = (( $scl ) ? ( $aux[0] = ((( &SUM( map {( $$_{ptm} )} ( @vct ))) or (return)) / ( $scl ))) : ( 1 ));
+	NRM => [ 1, undef, undef, sub { # A list of pseudo-jets normalized for scale, centrality, rotation, reflection, containment, and pixelization
+		my ($scl,$ctr,$rot,$rfl,$rad,$pix) = ( map {(( map {(( $_ < 0 ) ? ( !1 ) : ((0+ $_) or ( 1 )))} ( $$_[0] )), ( map{((1,1,!1)[ $_ <=> 0 ] )}
+			( @$_[1..3] )), (( $$_[4] > 0 ) and ( &MIN( $$_[4], PIE ))), ((( int $$_[5] ) > 0 ) and ( int $$_[5] )))} (shift));
+		my ($axl,@aux,@pad,%vct) = ( scalar &LORENTZ_HASH((undef), (( &LORENTZ_SUM((undef), ( my (@vct) = ( &LORENTZ_HASH((undef),
+			@{(shift)} ))))) or (return)))); (( $rad ) and ( $aux[6] = 0 )); (( $pix ) and ( $aux[7] = 0 )); (@vct) = ( do {
+		my ($ptm) = (( $scl ) ? ( $aux[0] = ((( &SUM( map {( $$_{ptm} )} ( @vct ))) or (return)) / ( $scl ))) : ( 1 ));
 			( map {[ ( $$_{eta} - (( $ctr ) ? ( $aux[1] = $$axl{eta} ) : ( 0 ))), ( &PRINCIPAL_RAD(( $$_{phi} - (( $ctr ) ?
-				( $aux[2] = $$axl{phi} ) : ( 0 ))), -1 )), ( $$_{ptm} / $ptm ), ( 0 ) ]} ( @vct )) } ); (($rot) and ( do {
-			my ($tsr) = ( map {( scalar ( &Local::MATRIX::INNER_PRODUCT(( scalar &Local::MATRIX::TRANSPOSE( $_ )), $_ )))}
-				( scalar &Local::MATRIX::OBJECT( [ map { my ($rpt) = ( sqrt( $$_[2] )); [ ( $rpt * $$_[0] ), ( $rpt * $$_[1] ) ] } ( @vct ) ] )));
-			my ($phi) = ( $aux[3] = (( $$tsr[0][1] == 0 ) ? ( PIE/2 ) : ( atan2(((( sort { our ($a,$b); ( $b <=> $a ) } ( &QUAD_REAL_ROOTS(
-				[ ( &Local::MATRIX::DETERMINANT( $tsr )), -1*( &Local::MATRIX::TRACE( $tsr )), +1 ])))[0] - $$tsr[0][0] ) / ( $$tsr[0][1] )), 1 ))));
-			my ($rot) = ( scalar &Local::MATRIX::OBJECT( [[ cos( $phi ), sin( $phi ) ], [ ( -1 * sin( $phi )), cos( $phi ) ]] )); (@vct) =
-				( map {[ @{( scalar &Local::MATRIX::VECTOR_PRODUCT( $rot, [ @$_[0,1]] ))}[0,1], @$_[2,3] ]} ( @vct )) } )); (($ref) and ( do { do { my ($i) = $_;
-			((( $aux[4+$i] = (( &SUM( map {( $vct[$_][$i] * $vct[$_][2] )} (0..(@vct-1)))) <=> 0 )) < 0 ) and ( do { do {( $$_[$i] *= -1 )} for ( @vct ) } )) } for (0,1) } ));
-		( [ map {( scalar &EP0_EP1_EP2_EP3( $_ ))} ( @vct ) ], [ map {[ $_ ]} (0..(@vct-1)) ], [ @aux[0..5]] ) } ],
+			( $aux[2] = $$axl{phi} ) : ( 0 ))), -1 )), ( $$_{ptm} / $ptm ), ( 0 ) ]} ( @vct )) } ); (( $rot ) and ( do {
+		my ($tsr) = ( map {( scalar ( &Local::MATRIX::INNER_PRODUCT(( scalar &Local::MATRIX::TRANSPOSE( $_ )), $_ )))}
+			( scalar &Local::MATRIX::OBJECT( [ map { my ($rpt) = ( sqrt( $$_[2] )); [ ( $rpt * $$_[0] ), ( $rpt * $$_[1] ) ] } ( @vct ) ] )));
+		my ($phi) = ( $aux[3] = (( $$tsr[0][1] == 0 ) ? ( PIE / 2 ) : ( atan2(((( sort { our ($a,$b); ( $b <=> $a ) } ( &QUAD_REAL_ROOTS(
+			[ ( &Local::MATRIX::DETERMINANT( $tsr )), -1*( &Local::MATRIX::TRACE( $tsr )), +1 ])))[0] - $$tsr[0][0] ) / ( $$tsr[0][1] )), 1 ))));
+		my ($rot) = ( scalar &Local::MATRIX::OBJECT( [[ cos( $phi ), sin( $phi ) ], [ ( -1 * sin( $phi )), cos( $phi ) ]] )); (@vct) =
+			( map {[ @{( scalar &Local::MATRIX::VECTOR_PRODUCT( $rot, [ @$_[0,1]] ))}[0,1], @$_[2,3] ]} ( @vct )) } )); (( $rfl ) and ( do { do {
+		my ($idx) = $_; ((( $aux[4+$idx] = (( &SUM( map {( $vct[$_][$idx] * $vct[$_][2] )} (0..(@vct-1)))) <=> 0 )) < 0 ) and ( do { do {
+			( $$_[$idx] *= -1 ) } for ( @vct ) } )) } for ( 0, 1 ) } )); for my $idx (0..(@vct-1)) {
+		my ($eta,$phi,$ptm) = ( @{ $vct[$idx] } ); (( $rad ) and (( &NORM( $eta, $phi )) > $rad ) and ( ++$aux[6] ) and ( do {
+			(( undef $vct[$idx] ), (next)) } )); (( $pix ) ? (( ++$aux[7] ) and ( do { do { $$_[0] += $ptm; push @$_, $idx } for
+			( $vct{( join q(_), ( map {( sprintf q(%+d), ( &INT_CEILING_FLOOR( (( 1 + ( $_ / ( $rad || PIE ))) * ( $pix / 2 )), -1 )))}
+			( $eta, $phi )))} ||= [ 0 ] ) } )) : ( push @pad, [ $idx ])) } (( $pix ) and ( do { (@vct) = ( map {
+		my ($eta,$phi,$ptm) = ( map {(( $rad || PIE ) * ((( 1 + ( 2 * ( int ))) / $pix ) - 1 ))} ( split q(_))); push @pad,
+			( grep { (($ptm) = ( shift @$_ )); 1 } ( $vct{$_} )); [ $eta, $phi, $ptm, 0 ] } ( sort keys %vct )) } ));
+		( [ map {( scalar &EP0_EP1_EP2_EP3( $_ ))} ( grep {(defined)} ( @vct )) ], [ @pad ], [ @aux[0..7]] ) } ],
 	WIN => [ !1, undef, PTN, sub { # A list of pseudo-jets reconstructed by optimization against sets of pair-wise invariant mass window specifications
 		my ($win,$set) = ( &GROUPS((shift), [ 2, 1 ] )); ( &N_OBJECTS((shift), $win, $set, 1 )) } ],
 	DIL => [ !1, undef, PTN, sub { # A list of dileptons reconstructed by optimization against quartets of sign, flavor, and invariant mass window specifications
