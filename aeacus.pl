@@ -266,7 +266,7 @@ for my $c (@chn) { for ( @{ ( &AUXILIARY_CHANNEL($c)) || [] } ) {( print STDERR 
 sub LOAD_OPTS { my (@opts); my (%opts) = map { ( /^-(-)?([A-Za-z]\w*)(?:=(.*))?$/ ) ?
 	do { ($1) ? (( lc $2 ) => (( defined $3 ) ? qq($3) : q(1))) : ( map {((lc) => q(1))} ( $2 =~ /([A-Za-z])/g )) } :
 	do { push @opts, $_; () }} ( @_ ); sub { my ($key) = ( lc shift ); ( return $_ ) for (
-		map { ( m/^(DEFAULT)|(TRUE)|(FALSE)|(UNDEF)$/i ) ? (($1)?(0):($2)?(+1):($3)?(-1):(undef)) : ($_) }
+		map { ( m/^(?:(DEFAULT)|(TRUE)|(FALSE)|UNDEF)$/i ) ? (($1)?(0):($2)?(+1):($3)?(-1):(undef)) : ($_) }
 		(( exists $opts{$key} ) ? ($opts{$key}) : ( shift @opts ))); }}
 # --KEY=VAL : KEY begins alpha and is subsequently word characters; VAL is arbitrary; without the '=', VAL is '1'
 # -ABC : each of the flags keyed by 'A', 'B', and 'C' is set to '1'
@@ -2820,22 +2820,17 @@ sub DIMENSION {( ${(shift)}{DIM} )}
 
 1
 
+# COMPLETE SEQUENTIAL FALLOUT / CARD CONTROL FOR MULTIPLE LEVELS / CLASSES
+# ALLOW SIGNED INPUT TO LVL/CLS ... $flg &= (~ $msk )
 # COMPLETE PAD IMPLEMENTATION IN HEMISPHERES ... LEAD AND SUBLEADING
-# DECIDE ON PRE/POST LORENTZ PROJECTIONS, AND MERGE
-# INCLUDE JET CANONICALIZATION ROUTINES ?
-# RAPIDITY, KINEMATICS, CANONICAL DELTA-PHI, ETC. ? JET PLOTS ?
-# GO TO OPT FOR ALL PARAMETERS ?
-# REMOVE MOST SQUARES? TEST!
+# FIX MET / CAL FOR GEN / FAT / RCO JETS ... EXCLUDE; MET/IET ? EXO ?
 # CASCADED FLOW ... CHANGE OF DIRECTORY ... STARTING FROM CUT
 # EMPTY CARD MULTI-ENTRY POINTS
-# FIX MET / CAL FOR GEN / FAT / RCO JETS ... EXCLUDE
-# ROUTINES FOR MATCHING CANDIDATE RECONSTRUCTIONS ... NORM / DR / MASS / ETC
-# ALLOW SIGNED INPUT TO LVL/CLS ... $flg &= (~ $msk )
-# INCLUDE SRC / CMP (and pad?) ON ODR/ETC? INC/EXC with NAMES? sort way in ... allow both new/old format?? DEPRECATE
-# MET/IET ? EXO ?
-# alter PAD output semantics ...
+# DECIDE ON PRE/POST LORENTZ PROJECTIONS, AND MERGE
 # reconcile usage of amx, validate consistently ...
+
+# GO TO OPT FOR ALL PARAMETERS ?
+# REMOVE MOST SQUARES? TEST!
 # global handling of print/no print with cut
 # global handling of mass in pt like variables
-# able to cut on same values as out?
 

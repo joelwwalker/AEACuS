@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 
 #*******************************#
-# minos.pl Version 0.6 ALPHA	#
-# August '20 - January '23	#
+# minos.pl Version 0.7 ALPHA	#
+# August 2020 - January 2023	#
 # Joel W. Walker		#
 # Sam Houston State University	#
 # jwalker@shsu.edu		#
@@ -66,13 +66,13 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 				( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
 					( do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) } );
 				my (undef,$nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
-				my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1)); ($s > 0) or do { (next FIL) };
+				my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1));
 				my ($z,$x) = ( @{${$nnn||[]}[0]||{}}{( qw( ezw abs ))} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
 				(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 				(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-				(%{$idx||{}}) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
+				(( $s == 0 ) or ( %{$idx||{}} )) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
 
-				my (@key) = do { my ($j,@key,%idx,%inc);
+				my (@key) = (( $s == 0 ) ? () : ( do { my ($j,@key,%idx,%inc);
 					for ( keys %$idx ) { (( m/^([a-z][a-z\d]{2})_(\d{3})$/ ) or (next)); push @{$idx{( qq($1))}||=[]}, (0+ $2); }
 					for ( grep {(( not $key ) or ( not $$_[2] ))} map {( &PAIR_KEY_IDX( $_, !!( $key ), 1 ))} ( @{$key||$inc||[]} )) { my ($k,$v) = ( @$_ );
 						push @{$inc{$k}||=[]}, (( defined $v ) ? ($v) : ( @{$idx{$k}||[]} )) } ((%inc) or ((%inc) = (%idx)));
@@ -86,7 +86,7 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN TRAINING CYCLE '.$i."\n"; (last CHN) } ))) } ((
 						map { my ($k) = $_; map { +{ $k => (0+ $_) }} sort { our ($a,$b); ( $a <=> $b ) } ( &UNIQUE( @{$inc{$k}||[]} )) }
 						sort { our ($a,$b); ( $a cmp $b ) } ( keys %inc )), ( grep {( ref eq q(ARRAY))} ( @{$key||[]} ))) ];
-					((@key) or do { print STDERR 'EMPTY FEATURE KEY LIST IN TRAINING CYCLE '.$i."\n"; (last CHN) } ); (@key) };
+					((@key) or do { print STDERR 'EMPTY FEATURE KEY LIST IN TRAINING CYCLE '.$i."\n"; (last CHN) } ); (@key) } ));
 					# move some of this up ...? dont have to protect if read once ... #HERE
 
 				my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ ))} ($$_[2][0]))))) or (
@@ -284,7 +284,7 @@ def SCR ( mdl, dmx ) :
         for i in range( len( events )))
 
 # generate an interpolated score density object dns from a score object
-def DNS ( scr, bins=None, b2=1000, smooth=2. ) : return tuple( {
+def DNS ( scr, bins=None, b2=1000, smooth=1. ) : return tuple( {
     "density":interpolateTrapezoid(
         *( pointsFromDensityEdge(
         *( binDensity( x["score"], x["weight"], bins=bins, b2=b2, smooth=smooth ))))),
@@ -301,7 +301,7 @@ def binEdge ( s, w, bins=None ) : return np.histogram(
     bins=( 2 * binsSturges( len( s )) if bins is None else bins ))
 
 # bin samples and weights into densities and edges by density specification
-def binDensity ( x, y, bins=None, b2=None, smooth=2. ) :
+def binDensity ( x, y, bins=None, b2=None, smooth=1. ) :
     ( p, s, a, e, w, n, t ) = ( 0., 0., 0., [ 0. ], [ 0. ], len( x ),
         ( 1. / ( 2 * binsSturges( len( x )) if bins is None else bins )))
     for i in range( n ) :
@@ -324,7 +324,7 @@ def binDensity ( x, y, bins=None, b2=None, smooth=2. ) :
     edg = (( w[1:] * e[:-1] + w[:-1] * e[1:] ) / ( w[:-1] + w[1:] ))
     wdt = ( edg[1:] - edg[:-1] ); e = e[1:-1]; w = w[1:-1]; w /= w.sum(); w /= wdt
     if b2 is None : return tuple(( w, edg ))
-    smooth /= 2.; wdt *= smooth; w /= smooth
+    wdt *= smooth; w /= smooth
     edg = np.linspace( 0., 1., num=( 1 + b2 ), endpoint=True )
     cen = ( edg[1:] + edg[:-1] ) / 2.
     val = np.add.reduce( tuple ( w[i] * np.exp( np.square(( cen - e[i] ) / wdt[i] ) / ( -2. )) for i in range( len( e ))), axis=0 )
