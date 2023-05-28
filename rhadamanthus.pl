@@ -67,7 +67,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 
 			# Apply and validate binwise functional transformation and recombination to datasets threaded across channels
 			grep { (( &ISA( 1, $_, q(Local::TENSOR))) && (++$set)) or
-				do { print STDERR 'INVALID CHANNEL OBJECT GENERATED IN HISTOGRAM '.$i."\n"; !1 }} ( scalar (($sub) -> (
+				do { print STDERR 'INVALID CHANNEL OBJECT GENERATED IN HISTOGRAM '.$i."\n"; !1 }} ( scalar (( $sub ) && (( $sub ) -> (
 
 			# Apply indicated left/right binwise integration to each threaded channel along each dimensional axis
 			map { (( grep {($_)} (@$s)) ? ( scalar (($_) -> SPLICE(( sub {((shift) -> COMPOUND($s))} ), ( map {[[1,-1]]} (0..($dim-1)))))) : ($_)) }
@@ -78,7 +78,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 					( scalar (($_) -> PROJECT(( sub { ( grep {((0+ $_) or (++$z))} ( &::SUM ))[0] } ), $p ))))[0] ) : ($_)) }
 
 			# Make an independent copy of each threaded channel in a dataset
-			map {( scalar &Local::TENSOR::OBJECT((undef), ( &CLONE($_))))} (@$_)))) }
+			map {( scalar &Local::TENSOR::OBJECT((undef), ( &CLONE($_))))} (@$_))))) }
 
 		# Read and bin data files into channels, combining like samples by luminosity and discrete samples by cross section
 		do { my (@set); CHN: {; my ($j); my (@chn) = grep { ((@$_ == 1) or ((( $j ||= @$_ ) == @$_ ) && ($j))) or
@@ -97,14 +97,17 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 
 						( my $tag = $$fil[1] ) =~ s/(?:_\d+)*\.cut$//; ( my ($FHI) = ( &Local::FILE::HANDLE($fil))) or
 							( do { print STDERR 'CANNOT READ FROM FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) } );
-						my (undef,$nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI));
-						my ($e,$s) = ( map {( &SUM( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ))} ))} (0,-1));
-						my ($z,$x) = ( @{${$nnn||[]}[0]||{}}{( qw( ezw abs ))} ); my ($l,$w) = (( &RATIO($e,$x)), ( &RATIO($x,$e)));
-						(defined $e) or do { print STDERR 'CANNOT ESTABLISH EVENT COUNT FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-						(defined $x) or do { print STDERR 'CANNOT ESTABLISH EVENT CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-						(( $s == 0 ) or ( %{$idx||{}} )) or do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) };
-						my ($key) = [ (( $s == 0 ) ? () : ( map {(( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ )))) or (
-							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ))} ( @{$key||[]}[0..($dim-1)] ))) ];
+						my (undef,$nnn,undef,undef,$idx) = ( &IMPORT_HEADER($FHI)); my ($pre,$pst) = ( map {[ grep { (defined) or
+							do { print STDERR 'CANNOT ESTABLISH EVENT COUNT AND CROSS SECTION FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) }}
+							( @{${$nnn||[]}[$_]||{}}{( qw( epw enw ezw abs ))} ) ]} (0,-1));
+						my ($l,$w) = (( &RATIO(( &SUM( @$pre[0,1] )), $$pre[3] )), ( &RATIO( $$pre[3], ( &SUM( @$pre[0,1] )))));
+						my ($nmx) = (( do { my ($f); ((( $fix ) && ( &MATCH_VALUE( [0,1], ( $f = (( $w ) * ( $ipb - $ipb{$tag} )))))) ?
+							(( &ROUND(( &SUM( @$pre[0..2] )) * ( $f ))), ( $ipb{$tag} = $ipb )) :
+							(( &SUM( @$pre[0..2] )), ( $ipb{$tag} += $l )))[0] } ) or (next FIL)); (( &SUM( @$pst[0..2] )) ? (( %{$idx||{}} ) or
+							( do { print STDERR 'CANNOT ESTABLISH STATISTICS INDEX FOR FILE '.$$fil[0].$$fil[1]."\n"; (last CHN) } )) : (next FIL));
+
+						my ($key) = [ map {(( &HASHED_FUNCTIONAL( $idx, ((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ )))) or (
+							do { print STDERR 'INVALID CHANNEL KEY SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ))} ( @{$key||[]}[0..($dim-1)] ) ];
 						my (@cut) = grep {(( $$_[2] = ( &HASHED_FUNCTIONAL( $idx, ( map {((ref eq 'ARRAY') ? ( @$_ ) : ((undef), $_ ))} ($$_[2][0]))))) or (
 								do { print STDERR 'INVALID KEY IN SELECTION '.$$_[1].' FOR HISTOGRAM '.$i.' ON FILE '.$$fil[0].$$fil[1]."\n"; !1 } ))}
 							grep {(! ( &MATCH_VALUE( $$_[3], undef )))} map {[ ($_ < 0), ( abs ), ( @{ (($_) && ( $$crd{esc}[( abs )] )) or
@@ -114,8 +117,6 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 								((undef), ((ref eq 'HASH') ? ( $_ ) : +{ wgt => (0+ $_) } ))))) or
 							do { print STDERR 'INVALID CHANNEL WEIGHT SPECIFICATION IN HISTOGRAM '.$i."\n"; (last CHN) } ) :
 							(( &HASHED_FUNCTIONAL( $idx, (undef), +{ wgt => 0 } )) or ( sub {($w)} )))} (${$wgt||[]}[0]);
-						my ($nmx) = (( do { my ($f); ((($fix) && ( &MATCH_VALUE( [0,1], (($f) = (($w)*($ipb-$ipb{$tag})))))) ?
-							(( &ROUND(( $e + $z ) * ( $f ))), ( $ipb{$tag} = $ipb )) : (( $e + $z ), ( $ipb{$tag} += $l )))[0] } ) or (next));
 
 						push @{ $bin{$tag} ||= [] }, [ $l, ( my ($bin) = (($obj) -> NEW())) ]; local ($_); while (<$FHI>) {
 							((/^\s*$/) and (next)); ((/^\s*(\d+)/) && ($1 <= $nmx)) or (last);
@@ -129,9 +130,9 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 							' TO TARGET LUMINOSITY OF '.( uc sprintf '%+10.3e', ($ipb)).' PER PB IN CHANNEL '.($tag)."\n"; }
  						map {(($scl)*($$_[0])*($$_[1]))} (@{ $bin{$tag}}) } (keys %bin)))) }
 
-				map { ( int ( &MAX(0,$_))) or do { print STDERR 'INVALID DATA SET SPECIFICATION'.$_."\n"; (last CHN) }} grep {(defined)} (@{$dat||[]}) ] }}
+				map { (( not length ref ) and ( int ( &MAX(0,$_)))) or do { print STDERR 'INVALID DATA SET SPECIFICATION '.$_."\n"; (last CHN) }} grep {(defined)} (@{$dat||[]}) ] }}
 
-			map { ( int ( &MAX(0,$_))) or do { print STDERR 'INVALID CHANNEL SPECIFICATION'.$_."\n"; (last CHN) }} grep {(defined)} (@cid);
+			map { (( not length ref ) and ( int ( &MAX(0,$_)))) or do { print STDERR 'INVALID CHANNEL SPECIFICATION '.$_."\n"; (last CHN) }} grep {(defined)} (@cid);
 
 			# Pass through datasets one at a time, threading over channels indicated for merging and functional transformation
 			(@set) = map { my ($i) = $_; [ map {( $$_[(@$_-1)&&($i)] )} (@chn) ] } (0..(($j)&&($j-1))); } (@set) }} (@{$$hst{chn}||[]}) };
@@ -192,7 +193,7 @@ if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) 
 import warnings as wrn; wrn.filterwarnings("ignore")
 
 mpl.rcParams['text.usetex'] = True
-mpl.rcParams['text.latex.preamble'] = [r'\usepackage{amsmath}']
+mpl.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
 mpl.rcParams['mathtext.fontset'] = 'cm';
 mpl.rcParams['font.family'] = 'STIXGeneral'
 
