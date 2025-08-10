@@ -41,7 +41,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 		do { my (@t) = map {((@{$_||[]} == 1) ? do { my ($t) = @$_; [ map {[$t]} (1..$dim) ] } : ( &SPANS($dim,$_)))} @$hst{( qw( lft rgt spn bns ))};
 			( &Local::HISTOGRAM::NEW( map {[ map {[ grep {(defined)} @{( shift @$_ )} ]} (@t) ]} (1..$dim))) };
 	my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$hst{( qw( sum nrm per avg ))} );
-	my ($out,$nam,$fmt) = ( @$hst{( qw( out nam fmt ))} ); my ($py3) = (1,1,!1)[( ${$$hst{py3}||[]}[0] <=> 0 )];
+	my ($out,$nam,$fmt) = ( @$hst{( qw( out nam fmt ))} );
 	my ($ttl,$lbl,$lgd) = map {[ map { ((length) && !(ref)) ? qq($_) : (undef) } (@{$_||[]}) ]} ( @$hst{( qw( ttl lbl lgd ))} );
 	my (@vls) = do { my ($chn,$set) = []; map { my ($sub,@cid) = ((ref eq 'ARRAY') ? (@$_) : ((ref) or !(defined)) ? (undef) : ( sub {(shift)} , $_ ));
 
@@ -140,7 +140,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 	do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR HISTOGRAM '.$i."\n"; (next HST) } unless (@vls);
 
 	my ($pyt,$log,$min,$fpo); my (%dat) = (
-		PYT	=> ( $pyt = (($py3) ? q(python3) : q(python))),
+		PYT	=> ( $pyt = ( scalar &PYTHON_THREE($$hst{py3}))),
 		DIM	=> $dim,
 		VAL	=> '['."\n".( join ','."\n", map {( qq($_))} map {(($dim == 1) ? ($_) : ( scalar &Local::MATRIX::TRANSPOSE($_)))} (@vls)).']',
 		BIN	=> (($dim == 1) ? ( scalar &Local::TENSOR::STRING($$edg[0])) : ( '['.( join ',', map {( &Local::TENSOR::STRING($_))} (@$edg[0..($dim-1)])).']' )),
@@ -150,7 +150,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 		MAX	=> ( map { ((defined) && ((defined $min) ? ($_ > $min) : (($_ > 0) or (!($log))))) ? ($_) : q(None) } ($$hst{max}[0]))[0],
 		LOC	=> ( map { ${{ TR => 1, TL => 2, BL => 3, BR => 4, RR => 5, ML => 6, MR => 7, BC => 8, TC => 9, MC => 10 }}{( uc $_ )} or
 				0+(0..10)[$_] } ($$hst{loc}[0]))[0],
-		CLR	=> (( @{ $$hst{clr}||[]} < 2 ) ? ((0..8)[ $$hst{clr}[0]] || (1)) :
+		CLR	=> (( @{ $$hst{clr}||[]} < 2 ) ? (((0..8), -1 )[ $$hst{clr}[0]] || (1)) :
 				('('.( join ', ', map { m/^(?:([a-z]{2,})|([0-9a-f]{6})|(\d+\.\d*|\.\d+)|(r|g|b|w|c|m|y|k))$/i ?
 				(($1)?q({):q()).q(").(($2)?q(#):q()).(($3) ? ( uc sprintf "%.2f", 0+( &BOUNDED([0,1],$_))) : ( lc $_ )).q(").(($1)?q(:1}):q()) :
 				q("") } (@{ $$hst{clr}||[]})).')')),
@@ -166,7 +166,7 @@ for my $dim (1..3) { my ($hky) = ((undef), qw( hst h2d h3d ))[$dim]; my ($def) =
 				(${$out||[]}[0])), q(./Plots/)))), 2 )) or ( die 'Cannot write to directory '.$out )),
 				( map { (/^[\w:~-]+$/) ? ($_) : ( uc sprintf "HST_%3.3u", $i ) } qq($$nam[0])),
 				( map { s/^\.//; ( ${{ map {( $_ => 1 )} ( qw( pdf eps svg png jpg )) }}{$_} ) ? ( q(.).($_)) : ( q(.pdf)) } ( lc $$fmt[0] )));
-				(((undef),$fpo) = map {( join q(), (@$_))} ((($$fmt[1] > 0) or (( not &CAN_MATPLOTLIB($py3)) &&
+				(((undef),$fpo) = map {( join q(), (@$_))} ((($$fmt[1] > 0) or (( not &CAN_MATPLOTLIB($pyt)) &&
 					do { print STDERR 'CANNOT VERIFY PYTHON 2.7/3.X WITH MATPLOTLIB 1.3.0+ (DELIVERING SCRIPT LITERAL)'."\n"; 1 } )) ?
 					([q(./),($f),($e)],[($d),($f),q(.py)]) : ([($d),($f),($e)])))[0] },
 	);
@@ -184,11 +184,11 @@ __DATA__
 
 import sys
 if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 7))) :
-	sys.exit( 'RHADAManTHUS requires Python versions 2.7 or 3.X' )
+    sys.exit( 'RHADAManTHUS requires Python versions 2.7 or 3.X' )
 
 import matplotlib as mpl
 if (( tuple( map ( int, mpl.__version__.split("."))) + (0,0,0))[0:3] < (1,3,0)) :
-	sys.exit( 'RHADAManTHUS requires MatPlotLib version 1.3.0 or Greater' )
+    sys.exit( 'RHADAManTHUS requires MatPlotLib version 1.3.0 or Greater' )
 
 import warnings as wrn; wrn.filterwarnings("ignore")
 
@@ -209,26 +209,26 @@ import numpy as np
 color = <[CLR]>
 clist = set( k.lower() for k in  mpl.colors.cnames )
 clrs = ((),
-	( "#CE0000", "#1500AA", "#107C00", "#EF6C00", "#9500AF", "#00B2DB", "#3DD100", "#FFCE00" ),
-	( "#E41A1C", "#377EB8", "#4DAF4A", "#FF7F00", "#984EA3", "#FFFF33", "#A65628", "#F781BF" ),
-	( "#1F78B4", "#33A02C", "#E31A1C", "#FF7F00", "#A6CEE3", "#B2DF8A", "#FB9A99", "#FDBF6F" ),
-	( "#D53E4F", "#F46D43", "#FDAE61", "#FEE08B", "#E6F598", "#ABDDA4", "#66C2A5", "#3288BD" ),
-	( "#B10026", "#E31A1C", "#FC4E2A", "#FD8D3C", "#FEB24C", "#FED976", "#FFEDA0", "#FFFFCC" ),
-	( "#004529", "#006837", "#238443", "#41AB5D", "#78C679", "#ADDD8E", "#D9F0A3", "#F7FCB9" ),
-	( "#084081", "#0868AC", "#2B8CBE", "#4EB3D3", "#7BCCC4", "#A8DDB5", "#CCEBC5", "#E0F3DB" ),
-	( "#4D004B", "#810F7C", "#88419D", "#8C6BB1", "#8C96C6", "#9EBCDA", "#BFD3E6", "#E0ECF4" ),
-	) # http://colorbrewer2.org/
-color = clrs[color] if isinstance(color, int) else tuple( map( lambda x:
-	(( lambda x: x if x in clist else "blue" )( list( x.keys())[0].lower())) if isinstance(x,dict)
-	else ( x if len(x)>0 else "blue" ), color ))
+    ( "#CE0000", "#1500AA", "#107C00", "#EF6C00", "#9500AF", "#00B2DB", "#3DD100", "#FFCE00" ),
+    ( "#E41A1C", "#377EB8", "#4DAF4A", "#FF7F00", "#984EA3", "#FFFF33", "#A65628", "#F781BF" ),
+    ( "#1F78B4", "#33A02C", "#E31A1C", "#FF7F00", "#A6CEE3", "#B2DF8A", "#FB9A99", "#FDBF6F" ),
+    ( "#D53E4F", "#F46D43", "#FDAE61", "#FEE08B", "#E6F598", "#ABDDA4", "#66C2A5", "#3288BD" ),
+    ( "#B10026", "#E31A1C", "#FC4E2A", "#FD8D3C", "#FEB24C", "#FED976", "#FFEDA0", "#FFFFCC" ),
+    ( "#004529", "#006837", "#238443", "#41AB5D", "#78C679", "#ADDD8E", "#D9F0A3", "#F7FCB9" ),
+    ( "#084081", "#0868AC", "#2B8CBE", "#4EB3D3", "#7BCCC4", "#A8DDB5", "#CCEBC5", "#E0F3DB" ),
+    ( "#4D004B", "#810F7C", "#88419D", "#8C6BB1", "#8C96C6", "#9EBCDA", "#BFD3E6", "#E0ECF4" ),
+    ) # http://colorbrewer2.org/
+color = (( tuple( plt.get_cmap("tab10")( range( 8 )))) if color < 0 else clrs[color] ) \
+    if isinstance(color, int) else tuple( map( lambda x: (( lambda x: x if x in clist else "blue" ) \
+    ( list( x.keys())[0].lower())) if isinstance(x,dict) else ( x if len(x)>0 else "blue" ), color ))
 c = len(color)
 
 hatch = <[HCH]>
 hchs = ((),
-	( "/"*3, "\\"*3, "|"*2, "-"*2, "x"*3, "+"*2, "."*2, "O"*2 ),
-	( "/", "\\", "|", "-", "x", "+", ".", "O" ),
-	(),
-	)
+    ( "/"*3, "\\"*3, "|"*2, "-"*2, "x"*3, "+"*2, "."*2, "O"*2 ),
+    ( "/", "\\", "|", "-", "x", "+", ".", "O" ),
+    (),
+    )
 if isinstance(hatch, int): hatch = hchs[hatch]
 h = len(hatch)
 
@@ -255,97 +255,97 @@ ttl = <[TTL]>
 
 if dim == 1:
 
-	if stack:
-		for i in range(1,n):
-			wght[i] = [ sum(l) for l in zip(wght[i],wght[i-1]) ]
+    if stack:
+        for i in range(1,n):
+            wght[i] = [ sum(l) for l in zip(wght[i],wght[i-1]) ]
 
-	if ymin is not None:
-		ymin = float(ymin)
-	if log and ( ymin is None or ymin <= 0.0 ):
-		ymin = math.pow( 10, math.floor( math.log10( min( [ k for j in wght for k in j if k > 0.0 ] or [1.0] ))))
-	if ymax is not None:
-		ymax = float(ymax)
-		if ymax <= ymin: ymax = None
+    if ymin is not None:
+        ymin = float(ymin)
+    if log and ( ymin is None or ymin <= 0.0 ):
+        ymin = math.pow( 10, math.floor( math.log10( min( [ k for j in wght for k in j if k > 0.0 ] or [1.0] ))))
+    if ymax is not None:
+        ymax = float(ymax)
+        if ymax <= ymin: ymax = None
 
-	edges = [ k for j in zip(bins[:-1],bins[1:]) for k in j ]
-	widths = [ j[1] - j[0] for j in zip(bins[:-1],bins[1:]) ]
-	lower = [ ymin/2.0 if log else 0.0 ]*(len(bins)-1)*2
+    edges = [ k for j in zip(bins[:-1],bins[1:]) for k in j ]
+    widths = [ j[1] - j[0] for j in zip(bins[:-1],bins[1:]) ]
+    lower = [ ymin/2.0 if log else 0.0 ]*(len(bins)-1)*2
 
-	for i in range(n):
-		upper = [ k if ( ymin is None or k >= ymin ) else ymin/2.0 if log else ymin-1.0 for j in zip(wght[i],wght[i]) for k in j ]
-		if fill[i%f]: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=0.6, edgecolor="none", facecolor=color[i%c], hatch="", zorder=i-2*n )
-		if h: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=1.0, edgecolor="0.25", facecolor="none", hatch=hatch[i%h], zorder=i-1*n )
-		if bold[i%b]: ax.plot( edges, upper, color="#DDDDDD", linewidth=2.0, linestyle="solid", zorder=i+1 )
-		ax.plot( edges, upper, color=color[i%c], linewidth=(2.0,2.0)[bold[i%b]], linestyle=("solid","dashed")[bold[i%b]], zorder=i+1 )
-		if stack: lower = upper
+    for i in range(n):
+        upper = [ k if ( ymin is None or k >= ymin ) else ymin/2.0 if log else ymin-1.0 for j in zip(wght[i],wght[i]) for k in j ]
+        if fill[i%f]: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=0.6, edgecolor="none", facecolor=color[i%c], hatch="", zorder=i-2*n )
+        if h: ax.fill_between(edges, upper, lower, linewidth=0.0, alpha=1.0, edgecolor="0.25", facecolor="none", hatch=hatch[i%h], zorder=i-1*n )
+        if bold[i%b]: ax.plot( edges, upper, color="#DDDDDD", linewidth=2.0, linestyle="solid", zorder=i+1 )
+        ax.plot( edges, upper, color=color[i%c], linewidth=(2.0,2.0)[bold[i%b]], linestyle=("solid","dashed")[bold[i%b]], zorder=i+1 )
+        if stack: lower = upper
 
-	if ( ymin is None or ymin <= 0.0 ):
-		ax.plot( edges, [0.0]*(len(bins)-1)*2, color="black", linewidth=0.8, linestyle="solid", zorder=0 )
+    if ( ymin is None or ymin <= 0.0 ):
+        ax.plot( edges, [0.0]*(len(bins)-1)*2, color="black", linewidth=0.8, linestyle="solid", zorder=0 )
 
-	lgd = None
-	lgnd = <[LGD]>
-	if lgnd:
-		patches = [(
-			( mpl.patches.Rectangle((0,0), 1, 1, fill=True, facecolor=color[i%c], alpha=0.6, linewidth=0.0 ) if fill[i%f] else ()),
-			( mpl.patches.Rectangle((0,0), 1, 1, fill=None, color="0.25", hatch=hatch[i%h], linewidth=0.0 ) if h else ()),
-			( mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor="#DDDDDD", linewidth=1.4 ) if bold[i%b] else ()),
-			mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle=("solid","dashed")[bold[i%b]], edgecolor=color[i%c], linewidth=1.4 ))
-			for i in range(n) ]
-		lgd = ax.legend( patches, lgnd, loc=<[LOC]>, fontsize=12 )
-		# lgd = ax.legend( patches, lgnd, loc="center right", bbox_to_anchor=(1.22, 0.5), fontsize=12 )
-		lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1.0 ); lgd.set(zorder=n+1)
+    lgd = None
+    lgnd = <[LGD]>
+    if lgnd:
+        patches = [(
+            ( mpl.patches.Rectangle((0,0), 1, 1, fill=True, facecolor=color[i%c], alpha=0.6, linewidth=0.0 ) if fill[i%f] else ()),
+            ( mpl.patches.Rectangle((0,0), 1, 1, fill=None, color="0.25", hatch=hatch[i%h], linewidth=0.0 ) if h else ()),
+            ( mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor="#DDDDDD", linewidth=1.4 ) if bold[i%b] else ()),
+            mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle=("solid","dashed")[bold[i%b]], edgecolor=color[i%c], linewidth=1.4 ))
+            for i in range(n) ]
+        lgd = ax.legend( patches, lgnd, loc=<[LOC]>, fontsize=12 )
+        # lgd = ax.legend( patches, lgnd, loc="center right", bbox_to_anchor=(1.22, 0.5), fontsize=12 )
+        lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1.0 ); lgd.set(zorder=n+1)
 
-	for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
-	for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontsize( 12 )
-	ax.tick_params( axis="both", which="major", zorder=0 ); ax.minorticks_on()
+    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
+    for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontsize( 12 )
+    ax.tick_params( axis="both", which="major", zorder=0 ); ax.minorticks_on()
 
-	if ( len(widths) <= 12 and sum( x!=1.0 for x in widths ) == 0 ):
-		ax.tick_params(axis="both", which="minor", left="on", right="on", top="off", bottom="off");
-		ax.set_xticks(bins, minor=False); ax.set_xticklabels(map((lambda x:""), bins), minor=False)
-		xt = range(int(math.ceil(bins[0])),1+int(math.floor(bins[-1])))
-		ax.set_xticks(xt, minor=True); ax.set_xticklabels(map(str,xt), minor=True)
+    if ( len(widths) <= 12 and sum( x!=1.0 for x in widths ) == 0 ):
+        ax.tick_params(axis="both", which="minor", left="on", right="on", top="off", bottom="off");
+        ax.set_xticks(bins, minor=False); ax.set_xticklabels(map((lambda x:""), bins), minor=False)
+        xt = range(int(math.ceil(bins[0])),1+int(math.floor(bins[-1])))
+        ax.set_xticks(xt, minor=True); ax.set_xticklabels(map(str,xt), minor=True)
 
-	ax.set_xlim([bins[0],bins[-1]]); ax.set_ylim([ymin,ymax])
+    ax.set_xlim([bins[0],bins[-1]]); ax.set_ylim([ymin,ymax])
 
-	ax.set_xlabel( <[XLB]>, size=14 )
-	ax.set_ylabel( <[YLB]>, size=14 )
-	ax.set_title( ttl[0], size=17, verticalalignment="bottom" )
+    ax.set_xlabel( <[XLB]>, size=14 )
+    ax.set_ylabel( <[YLB]>, size=14 )
+    ax.set_title( ttl[0], size=17, verticalalignment="bottom" )
 
-	fig.savefig( "<[OUT]>", facecolor="white" )
-	# fig.savefig( "<[OUT]>", facecolor="white", bbox_extra_artists=(lgd,), bbox_inches="tight")
+    fig.savefig( "<[OUT]>", facecolor="white" )
+    # fig.savefig( "<[OUT]>", facecolor="white", bbox_extra_artists=(lgd,), bbox_inches="tight")
 
 elif dim == 2:
 
-	x = bins[0]
-	y = bins[1]
-	intensity = wght[0]
-	cmap = plt.get_cmap('RdYlGn')
-	(x,y) = np.meshgrid(x, y)
-	c= np.array(intensity)
-	im = ax.pcolormesh( x, y, c, vmin=ymin, vmax=ymax, cmap=cmap, facecolor="black", edgecolor="black" )
+    x = bins[0]
+    y = bins[1]
+    intensity = wght[0]
+    cmap = plt.get_cmap('RdYlGn')
+    (x,y) = np.meshgrid(x, y)
+    c= np.array(intensity)
+    im = ax.pcolormesh( x, y, c, vmin=ymin, vmax=ymax, cmap=cmap, facecolor="black", edgecolor="black" )
 
-	cbar = plt.colorbar( im )
-	cbar.ax.get_yaxis().labelpad = 35
-	cbar.ax.set_ylabel( ttl[1], rotation=270, size=16 )
+    cbar = plt.colorbar( im )
+    cbar.ax.get_yaxis().labelpad = 35
+    cbar.ax.set_ylabel( ttl[1], rotation=270, size=16 )
 
-	for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
-	for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontsize( 12 )
-	ax.tick_params( axis="both", which="major", zorder=0 ); ax.minorticks_on()
+    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1.0, zorder=0 )
+    for i in (ax.get_xticklabels() + ax.get_yticklabels()): i.set_fontsize( 12 )
+    ax.tick_params( axis="both", which="major", zorder=0 ); ax.minorticks_on()
 
-	for i in (cbar.ax.get_yticklabels()):
-		i.set_fontsize( 12 )
-		i.set_horizontalalignment("right")
-		i.set_x(2.5)
+    for i in (cbar.ax.get_yticklabels()):
+        i.set_fontsize( 12 )
+        i.set_horizontalalignment("right")
+        i.set_x(2.5)
 
-	x0,x1 = ax.get_xlim()
-	y0,y1 = ax.get_ylim()
-	ax.set_aspect((x1-x0)/(y1-y0))
+    x0,x1 = ax.get_xlim()
+    y0,y1 = ax.get_ylim()
+    ax.set_aspect((x1-x0)/(y1-y0))
 
-	ax.set_xlabel( <[XLB]>, size=16 )
-	ax.set_ylabel( <[YLB]>, size=16 )
-	ax.set_title( ttl[0], size=19, verticalalignment="bottom" )
+    ax.set_xlabel( <[XLB]>, size=16 )
+    ax.set_ylabel( <[YLB]>, size=16 )
+    ax.set_title( ttl[0], size=19, verticalalignment="bottom" )
 
-	fig.savefig( "<[OUT]>", facecolor="white" )
+    fig.savefig( "<[OUT]>", facecolor="white" )
 
 sys.exit(0)
 

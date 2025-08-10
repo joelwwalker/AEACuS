@@ -35,27 +35,29 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 	my ($ipb,$fix) = do { my ($lum,$ipb,$fix) = [ @$bdt{( qw( ipb ifb iab izb iyb ))} ]; for my $i (0..4) {
 		($ipb,$fix) = @{(($$lum[$i]) or (next))}; $ipb *= (10)**(3*$i); (last) } ( map {( $_, ((defined) && ($fix < 0)))} ($ipb)) };
 	# my ($sum,$nrm,$per,$avg) = map {[ ((@{$_||[]}) ? ( map {((defined) ? (0+ $_) : (undef))} (@$_)) : (undef)) ]} ( @$bdt{( qw( sum nrm per avg ))} );
-	my ($key,$inc,$exc,$tex,$out) = ( @$bdt{( qw( key inc exc tex out ))} );
-	my ($py3) = (1,1,!1)[( ${$$bdt{py3}||[]}[0] <=> 0 )]; my ($key_str,$tex_str,%tex);
+	my ($key,$inc,$exc,$tex,$out) = ( @$bdt{( qw( key inc exc tex out ))} ); my ($pyt,$key_str,$tex_str,@lbl_str,%tex);
 	for (0..(( int ( @{$tex||[]} / 2 )) - 1 )) { my ($k,$t) = ( $$tex[2*$_], $$tex[1+2*$_] );
 		(( ref $k eq q(HASH)) or (next)); my ($k,$v) = ( @{(( &PAIR_KEY_IDX( $k ))||[])} ); $tex{( uc $k )}[$v] = ( &RAW_STRING( $t )) }
-
-	$out = (( &Local::FILE::PATH( [ ( $out = q().( &DEFINED(( map {((length) ? qq($_) : ())} ($$out[0])), q(./Models/)))),
-		( uc sprintf "BDT_%3.3u", $i ) ], 2 )) or ( die 'Cannot write to directory '.$out ));
-
+	$out = (( &Local::FILE::PATH( [ ( $out = q().( &DEFINED(( map {((length) ? qq($_) : ())} ($$out[0])),
+		q(./Models/)))) ], 2 )) or ( die 'Cannot write to directory '.$out ));
+	(( &Local::FILE::PATH(( $out = [ $out, ( uc sprintf "BDT_%3.3u", $i ) ] ), 0 )) and do { print STDERR 'TRAINING PATH ' .
+		( join q(), ( @$out )).' ALREADY EXISTS ... DELETE PRIOR TO REGENERATION'."\n"; (next BDT) });
+	$out = (( &Local::FILE::PATH( $out, 2 )) or ( die 'Cannot write to directory '.( join q(), ( @$out ))));
+        print STDOUT 'Generating Analysis for '.( $out )."\n";
 	# Read and bin data files into channels, combining like samples by luminosity and discrete samples by cross section
 	CHN: for my $cdx (0..(@{$$bdt{chn}||[]}-1)) { my ($chn) = (
 		map {(( $$crd{chn}[$_] ) or do { print STDERR 'CHANNEL '.$_.' IS NOT DEFINED'."\n"; (last CHN) } )}
 		map { ( int ( &MAX(0,$_))) or do { print STDERR 'INVALID CHANNEL SPECIFICATION '.$_."\n"; (last CHN) }}
 		grep {(((defined) && !(ref)) or (next CHN))} ( ${$$bdt{chn}||[]}[$cdx] ));
 		do {(( exists $$chn{$_} ) or ( $$chn{$_} = $$cdf{$_} ))} for ( keys %{$cdf} );
-		my ($dat,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat esc wgt lbl ))};
+		my ($dat,$esc,$wgt,$lbl) = @{ $chn }{( qw( dat esc wgt lbl ))}; push @lbl_str, [];
 		$lbl = (( q(X)) . ( sprintf  q(%02.2u), ( &BOUNDED( [0,99], ( int ( &DEFINED( ${$lbl||[]}[0], $cdx )))))));
 
-		DAT: for (@{$dat||[]}) { my ($dir,$fil,%ipb,%FHT) = (
-			map {( @{ $$crd{dat}[$_] or do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil ))} )}
+		DAT: for (@{$dat||[]}) { my ($dir,$fil,$tex,%ipb,%FHT) = (
+			map {( @{ $$crd{dat}[$_] or do { print STDERR 'DATA SET '.$_.' IS NOT DEFINED'."\n"; (last CHN) }}{( qw( dir fil tex ))} )}
 			(((defined) && !(ref)) ? (( int ( &MAX(0,$_))) or do { print STDERR 'INVALID DATA SET SPECIFICATION '.$_."\n"; (last CHN) } ) : (next DAT)));
-			($dir) = ( &DEFINED(( map {((length) ? qq($_) : ())} (${$dir||[]}[0])), q(./Cuts/)));
+			($dir) = (( map {((length) ? qq($_) : ())} (${$dir||[]}[0])), q(./Cuts/));
+			($tex) = (( map {((length) ? ( &RAW_STRING( $_ )) : ())} (${$tex||[]}[0])), q(None));
 
 			FIL: for my $fil ( sort SORT_LIST_ALPHA ( values %{{ map {((( &Local::FILE::DEVICE_INODE( $_ )) or
 					( die 'Invalid Device/Inode for file '.$$_[0].$$_[1] )) => ($_))}
@@ -80,8 +82,9 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 						push @{$inc{$k}||=[]}, (( defined $v ) ? ($v) : ( @{$idx{$k}||[]} )) } ((%inc) or ((%inc) = (%idx)));
 					for ( grep {(( not $key ) or ( $$_[2] ))} map {( &PAIR_KEY_IDX( $_, !!( $key ), 1 ))} ( @{$key||$exc||[]} )) { my ($k,$v) = ( @$_ );
 						if ( defined $v ) { $inc{$k} = [ grep {( $_ != $v )} ( @{$inc{$k}||[]} ) ] } else { delete $inc{$k}}} (( delete $inc{eid} ), ( delete $inc{wgt} ));
-					do { my ($k) = ( join q(, ), ( map {($$_[0])} (@$_))); if ( not defined $key_str ) { ($key_str,$tex_str) = ( $k, ( join q(, ), ( map {($$_[1])} (@$_)))); }
-					else { ( $key_str eq $k ) or do { print STDERR 'INCONSISTENT STATISTIC INDEXES IN TRAINING CYCLE '.$i."\n"; (last CHN) }}} for [
+					do { my ($k) = ( q([ ) . ( join q(, ), ( map {($$_[0])} (@$_))) . q( ])); if ( not defined $key_str ) {
+						($key_str,$tex_str) = ( $k, ( q([ ) . ( join q(, ), ( map {($$_[1])} (@$_))) . q( ]))); } else {
+						( $key_str eq $k ) or do { print STDERR 'INCONSISTENT STATISTIC INDEXES IN TRAINING CYCLE '.$i."\n"; (last CHN) }}} for [
 						map { my ($k,$v) = ((ref eq q(ARRAY)) ? (( q(KEY)), (++$j)) : (( uc ((%$_)[0] )), (0+ ((%$_)[1] ))));
 							[ ( uc sprintf q("%3.3s_%3.3u"), ($k,$v)), (( defined $key_str ) ? () : ( &DEFINED(( ${$tex{$k}||[]}[$v] ), ( &LATEX_KEY_IDX($k,$v))))) ] }
 						grep { ( push @key, (( &HASHED_FUNCTIONAL( $idx, (( ref eq q(ARRAY)) ? ( @$_ ) : ((undef), $_ )))) or (
@@ -113,7 +116,7 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 					' TO TARGET LUMINOSITY OF '.( uc sprintf '%+10.3e', ($ipb)).' PER PB IN CHANNEL '.($tag)."\n"; }
 				do { my ($l,$FHT) = @$_; (( seek $FHT, 0, SEEK_SET ) or ( die 'Cannot rewind temporary file' )); local ($_); while (<$FHT>) {
 					my ($wgt,$lin) = split (( q(,)), $_, 2 ); (( $wgt *= ( &RATIO( $l, $ipb{$tag} ))) or (next));
-					$FHO ||= ( grep {((@$_) or ( die 'Cannot open file in directory '.$out.' for write' ))}
+					$FHO ||= ( grep {((( @$_ ) && ( push @{ $lbl_str[-1] }, $tex )) or ( die 'Cannot open file in directory '.$out.' for write' ))}
 						[ ( &Local::FILE::NEXT([[ $out, q(CSV) ], [ $lbl, 0, q(csv) ]])) ] )[0];
 					print +( $wgt, ( q(,)), $lin ); }} for (@{ $FHT{$tag}}) } for ( sort { our ($a,$b); ( $a cmp $b ) } keys %FHT ) }}
 
@@ -121,23 +124,48 @@ our ($OPT); my ($crd) = ( map { my ($crd,$err,$fil) = ( &LOAD_CARD(
 	# ??? how to include/exclude? +/- or sep inputs? do target luminosity &  allow rescale/ absolute? how to file/merge ... memory? group by DAT or by CHN?
 	# do { print STDERR 'NO BINNED EVENTS ESTABLISHED FOR TRAINING CYCLE '.$i."\n"; (next BDT) } unless (1);
 	my ($fpo) = $out . q(minos.py); my (%dat) = (
-		PYT	=> (($py3) ? q(python3) : q(python)),
-		KEY	=> ($key_str),
-		TEX	=> ($tex_str),
+		PYT	=> ( $pyt = ( scalar &PYTHON_THREE($$bdt{py3}))),
+		VRB	=> ( q(False)),
+		KEY	=> ( $key_str ),
+		TEX	=> ( $tex_str ),
+		LBL	=> ( q([) . ( join q(, ), ( map {( q([ ) . ( join q(, ), ( @$_ )) . q( ]))} ( @lbl_str ))) . q(]) ),
+		PRT	=> ( 3 ),
+		FLD	=> ( q(True)),
+		MIX	=> ( uc sprintf q(%+5.2f), 0. ),
+		TPR	=> ( uc sprintf q(%+5.2f), 0. ),
+		BAL	=> ( uc sprintf q(%+5.2f), 0. ),
 		LUM	=> ( &DEFINED( $ipb, 1 )),
-		FLD	=> (3),
+		MOD	=> ( 0 ),
+		BNS	=> ( 100 ),
+		LVL	=> ( 5 ),
+		ALP	=> ( 0. ),
+		GAM	=> ( 0. ),
+		ETA	=> ( 0.5 ),
+		LAM	=> ( 0.01 ),
+		MCW	=> ( 0. ),
+		MDS	=> ( 0. ),
+		BAS	=> ( 0.5 ),
+		SPW	=> ( 1. ),
+		SMP	=> ( 1. ),
+		CST	=> ( 1. ),
+		CSL	=> ( 1. ),
+		CSN	=> ( 1. ),
 		);
 	do { use Fcntl qw(:seek); local ($.,$?); my ($t) = ( tell DATA );
 		( my ($FHO) = ( &Local::FILE::HANDLE($fpo,1))) or ( die 'Cannot write to file '.($fpo));
 		local ($_); while (<DATA>) { s/<\[(\w+)]>/$dat{$1}/g; ( print $FHO $_ ) }
 		( close $FHO ) && ( chmod 0755, $fpo ); ( seek DATA, $t, SEEK_SET );
-		if ( &CAN_MATPLOTLIB( $py3, 1 )) { system( qq( cd ${out} && ./minos.py )) }
+		if ( &CAN_MATPLOTLIB( $pyt, 1 )) { system( qq( cd ${out} && ./minos.py )) }
 		else { print STDERR 'CANNOT VERIFY PYTHON 2.7/3.X WITH MATPLOTLIB 1.3.0+ AND XGBOOST (DELIVERING SCRIPT LITERAL)'."\n"; }}}}};
 
 1
 
 __DATA__
 #!/usr/bin/env <[PYT]>
+
+#####################################
+# import modules and validate runtime
+#####################################
 
 import sys
 if ((sys.version_info[0] < 2) or ((sys.version_info[0] == 2) and (sys.version_info[1] < 7))) :
@@ -157,62 +185,124 @@ import matplotlib.pyplot as plt
 
 import xgboost as xgb
 
+#####################
+# define main routine
+#####################
+
+def main () :
+    # analysis parameters
+    vrb = <[VRB]>; prt = <[PRT]>; fld = <[FLD]>; mix = <[MIX]>; tpr = <[TPR]>; bal = <[BAL]>; lum = <[LUM]>; mod = <[MOD]>; bns = <[BNS]>
+    # tuple per class of tuple per valid channel of dictionary with channel index and tuple of csv partitions
+    csv = tuple(( lambda x : x if len( x ) else sys.exit( "Insufficient Events Available for Training" ))(
+        tuple( { "chn":chn, "csv":csv } for chn, csv in ((( lambda y : int( y.group( 1 )) if y else 0 )(
+            re.search( "\/(?:X01|X00)_(\d{3})\.csv$", fil )), CSV( fil, prt=prt ))
+            for fil in sorted( glob.glob( cls ))) if ( chn > 0 ) and len( csv )))
+        for cls in ( "./CSV/X00_*.csv", "./CSV/X01_*.csv" ))
+    for i, dmx in enumerate( DMX( csv, fld=fld, mix=mix, tpr=tpr, bal=bal )) :
+        if vrb and i == 0 : print( "Initial Cross Sections [fb]:\n" + str( fbXSC( dmx, prt=prt )))
+        doPlots( BDT( dmx, typ=1, fld=1+i ), vrb=vrb, pth="./Plots", lum=lum, mod=mod, bns=bns, typ=1, fld=1+i )
+
+    #dmx_all = tuple( DMX( tuple( { "chn":None, "csv":mergeCSV( *( x["csv"]
+    #    for x in cls )) } for cls in csv ), fld=fld, mix=mix, tpr=tpr, bal=bal ))
+    #bdt_all = tuple( BDT( f ) for f in dmx_all )
+    #for i, f in enumerate( bdt_all ) :
+    #    doPlots( f, lum=lum, typ=1, fld=1+i,
+    #        dat=tuple( "Joint" if len( c ) > 1 else label_tex[j][c[0]["chn"]-1] for j, c in enumerate( csv )))
+    # do split training with recombination
+    #if len( csv[0] ) > 1 :
+        #dmx = tuple( tuple( DMX(( c, csv[1][0] ), fld=fld, mix=mix, tpr=tpr, bal=bal )) for c in csv[0] )
+        #bdt = tuple( tuple( BDT( f ) for f in c ) for c in dmx )
+        # test each background separately against the joint training
+        #for c in dmx :
+        #    for i, f in enumerate( c ) :
+        #        cid = f["test"]["chn"][0]
+        #        doPlots( BDT( f, mdl=bdt_all[i]["mdl"] ),
+        #            lum=lum, typ=100+cid, fld=1+i, dat=( label_tex[0][cid-1], label_tex[1][0] ))
+        # train and test against each background separately
+        #for c in bdt :
+        #    for i, f in enumerate( c ) :
+        #        cid = f["dmx"]["test"]["chn"][0]
+        #        doPlots( f, lum=lum, typ=200+cid, fld=1+i, dat=( label_tex[0][cid-1], label_tex[1][0] ))
+        # merge separate trainings and test against the joint background
+        #for i, f in enumerate( dmx_all ) :
+        #    doPlots( BDT( f, mdl=mergeMDL( *( c[i] for c in bdt ))),
+        #        lum=lum, typ=301, fld=1+i, dat=( "Joint", label_tex[1][0] ))
+    return
+
+#################################################
+# specify global settings, inputs, and parameters
+#################################################
+
+# configure LaTeX and fonts settings
 mpl.rcParams['text.usetex'] = True
 mpl.rcParams['text.latex.preamble'] = r'\usepackage{amsmath}'
 mpl.rcParams['mathtext.fontset'] = 'cm';
 mpl.rcParams['font.family'] = 'STIXGeneral'
 
-def main () :
-    # do merged training
-    cls_all = tuple(( lambda x : x if len( x ) else sys.exit( "Insufficient Events Available for Training" ))(
-        tuple( { "chn":chn, "csv":csv } for chn, csv in ((( lambda y : int( y.group( 1 )) if y else 0 )(
-            re.search( "\/(?:X01|X00)_(\d{3})\.csv$", fil )), CSV( fil, prt=<[FLD]> ))
-            for fil in sorted( glob.glob( cls ))) if ( chn > 0 ) and len( csv )))
-        for cls in ( "./CSV/X00_*.csv", "./CSV/X01_*.csv" ))
-    dmx_all = tuple( DMX( tuple( { "chn":None, "csv":mergeCSV( *( x["csv"]
-        for x in cls )) } for cls in cls_all ), fld=True ))
-    for j, f in enumerate( dmx_all ) :
-        doPlots( BDT( f ), lum=float(<[LUM]>), chn=1, fld=1+j )
-    # do split training with recombination
-    if len( cls_all[0] ) > 1 :
-        bdt = tuple(( x["chn"], tuple( BDT( f )
-            for f in DMX(( x, cls_all[1][0] ), fld=True ))) for x in cls_all[0] )
-        for chn, fld in bdt :
-            for j, mdl in enumerate( fld ) :
-                doPlots( mdl, lum=float(<[LUM]>), chn=100+chn, fld=1+j )
-        for j in range( <[FLD]> ) :
-            doPlots( BDT( dmx_all[j], mdl=mergeMDL( *( fld[j]
-                for chn, fld in bdt ))), lum=float(<[LUM]>), chn=201, fld=1+j )
-    return
+# select color palette
+colors = plt.get_cmap( "tab10", lut=10 )
 
-# instantiate object with method for the weighted recombination of a training ensemble
-class mergeMDL :
-    def __init__ ( self, *bdt ) :
-        self.predict = lambda dmx : (( lambda s :
-            s * np.array( tuple(( lambda a,b : ( a / b ) if b else np.full( len( a ), ( 1 / ( len( a ) or 1 )), dtype=np.float64 ))( x, x.sum())
-            for x in np.array( tuple( np.sum(( x["xsec"] * x["density"](s) for x in bdt[i]["density"] ), axis=0 )
-            for i,s in enumerate( s )), dtype=np.float64, ndmin=2 ).transpose())).transpose())
-            ( np.array( tuple( x["model"].predict( dmx ) for x in bdt ), dtype=np.float64, ndmin=2 ))).sum( axis=0 )
+# ordered list of training feature keys
+feature_names = <[KEY]>
 
-# generate BDT dictionary object with test dmatrix, model, and density
-def BDT ( dmx, mdl=None ) :
-    if mdl is None : mdl = MDL( dmx )
-    scr = SCR( mdl, dmx )
-    return { "dmatrix":dmx, "model":mdl, "score":scr, "density":DNS( scr ) }
+# ordered list of training feature TeX symbols
+feature_tex = <[TEX]>
+
+# ordered list of data set TeX labels
+label_tex = <[LBL]>
+
+# configure hyperparameters
+param = {
+    "booster":"gbtree",
+    "tree_method":"auto",
+    "eval_metric":["auc","logloss"],
+    "disable_default_eval_metric":1,
+    "max_depth":<[LVL]>,
+    "alpha":<[ALP]>,
+    "gamma":<[GAM]>,
+    "eta":<[ETA]>,
+    "lambda":<[LAM]>,
+    "min_child_weight":<[MCW]>,
+    "max_delta_step":<[MDS]>,
+    "objective":"binary:logistic",
+    "base_score":<[BAS]>,
+    "scale_pos_weight":<[SPW]>,
+    "subsample":<[SMP]>,
+    "colsample_bytree":<[CST]>,
+    "colsample_bylevel":<[CSL]>,
+    "colsample_bynode":<[CSN]>,
+    "verbosity":1
+    }
+
+####################
+# define subroutines
+####################
 
 # generate collection of plots corresponding to an input dmx object
-def doPlots ( bdt, lum=1., chn=None, fld=None ) :
-    if not os.path.exists( "./Plots/" ) : os.mkdir( "./Plots/" )
-    plotImportance( bdt["model"], chn=chn, fld=fld )
-    plotDistribution( bdt["density"], bdt["score"], chn=chn, fld=fld )
-    plotROC ( bdt["density"], chn=chn, fld=fld )
-    plotSignificance( bdt["density"], lum=lum, chn=chn, fld=fld )
-    plotSigma( bdt["density"], chn=chn, fld=fld )
-    plotScore( bdt["score"], chn=chn, fld=fld )
+def doPlots ( bdt, vrb=False, pth="./Plots", lum=1., mod=0, bns=0, typ=None, fld=None ) :
+    try : os.makedirs( pth )
+    except FileExistsError : pass
+    except : sys.exit( "Unable to Create File Path {0:s}".format( pth ))
+    plotImportance( bdt, pth=pth, lum=lum, typ=typ, fld=fld )
+    plotROC ( bdt, pth=pth, lum=lum, typ=typ, fld=fld )
+    plotScatter( bdt, pth=pth, lum=lum, mod=mod, typ=typ, fld=fld )
+    plotDistribution( bdt, pth=pth, lum=lum, mod=mod, bns=bns, typ=typ, fld=fld )
+    plotSigma( bdt, pth=pth, lum=lum, mod=mod, bns=bns, typ=typ, fld=fld )
+    plotSignificance( bdt, vrb=vrb, pth=pth, lum=lum, bns=bns, typ=typ, fld=fld )
     return
 
-# load CSV data into tuple of numpy arrays (events) of arrays (weight & features)
-def CSV ( *fil, prt=3 ) :
+# rounded fb cross sections averaged over training and validation samples
+def fbXSC ( dmx, prt=3 ) :
+    ( xsc, train, test ) = ( [], dmx["train"]["xsc"], dmx["test"]["xsc"] )
+    for i, cls in enumerate( train ) :
+        xsc.append( [] )
+        for j, chn in enumerate( cls ) :
+            xsc[-1].append( float( '%.3g' %
+                ( 1000. * (( prt - 1) * train[i][j] + test[i][j] ) / prt )))
+    return xsc
+
+# partition shuffled CSV data into tuple of numpy arrays (events) of arrays (weight & features)
+def CSV ( *fil, prt=3, rns=0 ) :
     # minimal partition is 2 for separation of training and test samples
     prt = max( 2, int( prt ))
     # numpy import utility generates uniform 2x2 matrices of floating point values to be joined across files
@@ -221,76 +311,102 @@ def CSV ( *fil, prt=3 ) :
     # fail out records with no features or fewer events than the partition
     if csv.shape[1] < 2 or csv.shape[0] < prt : return tuple()
     # shuffle event records in place using fixed seed
-    np.random.default_rng( seed=0 ).shuffle( csv, axis=0 )
+    np.random.default_rng( seed=rns ).shuffle( csv, axis=0 )
     # return tuple of event partitions
     return tuple( np.array_split( csv, prt, axis=0 ))
 
 # merge sets of CSV data partitions into a single tuple of numpy arrays of arrays
-def mergeCSV ( *csv ) : return tuple( np.concatenate( x, axis=0 ) if len(x) > 1 else x[0] for x in zip( *filter( None, csv )))
+def mergeCSV ( *csv ) :
+    return tuple( np.concatenate( x, axis=0 ) if len(x) > 1 else x[0]
+        for x in zip( *filter( None, csv )))
 
 # yield dictionaries of dmx objects for each fold from input CSV partitions for each class
-def DMX ( cls, fld=False ) :
+def DMX ( csv, fld=False, mix=0., tpr=0., bal=0. ) :
+    bal = max( -0.99, min( +0.99, float( bal ))) if len( csv ) == 2 else 0.
     # count available partitions for each class
-    prt = min( tuple( len( x["csv"] ) for x in cls ) or (0,))
+    prt = min( tuple( len( chn["csv"] ) for cls in csv for chn in cls ) or (0,))
     # internal method for construction of dmx objects
-    def dmx ( cls, prt, inc ) :
-        # merge selected csv partitions and separate weights from features
-        mrg = tuple(( lambda x : ( x[1], x[0].flatten()))( np.split(
-            np.concatenate( tuple( cls[i]["csv"][j] for j in inc )), [1], axis=1 ))
-            for i in range( len( cls )))
+    def dmx ( csv, prt, inc ) :
+        # fold selected csv partitions and separate weights from features
+        fld = tuple( tuple(( lambda chn, csv : { "chn":chn, "wgt":csv[0].flatten(), "ftr":csv[1] } )(
+            chn["chn"], np.split( np.concatenate( tuple( chn["csv"][j] for j in inc )), [1], axis=1 ))
+            for chn in cls ) for cls in csv )
+        # copy per-event weights for each class
+        wgt = tuple( tuple( np.absolute( chn["wgt"] ) for chn in cls ) for cls in fld )
         # count residual events in each class
-        events = tuple( len( x[0] ) for x in mrg )
+        evt = tuple( tuple( len( chn ) for chn in cls ) for cls in wgt )
         # sum cross section of residual events in each class
-        xsec = tuple( np.sum( x[1] ) for x in mrg )
+        xsc = tuple( tuple( chn.sum() for chn in cls ) for cls in wgt )
         # return data structure with merged dmatrix, event counts, and cross sections
         return {
             # instance of core XGBoost data matrix object
-            "dmatrix":xgb.DMatrix(
+            "dmx":xgb.DMatrix(
                 # merge event samples from each class into a list of feature lists
-                data=np.concatenate( tuple( x[0] for x in mrg ), axis=0 ),
+                data=np.concatenate( tuple( chn["ftr"] for cls in fld for chn in cls ), axis=0 ),
                 # generate a list with the class label for each merged event
-                label=np.concatenate( tuple( np.full( x, i ) for i,x in enumerate( events ))),
+                label=np.concatenate( tuple( np.full( sum( chn for chn in cls ), i, dtype=np.int32 )
+                    for i, cls in enumerate( evt )), axis=0 ),
                 # normalize total cross section weight to unity for each class
-                weight=np.concatenate( tuple(( x[1] / xsec[i] ) for i,x in enumerate( mrg ))),
+                weight=np.concatenate( tuple(( lambda i, x : x * (( 1. - bal if i == 0 else 1. + bal ) / x.sum()))( i,
+                    taper( np.concatenate( tuple( c * ( m / x if x > 0. else 0. ) for c, x, m in
+                    zip( cls, xsc[i], taper( xsc[i], mix ))), axis=0 ), tpr )) for i, cls in enumerate( wgt )), axis=0 ),
                 # assign plain text names for each ordered training feature
                 feature_names=feature_names ),
+            # array with normalized event weights belonging to each class
+            "wgt":np.concatenate( tuple( chn / ( xsc[i][j] or 1. )
+                for i, cls in enumerate( wgt ) for j, chn in enumerate( cls )), axis=0 ),
             # array with number of sequential event samples belonging to each class
-            "events":np.array( events ),
+            "evt":evt,
             # array with scaled inclusive physical cross sections for each class
-            "xsec":np.array( tuple(( x * prt / len( inc )) for x in xsec )) }
+            "xsc":tuple( tuple( chn * prt / len( inc ) for chn in cls ) for cls in xsc ),
+            # tuple with channel identification indices for each class
+            "chn":tuple( tuple( chn["chn"] for chn in cls ) for cls in fld ) }
     # generator function yields dictionary of (train,test) dmx objects for each fold
-    for i in range( prt if fld else prt and 1 ) : yield { key : dmx( cls, prt, inc )
+    for i in range( prt if fld else prt and 1 ) : yield { key : dmx( csv, prt, inc )
         for key, inc in (( "train", tuple( j for j in range( prt ) if j != i )), ( "test", ( i, ))) }
+#HERE ... generalize for negative weights ...
+
+# generate BDT dictionary object with test dmatrix, model, score, and density
+def BDT ( dmx, mdl=None, typ=None, fld=None ) :
+    if mdl is None :
+        if not os.path.exists( "./JSON/" ) :
+            os.mkdir( "./JSON/" )
+        fil = os.path.join( "./JSON/", "model" +
+            indexString( typ ) + indexString( fld ) + ".json" )
+        if os.path.isfile( fil ) :
+            mdl = xgb.Booster(); mdl.load_model( fil )
+        else :
+            mdl = MDL( dmx ); mdl.save_model( fil )
+    if not isinstance( mdl, xgb.core.Booster ) : return
+    return { "dmx":dmx, "mdl":mdl, "scr":SCR( dmx, mdl ) }
+#HERE generalize save and load to work for mergeMDL class via overload
 
 # generate a mdl object via training and validation of dmx object pair
 def MDL ( dmx, trs=50, stp=5 ) :
-    prg = dict(); return xgb.train( param, dmx["train"]["dmatrix"],
+    prg = dict(); return xgb.train( param, dmx["train"]["dmx"],
         num_boost_round=trs, early_stopping_rounds=stp,
-        evals=[ ( dmx["train"]["dmatrix"], "train" ), ( dmx["test"]["dmatrix"], "test" ) ],
+        evals=[ ( dmx["train"]["dmx"], "train" ), ( dmx["test"]["dmx"], "test" ) ],
         verbose_eval=False, evals_result=prg )
-# print ( bst.best_score , bst.best_iteration ) #HERE
+#HERE print ( bst.best_score , bst.best_iteration )
 
 # generate score object by projecting member (default:test) of dmx object pair onto mdl object
-def SCR ( mdl, dmx ) :
-    ( dmatrix, events, xsec ) = ( dmx["test"][x] for x in ( "dmatrix", "events", "xsec" ))
-    ( score, weight ) = ( mdl.predict( dmatrix ), dmatrix.get_weight())
+def SCR ( dmx, mdl ) :
+    ( dmx, wgt, evt, xsc, chn ) = ( dmx["test"][x]
+        for x in ( "dmx", "wgt", "evt", "xsc", "chn" ))
+    scr = mdl.predict( dmx ); cnt = counter( 0 )
     # return tuple with dictionary of sorted data for each supervisory class
-    return tuple((( lambda i,j,k : (( lambda i,x : {
+    return tuple( tuple(
         # generate sorted data structure with scores, weights, and cross section
-        "score":score[x], "weight":weight[x], "xsec":xsec[i] } )(
-        # sort class indices according to classification score
-        i, ( j + np.argsort( score[j:k], kind="stable" )))))(
-        # establish boundary indices of events in ith class
-        i, events[0:i].sum(), events[0:i+1].sum()))
-        # perform outer loop over each supervisory class
-        for i in range( len( events )))
+        ( lambda i, j, idx : { "scr":scr[idx], "wgt":wgt[idx], "dns":DNS( scr[idx], wgt[idx] ), "xsc":xsc[i][j], "chn":chn[i][j] } )(
+            # sort class indices according to classification score
+            i, j, cnt( 0 ) + np.argsort( scr[ cnt( 0 ) : cnt( evt[i][j] ) ], kind="stable" ))
+            # establish boundary indices of events in ith class
+            # perform outer loop over each supervisory class
+        for j in range( len( evt[i] ))) for i in range( len( evt )))
 
-# generate an interpolated score density object dns from a score object
-def DNS ( scr, bins=None, b2=1000, smooth=1. ) : return tuple( {
-    "density":interpolateTrapezoid(
-        *( pointsFromDensityEdge(
-        *( binDensity( x["score"], x["weight"], bins=bins, b2=b2, smooth=smooth ))))),
-    "xsec":x["xsec"] } for x in scr )
+# generate an interpolated score density object dns from input scores and weights
+def DNS ( scr, wgt, bins=None, b2=1000, smooth=1. ) : return interpolateTrapezoid(
+    *( pointsFromDensityEdge( *( binDensity( scr, wgt, bins=bins, b2=b2, smooth=smooth )))))
 
 # integrate histogram densities and edges
 def binIntegrate ( d, e, left=False ) :
@@ -332,7 +448,7 @@ def binDensity ( x, y, bins=None, b2=None, smooth=1. ) :
     val = np.add.reduce( tuple ( w[i] * np.exp( np.square(( cen - e[i] ) / wdt[i] ) / ( -2. )) for i in range( len( e ))), axis=0 )
     val /= ( val.sum() / b2 )
     return tuple(( val, edg ))
-# consider non-flipped association? or even sharing / other? see minos_break_ ... #HERE
+#HERE consider non-flipped association? or even sharing / other? see minos_break_ ...
 
 def evaluatePolynomial ( p, x ) :
     v = 0.
@@ -377,6 +493,7 @@ def interpolateTrapezoid ( x, y ) :
     return polynomialAccessor( x, np.array(
         [[ y[i], (( y[i+1] - y[i] ) / h[i] ) ] for i in range( n ) ] ))
 
+# vectorized accessor method for polynomial objects
 def polynomialAccessor ( e, p ) :
     e = np.asarray( e ); p = np.asarray( p ); ( n, o ) = np.shape( p )
     ( t, d ) = ( 0., ( p, np.empty(( n, ( o - 1 ))), np.empty(( n, ( o + 1 )))))
@@ -393,103 +510,203 @@ def polynomialAccessor ( e, p ) :
 # implement the Sturges bin count model
 def binsSturges ( n ) : return ( 1 + math.ceil( math.log( n , 2 )))
 
+# normalize ndarray from 0. to 1. and apply taper
+def taper ( x, tpr=0. ) :
+    x = np.absolute( x ); m = np.max( x ); return (
+        np.zeros( x.shape, dtype=x.dtype ) if m == 0. else
+        np.vectorize( lambda x : 0. if x == 0. else 1. )( x ) if tpr <= -0.99 else
+        x / m if tpr == 0. else
+        np.power( x / m, math.tan(( 1. + tpr ) * math.pi / 4. )) if tpr < +0.99 else
+        np.vectorize( lambda x : 1. if x == m else 0. )( x ))
+
+# construct closure for accumulating counts
+def counter ( init=0 ) :
+    value = [ init ]
+    def closure ( step=1 ) :
+        value[0] += step
+        return value[0]
+    return closure
+
 # generate donut plot of feature importance to total gain
-def plotImportance ( mdl, pth="./Plots/", chn=None, fld=None ) :
-    if not isinstance( mdl, xgb.core.Booster ) : return
-    # ... setup mdl for multiple and composite print ... #HERE
-    scores = mdl.get_score( importance_type="total_gain" )
-    keys = sorted( scores, key=scores.get )
-    values = np.array([ scores[k] for k in keys ]); values /= values.sum()
-    ( t, l, d ) = ( 0., 0., [] )
+def plotImportance ( bdt, lum=1., pth="./Plots", typ=None, fld=None ) :
+    if not isinstance( bdt["mdl"], xgb.core.Booster ) : return
+    scores = bdt["mdl"].get_score( importance_type="total_gain" )
+    keys = sorted( scores, key=scores.get, reverse=True )
+    values = np.array( [ scores[k] for k in keys ] )
+    importance = []; values /= values.sum()
     for k, v in zip( keys, values ) :
-        p = d[-1][0] if d else 0.03
-        if p >= l and t <= 1 - l : l = p; d.append( [ 0., []] )
-        t += v; d[-1][0] += v; d[-1][1].append( k )
-    fig = plt.figure( figsize=( 7.5, 5 ), tight_layout=False )
-    ax = fig.add_axes([ 0., .075, 1., .75 ])
+        if not importance or importance[-1][0] + v > 0.075 : importance.append( [ 0., []] )
+        importance[-1][0] += v; importance[-1][1].append( k )
+    fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
+    ax = fig.add_axes( [ 0., .05, 1., .75 ] )
     labels = tuple((( lambda x : ", ".join( tuple( feature_dict[k] for k in x[:3] ) +
-        (( r"$\ldots$", ) if ( len( x ) > 3 ) else ())))( tuple( reversed( r[1] )))) for r in reversed( d ))
-    wedges, texts, autotexts = ax.pie( [ _[0] for _ in reversed( d ) ],
+        (( r"$\ldots$", ) if ( len( x ) > 3 ) else ())))( tuple( _[1] ))) for _ in importance )
+    wedges, texts, autotexts = ax.pie( [ _[0] for _ in importance ],
         normalize=True, radius=1., startangle=90., autopct="%1.1F%%", pctdistance=0.75,
-        wedgeprops={ "width":0.5, "edgecolor":"black", "linewidth":0.8 }, colors=( plt.get_cmap("tab10")( range( 10 ))))
+        wedgeprops={ "width":0.5, "edgecolor":"black", "linewidth":0.8 }, colors=colors.colors )
     plt.setp( autotexts, size=12, color="white" )
     kw = { "zorder": 0, "verticalalignment":"center", "arrowprops":{ "arrowstyle":"-", "linewidth":0.8 },
         "bbox":{ "boxstyle":"round,pad=0.3,rounding_size=0.3", "facecolor":"white", "edgecolor":"black", "linewidth":0.8 }}
-    for i, p in enumerate(wedges) :
+    for i, p in reversed( list( enumerate( wedges ))) :
         ang = (( p.theta2 + p.theta1 ) / 2. ); y = np.sin( np.deg2rad( ang )); x = np.cos( np.deg2rad( ang ))
-        horizontalalignment = { -1: "right", 1: "left"}[ int( np.sign(x)) ]
-        connectionstyle = "angle,angleA=0,angleB={0:G}".format(ang)
+        horizontalalignment = { -1: "right", 1: "left"}[ int( np.sign( x )) ]
+        connectionstyle = "angle,angleA=0,angleB={0:G}".format( ang )
         kw["arrowprops"].update( { "connectionstyle":connectionstyle } )
-        ax.annotate( labels[i], xy=( x, y ), size=12, xytext=( 1.25*np.sign(x), 1.25*y ),
+        ax.annotate( labels[i], xy=( x, y ), size=12, xytext=( 1.25*np.sign( x ), 1.25*y ),
             horizontalalignment=horizontalalignment, **kw )
-    ax.set_title( "Feature Importance to Total Gain", size=17, verticalalignment="bottom", pad=20 )
-    fig.savefig( pth + "donut_plot" + indexString(chn) + indexString(fld) + ".pdf", facecolor="white" )
+    fig.suptitle( "Feature Importance to Total Gain in Training Fold {0:d}\n".format( fld ) + " ".join( tuple(
+        (( lambda x : "" if x is None or len( x ) == 0 else x + " " )( label_tex[i][ cls[0]["chn"] - 1 ] )
+        if len( cls ) == 1 else "Joint " ) + ( "Background vs.", "Signal" )[i] for i, cls in enumerate( bdt["scr"][0:2] ))),
+        x=0.5, y=0.9, size=17, verticalalignment="center" )
+    fig.savefig( os.path.join( pth, "donut_plot" + indexString( typ ) + indexString( fld ) + ".pdf" ), facecolor="white" )
+
+# generate plot of Receiver Operating Characteristic evolution with mdl score
+def plotROC ( bdt, lum=1., pth="./Plots", typ=None, fld=None ) :
+    fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
+    ax = fig.add_axes([ 0.16, .14, 0.68, 0.68 ], aspect="equal" )
+    ax.set_xlim([ 0., 1. ]); ax.set_ylim([ 0., 1. ])
+    ax.set_xlabel( "False Signal Rate", size=14, color="black" )
+    ax.set_ylabel( "True Signal Rate", size=14, color="black" )
+    ax.xaxis.grid( True, linewidth=0.8, color="black" )
+    ax.yaxis.grid( True, linewidth=0.8, color="black" )
+    xxx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True ); yyy = []
+    for i, cls in enumerate( bdt["scr"][0:2] ) :
+        if len( cls ) > 1 : xsc = np.array( tuple(( chn["xsc"] ,) for chn in cls ))
+        yyy.append( 1. - (( xsc * np.array( tuple( chn["dns"]( xxx, -1 )
+            for chn in cls ))).sum( axis=0 ) / xsc.sum( axis=None )
+            if len( cls ) > 1 else cls[0]["dns"]( xxx, -1 )))
+    ax.plot( yyy[0], yyy[1], color=colors(0), linewidth=1.4, linestyle="solid", zorder=3 )
+    ax.fill_between( yyy[0], yyy[1], 0., linewidth=0., alpha=0.1, edgecolor="none", facecolor=colors(0), hatch="", zorder=-1 )
+    ax.plot( xxx, xxx, color="red", linewidth=1.4, linestyle="dashed", zorder=4 )
+    ax.text( 0.45, 0.055, "Area Under Curve: {0:4.2F}".format(
+        (( yyy[1][:-1] + yyy[1][+1:] ) * ( yyy[0][+1:] - yyy[0][:-1] )).sum() / ( -2. )), fontsize=12, zorder=5,
+        bbox={ "boxstyle":"round,pad=0.3,rounding_size=0.3", "facecolor":"white", "edgecolor":"black", "linewidth":0.8 } )
+    tkw = dict( size=4, width=0.8 ); ax.tick_params( axis="x", **tkw )
+    ax.tick_params( axis="y", colors="black", **tkw )
+    for x in ( ax.get_xticklabels() + ax.get_yticklabels()): x.set_fontsize( 12 )
+    ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
+    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1., zorder=0 )
+    fig.suptitle( "Receiver Operating Characteristic for Validation Fold {0:d}\n".format( fld ) + " ".join( tuple(
+        (( lambda x : "" if x is None or len( x ) == 0 else x + " " )( label_tex[i][ cls[0]["chn"] - 1 ] )
+        if len( cls ) == 1 else "Joint " ) + ( "Background vs.", "Signal" )[i] for i, cls in enumerate( bdt["scr"][0:2] ))),
+        x=0.5, y=0.9, size=17, verticalalignment="center" )
+    fig.savefig( os.path.join( pth, "roc_plot" + indexString(typ) + indexString(fld) + ".pdf" ), facecolor="white" )
+
+# generate scatter plot of signal/bg event weights as a function of mdl score
+def plotScatter ( bdt, mod=0, lum=1., pth="./Plots", typ=None, fld=None ) :
+    fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
+    ax = fig.add_axes([ 0.125, .14, 0.8, 0.725 ] )
+    ax.set_xlim([ 0., 1. ])
+    ax.set_xlabel( "Signal Classification Score", size=14, color="black" )
+    ax.set_ylabel( "Fractional Cross Section", size=14, color="black" )
+    ax.xaxis.grid( True, linewidth=0.8, color="black" )
+    tkw = dict( size=4, width=0.8 )
+    ax.tick_params( axis="x", **tkw )
+    labels = []; patches = []
+    for i, cls in enumerate( bdt["scr"][0:2] ) :
+        for j, chn in ((( 0, cls[0] ),) if mod >= 0 and len( cls ) == 1 else ((( 0, None ),) if mod >= 0 else tuple()) +
+            ( tuple(( j+1, chn ) for j, chn in enumerate( cls )) if mod <= 0 else tuple())) :
+            if chn is None : xsc = np.array( tuple( chn["xsc"] for chn in cls ))
+            ax.scatter( np.concatenate( tuple( chn["scr"] for chn in cls ), axis=0 ) if chn is None else chn["scr"],
+                np.concatenate( tuple( xsc[i] * chn["wgt"] for i, chn in enumerate( cls ))) / xsc.sum( axis=0 ) if chn is None else chn["wgt"],
+                facecolor=( colors(i) if j == 0 else str( 0.85 - 0.1*j )), edgecolor=shades[i](j), alpha=0.1, zorder=( 2 if j == 0 else 3 ))
+            patches.append(( mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=0., facecolor=( colors(i) if j == 0 else str( 0.85 - 0.1*j )), alpha=0.5, fill=True ),
+                mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=1.4, linestyle="solid", edgecolor=shades[i](j), fill=None )))
+            labels.append( " ".join( filter( None, (( label_tex[i][ chn["chn"] - 1 ] or None ) if chn is not None else "Joint" ,) +
+                (( "Background", "Signal" )[i] if j == 0 else None ,))))
+    lgd = ax.legend( patches, labels, loc="best", fontsize=12 )
+    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1. ); lgd.set(zorder=4)
+    ax.set_ylim([ 1.0E-12, 1.0E+00 ])
+    ax.set_yscale("log")
+    ax.tick_params( axis="y", colors="black", **tkw )
+    for x in ( ax.get_xticklabels() + ax.get_yticklabels()) : x.set_fontsize( 12 )
+    ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
+    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1., zorder=0 )
+    fig.suptitle( "Normalized Sample Scatter for Validation Fold {0:d}".format( fld ), x=0.5, y=0.9, size=17, verticalalignment="bottom" )
+    fig.savefig( os.path.join( pth, "scatter_plot" + indexString(typ) + indexString(fld) + ".pdf" ), facecolor="white" )
 
 # generate plot of mdl score distributions for signal and background
-def plotDistribution ( dns, scr=None, pth="./Plots/", chn=None, fld=None ) :
-    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
-    dd = tuple( _["density"]( xx ) for _ in dns[0:2] )
+def plotDistribution ( bdt, mod=0, bns=0, lum=1., pth="./Plots", typ=None, fld=None ) :
     fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
-    ax = fig.add_axes([ 0.1, .14, 0.8, 0.75 ] )
-    color=( plt.get_cmap("tab10")( range( 2 )))
-    ax.set_xlim([ 0., 1. ])
-    label = ( "Background", "Signal" )
+    ax = fig.add_axes([ 0.1, .14, 0.8, 0.725 ] ); ax.set_xlim([ 0., 1. ])
     ax.set_xlabel( "Signal Classification Score", size=14, color="black" )
     ax.set_ylabel( "Probability Density", size=14, color="black" )
     ax.xaxis.grid( True, linewidth=0.8, color="black" )
     tkw = dict( size=4, width=0.8 )
     ax.tick_params( axis="x", **tkw )
-    for i in range( 2 ) :
-        if scr is not None : ax.hist( scr[i]["score"], bins=100, range=(0.,1.),
-            weights=( scr[i]["weight"] * 100. ), color=color[i], alpha=0.3, histtype="stepfilled", zorder=1+i )
-        ax.plot( xx, dd[i], color=color[i], linewidth=1.4, linestyle="solid", zorder=3+i )
-        ax.fill_between( xx, dd[i], 0., linewidth=0., alpha=0.1, edgecolor="none", facecolor=color[i], hatch="", zorder=i-2 )
-    patches = [(
-        mpl.patches.Rectangle((0,0), 1, 1, fill=True, facecolor=color[i], alpha=0.1, linewidth=0. ),
-        mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor=color[i], linewidth=1.4 )) for i in range( 2 ) ]
-    lgd = ax.legend( patches, label, loc="best", fontsize=12 )
-    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1. ); lgd.set(zorder=5)
-    ax.set_ylim([ 0., None ])
+    labels = []; patches = []
+    xxx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
+    for i, cls in enumerate( bdt["scr"][0:2] ) :
+        for j, chn in ((( 0, cls[0] ),) if mod >= 0 and len( cls ) == 1 else ((( 0, None ),) if mod >= 0 else tuple()) +
+            ( tuple(( j+1, chn ) for j, chn in enumerate( cls )) if mod <= 0 else tuple())) :
+            if chn is None : xsc = np.array( tuple(( chn["xsc"] ,) for chn in cls ))
+            yyy = ( xsc * np.array( tuple( chn["dns"]( xxx ) for chn in cls ))).sum( axis=0 ) / xsc.sum( axis=None ) if chn is None else chn["dns"]( xxx )
+            ax.plot( xxx, yyy, linewidth=1.4, linestyle=( 0, (( 8 - j )/1.5, j/1.5 )),
+                color=shades[i](j), gapcolor=str( 0.85 - 0.1*j ), zorder=( 2 if j == 0 else 3 ))
+            if j == 0 : ax.fill_between( xxx, yyy, 0., linewidth=0., edgecolor="none", facecolor=colors(i), alpha=0.1, hatch="", zorder=-1 )
+            patches.append((( mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=0., facecolor=colors(i), alpha=0.1, fill=True ), ) if j == 0 else
+                ( mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=1.4, linestyle="solid", edgecolor=str( 0.85 - 0.1*j ), fill=None ), )) +
+                ( mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=1.4, linestyle=( 0, (( 8 - j )/1.5, j/1.5 )), edgecolor=shades[i](j), fill=None ), ))
+            labels.append( " ".join( filter( None, (( label_tex[i][ chn["chn"] - 1 ] or None ) if chn is not None else "Joint" ,) +
+                (( "Background", "Signal" )[i] if j == 0 else None ,))))
+            if j == 0 and int( bns ) > 0 : ax.hist(
+                np.concatenate( tuple( chn["scr"] for chn in cls ), axis=0 ) if chn is None else chn["scr"],
+                weights=(( int( bns ) / xsc.sum( axis=None )) * np.concatenate( tuple( xsc[i][0] * chn["wgt"]
+                    for i, chn in enumerate( cls )), axis=0 )) if chn is None else int( bns ) * chn["wgt"],
+                bins=int( bns ), range=( 0., 1. ), color=colors(i), alpha=0.3, histtype="stepfilled", zorder=1 )
+    lgd = ax.legend( patches, labels, loc="best", fontsize=12 )
+    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1. ); lgd.set(zorder=4)
+    ax.set_ylim([ 0., 20. ]) #HERE temporarily insert hard upper bound - make user adjustable # ax.set_ylim([ 0., None ])
     ax.tick_params( axis="y", colors="black", **tkw )
     for x in ( ax.get_xticklabels() + ax.get_yticklabels()) : x.set_fontsize( 12 )
     ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
     for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1., zorder=0 )
-    fig.suptitle( "Signal and Background Score Distribution", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "density_plot" + indexString(chn) + indexString(fld) + ".pdf", facecolor="white" )
+    fig.suptitle( "Normalized Event Distribution for Validation Fold {0:d}".format( fld ), x=0.5, y=0.9, size=17, verticalalignment="bottom" )
+    fig.savefig( os.path.join( pth, "density_plot" + indexString(typ) + indexString(fld) + ".pdf" ), facecolor="white" )
 
-# generate plot of Receiver Operating Characteristic evolution with mdl score
-def plotROC ( dns, pth="./Plots/", chn=None, fld=None ) :
-    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
-    ( fp, tp ) = tuple(( 1. - _["density"]( xx, -1 )) for _ in dns[0:2] )
-    auc = ((( tp[:-1] + tp[1:] ) * ( fp[1:] - fp[:-1] )).sum() / ( -2. ))
-    fig = plt.figure( figsize=( 5., 5. ), tight_layout=False )
-    ax = fig.add_axes([ 0.05, .12, 0.95, 0.75 ], aspect="equal" )
-    color=( plt.get_cmap("tab10")( range( 1 )))
-    ax.set_xlim([ 0., 1. ]); ax.set_ylim([ 0., 1. ])
-    ax.set_xlabel( "False Positive Rate", size=14, color="black" )
-    ax.set_ylabel( "True Positive Rate", size=14, color="black" )
+# generate plot of signal/bg events as a function of mdl score
+def plotSigma ( bdt, mod=0, bns=0, lum=1., pth="./Plots", typ=None, fld=None ) :
+    fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
+    ax = fig.add_axes([ 0.1, .14, 0.8, 0.725 ] ); ax.set_xlim([ 0., 1. ])
+    ax.set_xlabel( "Signal Classification Threshold", size=14, color="black" )
+    ax.set_ylabel( r"Residual Cross Section (fb)", size=14, color="black" )
     ax.xaxis.grid( True, linewidth=0.8, color="black" )
-    ax.yaxis.grid( True, linewidth=0.8, color="black" )
-    ax.text( 0.53, 0.05, "Area Under Curve: {0:4.2F}".format( auc ), fontsize=12, zorder=5,
-        bbox={ "boxstyle":"round,pad=0.3,rounding_size=0.3", "facecolor":"white", "edgecolor":"black", "linewidth":0.8 } )
-    tkw = dict( size=4, width=0.8 ); ax.tick_params( axis="x", **tkw )
-    ax.plot( xx, xx, color="red", linewidth=1.4, linestyle="dashed", zorder=3 )
-    ax.plot( fp, tp, color=color[0], linewidth=1.4, linestyle="solid", zorder=4 )
-    ax.fill_between( fp, tp, 0., linewidth=0., alpha=0.1, edgecolor="none", facecolor=color[0], hatch="", zorder=-1 )
+    tkw = dict( size=4, width=0.8 )
+    ax.tick_params( axis="x", **tkw )
+    labels = []; patches = []
+    xxx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
+    for i, cls in enumerate( bdt["scr"][0:2] ) :
+        for j, chn in ((( 0, cls[0] ),) if mod >= 0 and len( cls ) == 1 else ((( 0, None ),) if mod >= 0 else tuple()) +
+            ( tuple(( j+1, chn ) for j, chn in enumerate( cls )) if mod <= 0 else tuple())) :
+            yyy = 1000. * sum( chn["xsc"] * ( 1. - chn["dns"]( xxx, -1 )) for chn in ( cls if chn is None else ( chn, )))
+            ax.plot( xxx, yyy, linewidth=1.4, linestyle=( 0, (( 8 - j )/1.5, j/1.5 )),
+                color=shades[i](j), gapcolor=str( 0.85 - 0.1*j ), zorder=( 2 if j == 0 else 3 ))
+            if j == 0 : ax.fill_between( xxx, yyy, 0., linewidth=0., edgecolor="none", facecolor=colors(i), alpha=0.1, hatch="", zorder=-1 )
+            patches.append((( mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=0., facecolor=colors(i), alpha=0.1, fill=True ), ) if j == 0 else
+                ( mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=1.4, linestyle="solid", edgecolor=str( 0.85 - 0.1*j ), fill=None ), )) +
+                ( mpl.patches.Rectangle(( 0, 0 ), 1, 1, linewidth=1.4, linestyle=( 0, (( 8 - j )/1.5, j/1.5 )), edgecolor=shades[i](j), fill=None ), ))
+            labels.append( " ".join( filter( None, (( label_tex[i][ chn["chn"] - 1 ] or None ) if chn is not None else "Joint" ,) +
+                (( "Background", "Signal" )[i] if j == 0 else None ,))))
+            if j == 0 and int( bns ) > 0 :
+                yyy, edg = np.histogram( np.concatenate( tuple( chn["scr"] for chn in cls ), axis=0 ) if chn is None else chn["scr"],
+                    weights=1000.*(( np.concatenate( tuple( chn["xsc"] * chn["wgt"] for chn in cls ), axis=0 )) if chn is None else chn["xsc"] * chn["wgt"] ),
+                    bins=int( bns ), range=( 0., 1. ))
+                for k in range( len( yyy ) -1, 0, -1 ) : yyy[ k - 1 ] += yyy[k]
+                ax.hist( edg[:-1], bins=edg, weights=yyy, color=colors(i), alpha=0.3, histtype="stepfilled", zorder=1 )
+    lgd = ax.legend( patches, labels, loc="best", fontsize=12 )
+    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1. ); lgd.set(zorder=4)
+    ax.set_ylim([ 0.01, None ]); ax.set_yscale("log")
     ax.tick_params( axis="y", colors="black", **tkw )
-    for x in ( ax.get_xticklabels() + ax.get_yticklabels()): x.set_fontsize( 12 )
+    for x in ( ax.get_xticklabels() + ax.get_yticklabels()) : x.set_fontsize( 12 )
     ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
     for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1., zorder=0 )
-    fig.suptitle( "Receiver Operating Characteristic", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "roc_plot" + indexString(chn) + indexString(fld) + ".pdf", facecolor="white" )
+    fig.suptitle( "Integrated Event Distribution for Validation Fold {0:d}".format( fld ), x=0.5, y=0.9, size=17, verticalalignment="bottom" )
+    fig.savefig( os.path.join( pth, "sigma_plot" + indexString(typ) + indexString(fld) + ".pdf" ), facecolor="white" )
 
 # generate plot of significance as a function of mdl score
-def plotSignificance ( dns, lum=1., pth="./Plots/", chn=None, fld=None ) :
-    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
-    ( bb, ss ) = tuple((( lum * _["xsec"] ) * ( 1. - _["density"]( xx, -1 ))) for _ in dns[0:2] )
-    yy = ( ss, ( ss / ( 1. + bb )), ( ss / np.sqrt( 1. + bb )))
-    fig = plt.figure( figsize=( 7.5, 5 ), tight_layout=False )
-    ax = fig.add_axes([ 0.11, .12, 0.65, 0.75 ])
+def plotSignificance ( bdt, bns=0, lum=1., vrb=False, pth="./Plots", typ=None, fld=None ) :
+    fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
+    ax = fig.add_axes([ 0.11, .14, 0.65, 0.68 ])
     ax.set_zorder( 0 ); ax.set_xlim([ 0., 1. ]); ax.set_ylim([ 0., 1. ])
     ax.set_xlabel( "Signal Classification Threshold", size=14 )
     ax.xaxis.grid( True, linewidth=0.8, color="black" )
@@ -499,132 +716,96 @@ def plotSignificance ( dns, lum=1., pth="./Plots/", chn=None, fld=None ) :
     ax.yaxis.set_visible(False); ax.set_facecolor("none")
     axes = tuple( ax.twinx() for _ in range( 9 ))
     axes[5].spines["right"].set_position(( "axes", 1.2 ))
-    label = ( r"$S$", r"$S\div(1+B)$", r"$S\div\sqrt{(1+B)}$" )
+    label = ( r"$S$", r"$S\div(1+B)$", r"$\sqrt{\,2\,[\,(S+B)\,\log\,(1+S/B)-S\,]\,}$" )
+    #HERE ... replace with Asimov formula here and below ... allow user selection # label = ( r"$S$", r"$S\div(1+B)$", r"$S\div\sqrt{(1+B)}$" )
     side = ( "left", "right", "right" )
-    color=( plt.get_cmap("tab10")( range( 3 )))
+    xxx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True ); sbi = []; sbs = []; edg = None; zzz = []
+    for cls in bdt["scr"][0:2] :
+        sbi.append( lum * sum( chn["xsc"] * ( 1. - chn["dns"]( xxx, -1 )) for chn in cls ))
+        if int( bns ) > 0 :
+            one, two = np.histogram( np.concatenate( tuple( chn["scr"] for chn in cls ), axis=0 ),
+                weights=( lum * np.concatenate( tuple( chn["xsc"] * chn["wgt"] for chn in cls ), axis=0 )),
+                bins=int( bns ), range=( 0., 1. ))
+            for k in range( len( one ) -1, 0, -1 ) : one[ k - 1 ] += one[k]
+            sbs.append( one ); edg = two
+    yyy = ( sbi[1], ( sbi[1] / ( 1 + sbi[0] )), ( np.sqrt( 2. * (( sbi[0] + sbi[1] ) * np.log( 1. + ( sbi[1] / ( 0.001 + sbi[0] ))) - sbi[1] ))))
+    if sbs : zzz = ( sbs[1], ( sbs[1] / ( 1 + sbs[0] )), ( np.sqrt( 2. * (( sbs[0] + sbs[1] ) * np.log( 1. + ( sbs[1] / ( 0.001 + sbs[0] ))) - sbs[1] ))))
+    # yyy = ( sbi[1], ( sbi[1] / ( 1. + sbi[0] )), ( sbi[1] / np.sqrt( 1. + sbi[0] )))
+    # if sbs : zzz = ( sbs[1], ( sbs[1] / ( 1. + sbs[0] )), ( sbs[1] / np.sqrt( 1. + sbs[0] )))
     for i in range( 3 ) :
         axes[i].set_frame_on(False)
         axes[i].yaxis.set_visible(False)
         axes[i].set_zorder( i-3 )
-        axes[i].fill_between( xx, yy[i], 0., linewidth=0., alpha=0.1, edgecolor="none", facecolor=color[i], hatch="" )
+        axes[i].fill_between( xxx, yyy[i], 0., linewidth=0., alpha=0.1, edgecolor="none", facecolor=colors(i), hatch="" )
+        if zzz :
+            if vrb: print(( "Signal Events", "Systematics Ratio", "Statistical Significance")[i] + " in Fold " + str(fld) + ":\n" + str( zzz[i] ))
+            axes[i].hist( edg[:-1], bins=edg, weights=zzz[i], color=colors(i), alpha=0.3, histtype="stepfilled" )
         axes[i].set_ylim([ 0., None ])
     for i in range( 3 ) :
         axes[3+i].set_zorder( 1+i )
         axes[3+i].set_ylim( axes[i].get_ylim())
         for sp in axes[3+i].spines.values() : sp.set_visible(False)
         axes[3+i].spines[ side[i]].set_visible(True)
-        axes[3+i].spines[ side[i]].set( linewidth=0.8, color=color[i], alpha=1. )
+        axes[3+i].spines[ side[i]].set( linewidth=0.8, color=colors(i), alpha=1. )
         axes[3+i].yaxis.set_label_position( side[i] )
         axes[3+i].yaxis.set_ticks_position( side[i] )
-        axes[3+i].set_ylabel( label[i], size=14, color=color[i] )
-        axes[3+i].tick_params( axis="y", colors=color[i], **tkw )
-        axes[3+i].tick_params( axis="y", which="both", color=color[i] ); axes[3+i].minorticks_on()
+        axes[3+i].set_ylabel( label[i], size=14, color=colors(i) )
+        axes[3+i].tick_params( axis="y", colors=colors(i), **tkw )
+        axes[3+i].tick_params( axis="y", which="both", color=colors(i) ); axes[3+i].minorticks_on()
         for x in axes[3+i].get_yticklabels() : x.set_fontsize( 12 )
     for i in range( 3 ) :
         axes[6+i].set_frame_on(False)
         axes[6+i].yaxis.set_visible(False)
         axes[6+i].set_zorder( 4+i )
         axes[6+i].set_ylim( axes[i].get_ylim())
-        axes[6+i].plot( xx, yy[i], color=color[i], linewidth=1.4, linestyle="solid" )
-    fig.suptitle( r"Signal vs. Background Significance $\mathcal{{L}} = {0:G}~{{\rm {1:s}}}^{{-1}}$".format(
-	*(( lum, "pb" ) if lum < 1000. else ( lum / 1000., "fb" ))), x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "significance_plot" + indexString(chn) + indexString(fld) + ".pdf", facecolor="white" )
+        axes[6+i].plot( xxx, yyy[i], color=colors(i), linewidth=1.4, linestyle="solid" )
+    fig.suptitle( r"Event Significance at $\mathcal{{L}} = {0:G}~{{\rm {1:s}}}^{{-1}}$ for Validation Fold {2:d}".format(
+        *(( lum, "pb" ) if lum < 1000. else ( lum / 1000., "fb" )), fld ) + "\n" + " ".join( tuple(
+        (( lambda x : "" if x is None or len( x ) == 0 else x + " " )( label_tex[i][ cls[0]["chn"] - 1 ] )
+        if len( cls ) == 1 else "Joint " ) + ( "Background vs.", "Signal" )[i] for i, cls in enumerate( bdt["scr"][0:2] ))),
+        x=0.5, y=0.9, size=17, verticalalignment="center" )
+    fig.savefig( os.path.join( pth, "significance_plot" + indexString(typ) + indexString(fld) + ".pdf" ), facecolor="white" )
 
-# generate plot of signal/bg events as a function of mdl score
-def plotSigma ( dns, pth="./Plots/", chn=None, fld=None ) :
-    xx = np.linspace( 0., 1., num=( 1 + 2500 ), endpoint=True )
-    dd = tuple((( 1000 * _["xsec"] ) * ( 1. - _["density"]( xx, -1 ))) for _ in dns[0:2] )
-    fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
-    ax = fig.add_axes([ 0.1, .14, 0.8, 0.75 ] )
-    color=( plt.get_cmap("tab10")( range( 2 )))
-    ax.set_xlim([ 0., 1. ])
-    label = ( "Background", "Signal" )
-    ax.set_xlabel( "Signal Classification Threshold", size=14, color="black" )
-    ax.set_ylabel( r"Residual Cross Section (fb)", size=14, color="black" )
-    ax.xaxis.grid( True, linewidth=0.8, color="black" )
-    tkw = dict( size=4, width=0.8 )
-    ax.tick_params( axis="x", **tkw )
-    for i in range( 2 ) :
-        ax.plot( xx, dd[i], color=color[i], linewidth=1.4, linestyle="solid", zorder=3+i )
-        ax.fill_between( xx, dd[i], 0., linewidth=0., alpha=0.1, edgecolor="none", facecolor=color[i], hatch="", zorder=i-2 )
-    patches = [(
-        mpl.patches.Rectangle((0,0), 1, 1, fill=True, facecolor=color[i], alpha=0.1, linewidth=0. ),
-        mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor=color[i], linewidth=1.4 )) for i in range( 2 ) ]
-    lgd = ax.legend( patches, label, loc="best", fontsize=12 )
-    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1. ); lgd.set(zorder=5)
-    ax.set_ylim([ 0.01, None ])
-    ax.set_yscale("log")
-    ax.tick_params( axis="y", colors="black", **tkw )
-    for x in ( ax.get_xticklabels() + ax.get_yticklabels()) : x.set_fontsize( 12 )
-    ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
-    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1., zorder=0 )
-    fig.suptitle( "Signal vs. Background", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "sigma_plot" + indexString(chn) + indexString(fld) + ".pdf", facecolor="white" )
-
-# generate scatter plot of signal/bg event weights as a function of mdl score
-def plotScore ( scr, pth="./Plots/", chn=None, fld=None ) :
-    fig = plt.figure( figsize=( 7.5, 5. ), tight_layout=False )
-    ax = fig.add_axes([ 0.1, .14, 0.8, 0.75 ] )
-    color=( plt.get_cmap("tab10")( range( 2 )))
-    ax.set_xlim([ 0., 1. ])
-    label = ( "Background", "Signal" )
-    ax.set_xlabel( "Signal Classification Score", size=14, color="black" )
-    ax.set_ylabel( r"Fractional Cross Section", size=14, color="black" )
-    ax.xaxis.grid( True, linewidth=0.8, color="black" )
-    tkw = dict( size=4, width=0.8 )
-    ax.tick_params( axis="x", **tkw )
-    for i in range( 2 ) :
-        ax.scatter( scr[i]["score"], scr[i]["weight"], color=color[i], alpha=0.2, zorder=3+i )
-    patches = [(
-        mpl.patches.Rectangle((0,0), 1, 1, fill=True, facecolor=color[i], alpha=0.1, linewidth=0. ),
-        mpl.patches.Rectangle((0,0), 1, 1, fill=None, linestyle="solid", edgecolor=color[i], linewidth=1.4 )) for i in range( 2 ) ]
-    lgd = ax.legend( patches, label, loc="best", fontsize=12 )
-    lgd.get_frame().set( facecolor="white", linewidth=0.8, edgecolor="black", alpha=1. ); lgd.set(zorder=5)
-    ax.set_ylim([ 1.0E-12, 1.0E+00 ])
-    ax.set_yscale("log")
-    ax.tick_params( axis="y", colors="black", **tkw )
-    for x in ( ax.get_xticklabels() + ax.get_yticklabels()) : x.set_fontsize( 12 )
-    ax.tick_params( axis="y", which="both", zorder=0, color="black" ); ax.minorticks_on()
-    for (_,i) in ax.spines.items(): i.set( linewidth=0.8, color="black", alpha=1., zorder=0 )
-    fig.suptitle( "Signal and Background Score Distribution", x=0.5, y=0.9, size=17, verticalalignment="bottom" )
-    fig.savefig( pth + "score_plot" + indexString(chn) + indexString(fld) + ".pdf", facecolor="white" )
+# construct an color map of lightened shades associated with a provided base color
+def shadeMap( clr, nsc=7, dup=True ) :
+    ( rgb, alp, nsc ) = ( clr[0:3], clr[3] if len( clr ) > 3 else 1., 1 + max( int( nsc ), 0 ))
+    hsv = np.resize( mpl.colors.rgb_to_hsv( rgb ), ( nsc, 3 ))
+    hsv[:,1] = np.linspace( hsv[0][1], 0.25, nsc ); hsv[:,2] = np.linspace( hsv[0][2], 1., nsc )
+    return mpl.colors.ListedColormap( tuple( np.concatenate(( _, [ alp ] ))
+        for _ in mpl.colors.hsv_to_rgb( hsv )[ 0 if dup else 1 : ] ))
+# https://stackoverflow.com/questions/47222585/matplotlib-generic-colormap-from-tab10
 
 # canonical three-digit numerical identifier string in range "_000" to "_999"
 def indexString( idx=None ) : return "" if idx is None else "_{0:03d}".format( min( max( 0, int(idx)), 999 ))
 
-# ordered list of training feature keys
-feature_names = [ <[KEY]> ]
+################
+# define classes
+################
 
-# ordered list of training feature TeX symbols
-feature_tex = [ <[TEX]> ]
+# instantiate object with method for the weighted recombination of a training ensemble
+class mergeMDL :
+    def __init__ ( self, *bdt ) :
+        self.predict = lambda dmx : (( lambda s :
+            s * np.array( tuple(( lambda a,b : ( a / b ) if b else np.full( len( a ), ( 1 / ( len( a ) or 1 )), dtype=np.float64 ))( x, x.sum())
+            for x in np.array( tuple( np.sum(( x["xsc"] * x["density"](s) for x in bdt[i]["density"] ), axis=0 )
+            for i,s in enumerate( s )), dtype=np.float64, ndmin=2 ).transpose())).transpose())
+            ( np.array( tuple( x["mdl"].predict( dmx ) for x in bdt ), dtype=np.float64, ndmin=2 ))).sum( axis=0 )
+
+#####################################################
+# construct dependent globals and invoke main routine
+#####################################################
+
+# construct associated shades of each base color
+shades = tuple( shadeMap( c ) for c in colors.colors )
+# revert to distinct color bases
+k = 0; shades = []
+for i in range( len( label_tex )) :
+    shades.append( mpl.colors.ListedColormap(( colors(i), ) + tuple(
+        colors( j + k + len( label_tex )) for j in range( len( label_tex[i] )))))
+    k += len( label_tex[i] )
 
 # construct feature dictionary
 feature_dict = { feature_names[i]:feature_tex[i] for i in range( len( feature_names )) }
-
-# configure hyperparameters
-param = {
-    "booster":"gbtree",
-    "max_depth":5,
-    "objective":"binary:logistic",
-    "eval_metric":["auc","logloss"],
-    "disable_default_eval_metric":1,
-    "lambda":0.01,
-    "alpha":0.,
-    "gamma":0.,
-    "eta":0.5,
-    "base_score":0.5,
-    "min_child_weight":0.,
-    "max_delta_step":0.,
-    "tree_method":"auto",
-    "scale_pos_weight":1.,
-    "subsample":1.,
-    "colsample_bytree":1.,
-    "colsample_bylevel":1.,
-    "colsample_bynode":1.,
-    "verbosity":1,
-    }
-
-# NOTE: Various parameters are temporarily hard coded for ALPHA distribution
 
 if __name__ == "__main__" : main()
 
