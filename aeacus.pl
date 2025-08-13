@@ -874,6 +874,7 @@ DONE
 		(( $pas = (( close $FHO ) && (($? >> 8) == 0 ))) && (last)) } ((($pas) && (
 	( &Local::FILE::DEVICE_INODE( [ $pth, q(delphes_events.lhco) ] )), (undef))[1] ) or (return)) }
 # https://github.com/delphes/delphes/blob/master/converters/root2lhco.cpp
+# HERE ... consider getting path from environment variables first ...
 
 # Processes and returns the next detector-level LHCO event record associated with an open and cued filehandle
 sub LHCO_EVENT { use Fcntl qw( :seek ); my ($FHI,@sub) = (( grep {(((wantarray) and (( ref eq q(GLOB)) or
@@ -1123,7 +1124,7 @@ sub AND_OR_XOR { my ($a,$o,$x) = (( &MAX( 0, ( map {(int)} grep {((defined) or (
 
 # Returns a list of Boolean flags with optional length specification extracted LSB-first from an input integer
 sub INT_TO_FLAGS { my ($int,$len,$bas,$flg) = (( map {( &MAX( 0, (int)))} (shift,shift)), 1, [] );
-	while (($bas) ? ($len) ? ( @$flg < $len ) : ($bas <= $int ) : ( return undef )) { push @$flg, !( !( $bas & $int )) }
+	while (($bas) ? ($len) ? ( @$flg < $len ) : ( $bas <= $int ) : ( return undef )) { push @$flg, !( !( $bas & $int )) }
 	continue {( $bas <<= 1 )} ((wantarray) ? (@$flg) : ($flg)) }
 # THERE ... filter defined
 
@@ -1262,6 +1263,7 @@ sub OUTPUT_PAD { my ($k,$i,$d) = ((shift), ( int shift), ( int shift )); ( map {
 	map { my ($q,$j,$x,$t) = ( @$_[0,1] ); map {[ $_, $q, $j, $x, $n{$q}++, ( $t or ${{ eta => 3, phi => 3 }}{$q} or 2 ), 1 ]}
 		((( $j = ( &MAX( 0, ( int $j )))) && (($$s{$q}) or (( $q =~ /^x(\d{2})$/ ) && do { ($x,$t) =
 		( { aux => 0+$1 }, -1 ); ( $n + $1 ) } ))) or ()) } map {( &PAIR_KEY_IDX( $_ ))} ( @{(shift)||[]} ) }}
+# HERE ... consider outputting PRM ...
 
 # Tests whether output of a value has been requested
 sub OUTPUT_VALUE { (1,1,!1)[0+(0..2)[ ( map {(( ref eq q(ARRAY)) ? ($$_[0]) : (undef))} (shift))[0]]] }
@@ -1361,7 +1363,7 @@ sub IMET {( scalar ( &INDEXED_VALUES( $_[0]{met}, $_[1]{met} )))};
 # Helper routine for common invocation of all visible indexed objects at leading level and class
 sub AOBJ { my ($all,$lvl,$cls) = ( @{ $_[1] || +{}}{( qw( all lvl cls ))} ); 
 	( sort ${ \( &SORT_OBJECT_LORENTZ_CODE( -1 )) } ( grep {( $$_{typ} != 6 )}
-	( &SELECT_CLS( [ (( RCO & $cls ) or ( GEN & $cls ) or ( FAT & $cls )), 0 ],
+	( &SELECT_CLS( [ (( RCO & $cls ) or ( GEN & $cls ) or ( FAT & $cls )), 0 ], [],
 	( &SELECT_LVL( [ ( DET & $lvl ) or ( HAD & $lvl ) or ( PRT & $lvl ) ],
 	( @{$$all[0]||[]} ))))))) }
 
@@ -1443,7 +1445,10 @@ sub SELECT_PTM_PRM { my ($pts,$prs) = map { 0+(( ref eq q(ARRAY)) && (0,+1)[$$_[
 # Cuts a list of LHCO objects according to a specified jet clustering bit mask
 sub SELECT_CLS { my ($udf); my ($cls) = (( &AND_OR_XOR( grep {( !(( $_ == 0 ) and ( $udf = 1 )))} map {( &MAX( 0, ( int )))} grep {(defined)}
 	map {(( ref eq q(HASH)) ? ( @{{ fat => FAT, gen => GEN, rco => RCO }}{( keys %$_ )} ) : ( $_ ))} ( @{(shift)||[]} )))[1] );
-	( grep {((( not defined $cls ) and ( not $udf )) or (( defined $$_{cls} ) ? (( 1 << $$_{cls} ) & ( $cls )) : ( $udf )))} ( @_ )) }
+	my (@cls) = ( map {( $$_[0] <=> 0 )} @{(shift)||[]} ); ( grep { my ($flg,$pas) = ((( scalar ( &INT_TO_FLAGS( $$_{cls} ))) || [] ), 1 );
+	        for my $i (0..(@cls-1)) {(( $pas = (( $cls[$i] == 0 ) or (( $cls[$i] < 0 ) xor ( $$flg[$i] )))) or (last))}; ( $pas ) }
+	( grep {((( not defined $cls ) and ( not $udf )) or (( defined $$_{cls} ) ? (( 1 << $$_{cls} ) & ( $cls )) : ( $udf )))} ( @_ ))) }
+# allow only one at a time ... radio ... EXCLUDE others? do you ever want multiple reps of the same event at once? always take highest? allow string keys like in SRT?
 #THERE ... same as above for LVL ...
 
 # Cuts a list of LHCO objects according to specified lepton flavor mixing
@@ -1493,8 +1498,9 @@ sub SELECT_OBJECTS { my ($crd,$src,$cmp,$i,$j,$k) = ((shift,shift,shift), ( &MAX
 	grep { ( $_ = [ &INTER_OBJECT_RPA( $$crd{cdr}, $_, $cmp ) ] ) if ( $i > 0 ); 1 }
 	grep { ( $_ = [ &SELECT_AUX( [ map {(( m/^x(\d{2})$/ ) ? [ (0+ $1 ), $$crd{$_} ] : ())} ( keys %{$crd||+{}} ) ], ( @$_ )) ] ); 1 }
 	grep { ( $_ = [ &SELECT_DUM( [ @$crd{( qw( dm1 dm2 ))} ], ( @$_ )) ] ); 1 }
-	map {[ ( $j == 0 ) ? ( &SELECT_ETR( $$crd{etr}, &SELECT_PTC( $$crd{ptc}, &SELECT_SGN( $$crd{sgn}, &SELECT_CLS( [ @$crd{( qw())} ], (($k == 0) ? ( &SELECT_EMT( $$crd{emt}, ( @$_ ))) : ( @$_ ))))))) :
-		( $j > 0 ) ? ( &SELECT_MUO( $$crd{muo}, &SELECT_TRK( $$crd{trk}, &SELECT_FEM( $$crd{fem}, &SELECT_HFT( $$crd{hft}, &SELECT_CLS( $$crd{cls}, ( @$_ ))))))) : ( @$_ ) ]}
+	map {[ ( $j == 0 ) ? ( &SELECT_ETR( $$crd{etr}, &SELECT_PTC( $$crd{ptc}, &SELECT_SGN( $$crd{sgn}, (($k == 0) ? ( &SELECT_EMT( $$crd{emt}, ( @$_ ))) : ( @$_ )))))) :
+		( $j > 0 ) ? ( &SELECT_MUO( $$crd{muo}, &SELECT_TRK( $$crd{trk}, &SELECT_FEM( $$crd{fem}, &SELECT_HFT( $$crd{hft},
+			&SELECT_CLS( $$crd{cls}, [ @$crd{( qw( gen fat ))} ], ( @$_ ))))))) : ( @$_ ) ]}
 	map {[ &SELECT_PTM_PRM( [ @$crd{( qw( ptm prm ))} ], &SELECT_LVL( $$crd{lvl}, ( @$_ ))) ]} (( $src ) || [] ))[0] }
 
 # Returns a code reference capable of classifying input lepton object pairs according to relative sign and flavor
