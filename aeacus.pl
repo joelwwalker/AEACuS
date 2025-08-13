@@ -19,7 +19,7 @@ use strict; use sort q(stable); use constant +{
 	FHL => 6, LPR => 100, BLK => 6, BMX => 52, SET => 10**+4, SMX => 999, IMX => ( ~0 >> 1 ), PIE => 4*( atan2 (1,1)),
 	EXP => qr/[-+]?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[eE][-+]?\d+)?/, KEY => qr/[A-Za-z][A-Za-z0-9]{2}/, IDX => qr/\d{1,3}/,
 	BEM => ( 1 << 4 ), VRT => ( 1 << 3 ), PRT => ( 1 << 2 ), HAD => ( 1 << 1 ), DET => ( 1 << 0 ),
-	FAT => ( 1 << 2 ), GEN => ( 1 << 1 ), RCO => ( 1 << 0 ) };
+	FAT => ( 1 << 2 ), GEN => ( 1 << 1 ), RCO => ( 1 << 0 ), NUL => 0 };
 
 # Register named and ordered parameter options from the command line input
 our ($OPT) = ( &LOAD_OPTS(@ARGV));
@@ -1444,7 +1444,7 @@ sub SELECT_PTM_PRM { my ($pts,$prs) = map { 0+(( ref eq q(ARRAY)) && (0,+1)[$$_[
 
 # Cuts a list of LHCO objects according to a specified jet clustering bit mask
 sub SELECT_CLS { my ($udf); my ($cls) = (( &AND_OR_XOR( grep {( !(( $_ == 0 ) and ( $udf = 1 )))} map {( &MAX( 0, ( int )))} grep {(defined)}
-	map {(( ref eq q(HASH)) ? ( @{{ fat => FAT, gen => GEN, rco => RCO }}{( keys %$_ )} ) : ( $_ ))} ( @{(shift)||[]} )))[1] );
+	map {(( ref eq q(HASH)) ? ( @{{ fat => FAT, gen => GEN, rco => RCO, nul => NUL }}{( keys %$_ )} ) : ( $_ ))} ( @{(shift)||[]} )))[1] );
 	my (@cls) = ( map {( $$_[0] <=> 0 )} @{(shift)||[]} ); ( grep { my ($flg,$pas) = ((( scalar ( &INT_TO_FLAGS( $$_{cls} ))) || [] ), 1 );
 	        for my $i (0..(@cls-1)) {(( $pas = (( $cls[$i] == 0 ) or (( $cls[$i] < 0 ) xor ( $$flg[$i] )))) or (last))}; ( $pas ) }
 	( grep {((( not defined $cls ) and ( not $udf )) or (( defined $$_{cls} ) ? (( 1 << $$_{cls} ) & ( $cls )) : ( $udf )))} ( @_ ))) }
